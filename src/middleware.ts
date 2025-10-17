@@ -1,3 +1,5 @@
+'use server';
+
 import { NextResponse, type NextRequest } from 'next/server';
 import { getCurrentUser } from '@/lib/session';
 
@@ -5,11 +7,8 @@ import { getCurrentUser } from '@/lib/session';
 // preventing caching and forcing it to read the latest session cookie.
 export const dynamic = 'force-dynamic';
 
-const protectedRoutes = ['/dashboard', '/categories', '/destinations', '/data-entry', '/reports', '/unlock-requests', '/users', '/settings', '/ai-suggestions'];
+const protectedRoutes = ['/dashboard', '/categories', '/destinations', '/data-entry', '/reports', '/unlock-requests', '/users', '/settings'];
 const authRoute = '/';
-const adminOnlyRoutes = ['/categories', '/destinations', '/users', '/unlock-requests', '/ai-suggestions'];
-const pengelolaOnlyRoutes = ['/data-entry'];
-
 
 export async function middleware(request: NextRequest) {
   const user = await getCurrentUser();
@@ -22,24 +21,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(authRoute, request.url));
   }
 
-  // If user is logged in
-  if (user) {
-    // If they try to access the login page, redirect to dashboard
-    if (pathname === authRoute) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-    // Role-based access control
-    const userRole = user.role;
-    if (userRole === 'pengelola' && adminOnlyRoutes.some(route => pathname.startsWith(route))) {
-      // Pengelola trying to access admin-only route
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-    if (userRole === 'admin' && pengelolaOnlyRoutes.some(route => pathname.startsWith(route))) {
-      // Admin trying to access pengelola-only route
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
+  // If user is logged in and tries to access the login page, redirect to dashboard
+  if (user && pathname === authRoute) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
+
+  // If a logged-in user with role 'pengelola' tries to access an admin route, redirect them.
+  // This is a simplified role check.
+  const adminOnlyRoutes = ['/categories', '/destinations', '/users', '/unlock-requests'];
+  if (user && user.role === 'pengelola' && adminOnlyRoutes.some(route => pathname.startsWith(route))) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+  
+  // If a logged-in user with role 'admin' tries to access a pengelola route, redirect them.
+  const pengelolaOnlyRoutes = ['/data-entry'];
+  if (user && user.role === 'admin' && pengelolaOnlyRoutes.some(route => pathname.startsWith(route))) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
 
   return NextResponse.next();
 }
