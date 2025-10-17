@@ -5,21 +5,23 @@ import { User } from './types';
 import { users } from './mock-data';
 
 // For demo purposes, we're not actually encrypting. In production, use a library like 'iron-session'.
-const secret = process.env.SESSION_SECRET || 'complex_secret_for_development_only';
+const secret = process.env.SESSION_SECRET || 'complex_secret_for_development_only_must_be_at_least_32_characters_long';
 
+// Let's use a more robust (but still mock) encryption/decryption for demo purposes
 async function encrypt(payload: any) {
-  // In a real app, this would be a proper JWT or encrypted session data.
-  return JSON.stringify(payload);
+  const data = JSON.stringify(payload);
+  return Buffer.from(data).toString('base64');
 }
 
 async function decrypt(session: string) {
-  // In a real app, this would decrypt and verify the session.
-  return JSON.parse(session);
+  const data = Buffer.from(session, 'base64').toString('utf-8');
+  return JSON.parse(data);
 }
 
 export async function createSession(user: User) {
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-  const session = await encrypt({ user, expires });
+  const sessionData = { user, expires: expires.toISOString() };
+  const session = await encrypt(sessionData);
 
   cookies().set('session', session, {
     expires,
@@ -35,20 +37,25 @@ export async function getSession(): Promise<{ user: User } | null> {
 
   try {
     const parsed = await decrypt(sessionCookie);
+    // Ensure expires is a Date object for comparison
     if (new Date(parsed.expires) > new Date()) {
       return parsed;
     }
     return null;
   } catch (error) {
+    console.error('Failed to parse session:', error);
     return null;
   }
 }
 
 export async function deleteSession() {
-  cookies().delete('session');
+  cookies().delete('session', { path: '/' });
 }
 
 export async function getCurrentUser(): Promise<User | null> {
     const session = await getSession();
-    return session?.user ?? null;
+    if (!session?.user?.uid) return null;
+    // Re-validate user from mock data to ensure freshness, similar to a DB lookup
+    const user = users.find(u => u.uid === session.user.uid);
+    return user ?? null;
 }
