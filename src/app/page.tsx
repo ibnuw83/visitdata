@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import Link from 'next/link';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -32,7 +31,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="font-headline text-2xl">Masuk</CardTitle>
-          <CardDescription>Masukkan email Anda di bawah ini untuk masuk ke akun Anda.</CardDescription>
+          <CardDescription>Masukkan kredensial Anda untuk mengakses dasbor.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={formAction} className="grid gap-4">
@@ -47,9 +46,8 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 name="email"
-                placeholder="admin@example.com"
+                placeholder="email@example.com"
                 required
-                defaultValue="admin@dinas.com"
               />
             </div>
             <div className="grid gap-2">
@@ -59,16 +57,10 @@ export default function LoginPage() {
                 type="password" 
                 name="password" 
                 required 
-                defaultValue="password123"
               />
             </div>
             <SubmitButton />
           </form>
-          <div className="mt-4 text-center text-sm">
-            <Link href="/" className="text-muted-foreground underline">
-              Kembali ke halaman utama
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </div>

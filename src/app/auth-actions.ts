@@ -3,7 +3,6 @@
 import { redirect } from 'next/navigation';
 import { createSession, deleteSession } from '@/lib/session';
 import { users } from '@/lib/mock-data';
-import { revalidatePath } from 'next/cache';
 
 // prevState is required for useActionState, but we don't use it here.
 export async function login(prevState: any, formData: FormData) {
@@ -12,8 +11,9 @@ export async function login(prevState: any, formData: FormData) {
 
   const user = users.find((u) => u.email === email);
 
-  // Simple password check for demo
+  // CRITICAL: Validate user exists AND password is correct.
   if (user && password === 'password123') {
+    // CRITICAL: Await session creation before redirecting.
     await createSession(user.uid);
     redirect('/dashboard');
   } else {
