@@ -7,10 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
-import { useFormState, useFormStatus } from 'react-dom';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { redirect } from 'next/navigation';
-import { useEffect } from 'react';
+import { useFormStatus } from 'react-dom';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useEffect, useActionState } from 'react';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -22,7 +21,7 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const [state, formAction] = useFormState(login, undefined);
+  const [state, formAction] = useActionState(login, undefined);
 
   useEffect(() => {
     if (state?.success) {
