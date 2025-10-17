@@ -3,6 +3,7 @@ import 'server-only';
 
 import { cookies } from 'next/headers';
 import { User } from './types';
+// CRITICAL FIX: Import directly from mock-data to avoid calling localStorage on the server.
 import { users as mockUsers } from './mock-data';
 
 export async function createSession(uid: string) {
@@ -27,6 +28,7 @@ export async function getCurrentUser(): Promise<User | null> {
         return null;
     }
 
+    // Use the direct import of mockUsers
     const user = mockUsers.find(u => u.uid === sessionCookie);
     
     if (!user) {
@@ -42,6 +44,7 @@ export async function verifySession(): Promise<boolean> {
   if (!sessionCookie) {
     return false;
   }
+  // Use the direct import of mockUsers
   const userExists = mockUsers.some(u => u.uid === sessionCookie);
   if (!userExists) {
     await deleteSession();
