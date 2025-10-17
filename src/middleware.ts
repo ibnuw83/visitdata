@@ -7,11 +7,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 async function verifySessionEdge(request: NextRequest): Promise<boolean> {
   const sessionCookie = request.cookies.get('session');
   // In a real app, this should be a proper JWT or session token verification
-  return !!sessionCookie;
+  return !!sessionCookie?.value;
 }
 
 
-const protectedRoutes = ['/dashboard', '/categories', '/destinations', '/data-entry', '/reports', '/unlock-requests', '/users', '/settings', '/ai-suggestions'];
+const protectedRoutes = ['/dashboard', '/categories', '/destinations', '/data-entry', '/reports', '/unlock-requests', '/users', '/settings'];
 const authRoute = '/';
 
 export async function middleware(request: NextRequest) {
@@ -20,6 +20,7 @@ export async function middleware(request: NextRequest) {
   const isAuthenticated = await verifySessionEdge(request);
 
   const isAccessingProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
+  const isAccessingAuthRoute = pathname === authRoute;
 
   // If user is not logged in and tries to access a protected route, redirect to login
   if (!isAuthenticated && isAccessingProtectedRoute) {
@@ -27,7 +28,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // If user is logged in and tries to access the login page, redirect to dashboard
-  if (isAuthenticated && pathname === authRoute) {
+  if (isAuthenticated && isAccessingAuthRoute) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   
