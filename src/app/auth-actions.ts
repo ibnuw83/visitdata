@@ -13,9 +13,10 @@ export async function login(prevState: any, formData: FormData) {
 
   // CRITICAL: Validate user exists AND password is correct.
   if (user && password === 'password123') {
-    // CRITICAL: Await session creation before redirecting.
+    // CRITICAL: Await session creation before returning.
     await createSession(user.uid);
-    redirect('/dashboard');
+    // Instead of redirecting, return a success status to the client component.
+    return { success: true };
   } else {
     return { error: 'Email atau kata sandi tidak valid.' };
   }

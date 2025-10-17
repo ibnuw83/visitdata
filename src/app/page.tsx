@@ -6,21 +6,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? 'Memeriksa...' : 'Masuk'}
-    </Button>
-  );
-}
-
 export default function LoginPage() {
-  const [state, formAction] = useActionState(login, undefined);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const formData = new FormData(event.currentTarget);
+    const result = await login(null, formData);
+
+    setLoading(false);
+
+    if (result?.error) {
+      setError(result.error);
+    } else {
+      router.push('/dashboard');
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -34,10 +44,10 @@ export default function LoginPage() {
           <CardDescription>Masukkan kredensial Anda untuk mengakses dasbor.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction} className="grid gap-4">
-             {state?.error && (
+          <form onSubmit={handleSubmit} className="grid gap-4">
+             {error && (
               <Alert variant="destructive">
-                <AlertDescription>{state.error}</AlertDescription>
+                <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
             <div className="grid gap-2">
@@ -48,6 +58,7 @@ export default function LoginPage() {
                 name="email"
                 placeholder="email@example.com"
                 required
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
@@ -57,9 +68,12 @@ export default function LoginPage() {
                 type="password" 
                 name="password" 
                 required 
+                disabled={loading}
               />
             </div>
-            <SubmitButton />
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Memeriksa...' : 'Masuk'}
+            </Button>
           </form>
         </CardContent>
       </Card>

@@ -1,14 +1,7 @@
 'use server';
 
 import { NextResponse, type NextRequest } from 'next/server';
-
-// This is a temporary, simplified session verification for middleware
-// to avoid runtime mismatch issues. It only checks for cookie existence.
-async function verifySessionEdge(request: NextRequest): Promise<boolean> {
-  const sessionCookie = request.cookies.get('session');
-  // In a real app, this should be a proper JWT or session token verification
-  return !!sessionCookie?.value;
-}
+import { verifySession } from '@/lib/session';
 
 
 const protectedRoutes = ['/dashboard', '/categories', '/destinations', '/data-entry', '/reports', '/unlock-requests', '/users', '/settings'];
@@ -17,7 +10,7 @@ const authRoute = '/';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  const isAuthenticated = await verifySessionEdge(request);
+  const isAuthenticated = await verifySession();
 
   const isAccessingProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
   const isAccessingAuthRoute = pathname === authRoute;
