@@ -14,8 +14,8 @@ export default function LoginPage() {
       </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="font-headline text-2xl">Login</CardTitle>
-          <CardDescription>Enter your email below to login to your account.</CardDescription>
+          <CardTitle className="font-headline text-2xl">Masuk</CardTitle>
+          <CardDescription>Masukkan email Anda di bawah ini untuk masuk ke akun Anda.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={login} className="grid gap-4">
@@ -31,7 +31,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Kata Sandi</Label>
               <Input 
                 id="password" 
                 type="password" 
@@ -41,11 +41,11 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full">
-              Login
+              Masuk
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
-            <p className="text-muted-foreground">Demo Accounts:</p>
+            <p className="text-muted-foreground">Akun Demo:</p>
             <p className="text-xs text-muted-foreground">admin@dinas.com / password123</p>
             <p className="text-xs text-muted-foreground">pengelola@jatijajar.com / password123</p>
           </div>

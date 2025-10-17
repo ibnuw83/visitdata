@@ -14,7 +14,7 @@ const chartConfig = {
 export default function MonthlyVisitorsChart({ data }: { data: VisitData[] }) {
     const monthlyTotals = Array.from({ length: 12 }, (_, i) => {
         const month = i + 1;
-        const monthName = new Date(2023, i, 1).toLocaleString('default', { month: 'short' });
+        const monthName = new Date(2023, i, 1).toLocaleString('id-ID', { month: 'short' });
         const totalVisitors = data.filter(d => d.month === month).reduce((sum, item) => sum + item.totalVisitors, 0);
         return { month: monthName, totalVisitors };
     });

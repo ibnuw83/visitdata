@@ -6,7 +6,7 @@ import { destinations, unlockRequests } from "@/lib/mock-data";
 import { format } from 'date-fns';
 
 export default function UnlockRequestsPage() {
-  const getDestinationName = (id: string) => destinations.find(d => d.id === id)?.name || 'Unknown';
+  const getDestinationName = (id: string) => destinations.find(d => d.id === id)?.name || 'Tidak Dikenal';
   
   const statusVariant = {
       pending: "secondary",
@@ -43,7 +43,7 @@ export default function UnlockRequestsPage() {
                     {unlockRequests.map(req => (
                         <TableRow key={req.id}>
                             <TableCell className="font-medium">{getDestinationName(req.destinationId)}</TableCell>
-                            <TableCell>{new Date(req.year, req.month -1).toLocaleString('default', {month: 'long'})} {req.year}</TableCell>
+                            <TableCell>{new Date(req.year, req.month -1).toLocaleString('id-ID', {month: 'long'})} {req.year}</TableCell>
                             <TableCell className="text-muted-foreground text-xs truncate max-w-xs">{req.reason}</TableCell>
                             <TableCell>
                                 <Badge variant={statusVariant[req.status]}>{req.status}</Badge>

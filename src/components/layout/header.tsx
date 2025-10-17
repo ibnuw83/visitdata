@@ -40,13 +40,13 @@ export default function Header({ user }: { user: User }) {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{user.name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Settings</DropdownMenuItem>
+            <DropdownMenuItem>Pengaturan</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
                 <form action={logout} className="w-full">
                     <button type="submit" className="flex w-full items-center">
                         <LogOut className="mr-2 h-4 w-4" />
-                        Logout
+                        Keluar
                     </button>
                 </form>
             </DropdownMenuItem>

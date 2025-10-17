@@ -68,7 +68,7 @@ export const destinations: Destination[] = [
     }
 ];
 
-const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
 export const visitData: VisitData[] = destinations.flatMap(dest => 
     Array.from({ length: 12 }, (_, i) => {
@@ -89,9 +89,9 @@ export const visitData: VisitData[] = destinations.flatMap(dest =>
             wisman,
             wismanDetails: [
                 { country: 'Malaysia', count: Math.floor(wisman * 0.4) },
-                { country: 'Singapore', count: Math.floor(wisman * 0.3) },
+                { country: 'Singapura', count: Math.floor(wisman * 0.3) },
                 { country: 'Australia', count: Math.floor(wisman * 0.2) },
-                { country: 'Japan', count: Math.floor(wisman * 0.1) },
+                { country: 'Jepang', count: Math.floor(wisman * 0.1) },
             ],
             eventVisitors,
             historicalVisitors,

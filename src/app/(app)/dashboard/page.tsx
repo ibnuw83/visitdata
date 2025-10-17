@@ -19,7 +19,7 @@ export default async function DashboardPage() {
     return (
         <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2">
-                <h1 className="font-headline text-3xl font-bold tracking-tight">Dashboard</h1>
+                <h1 className="font-headline text-3xl font-bold tracking-tight">Dasbor</h1>
                 <p className="text-muted-foreground">Ringkasan data pariwisata untuk tahun {year}.</p>
             </div>
             

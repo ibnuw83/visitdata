@@ -13,15 +13,15 @@ export default function UsersPage() {
       </div>
       <Card>
         <CardHeader>
-            <CardTitle>Users</CardTitle>
-            <CardDescription>This section is under development.</CardDescription>
+            <CardTitle>Pengguna</CardTitle>
+            <CardDescription>Bagian ini sedang dalam pengembangan.</CardDescription>
         </CardHeader>
         <CardContent>
              <Alert>
                 <Construction className="h-4 w-4" />
-                <AlertTitle>Under Construction!</AlertTitle>
+                <AlertTitle>Dalam Pembangunan!</AlertTitle>
                 <AlertDescription>
-                    The user management page is currently being developed.
+                    Halaman manajemen pengguna saat ini sedang dikembangkan.
                 </AlertDescription>
             </Alert>
         </CardContent>

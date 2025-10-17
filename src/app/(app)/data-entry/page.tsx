@@ -13,15 +13,15 @@ export default function DataEntryPage() {
       </div>
       <Card>
         <CardHeader>
-            <CardTitle>Data Entry Form</CardTitle>
-            <CardDescription>This section is under development.</CardDescription>
+            <CardTitle>Formulir Input Data</CardTitle>
+            <CardDescription>Bagian ini sedang dalam pengembangan.</CardDescription>
         </CardHeader>
         <CardContent>
              <Alert>
                 <Construction className="h-4 w-4" />
-                <AlertTitle>Under Construction!</AlertTitle>
+                <AlertTitle>Dalam Pembangunan!</AlertTitle>
                 <AlertDescription>
-                    The interactive data entry form is being built. Soon, you'll be able to input and manage your visitor data here.
+                    Formulir entri data interaktif sedang dibangun. Segera, Anda dapat menginput dan mengelola data pengunjung Anda di sini.
                 </AlertDescription>
             </Alert>
         </CardContent>

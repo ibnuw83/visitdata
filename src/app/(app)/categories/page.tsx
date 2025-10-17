@@ -13,15 +13,15 @@ export default function CategoriesPage() {
       </div>
       <Card>
         <CardHeader>
-            <CardTitle>Categories</CardTitle>
-            <CardDescription>This section is under development.</CardDescription>
+            <CardTitle>Kategori</CardTitle>
+            <CardDescription>Bagian ini sedang dalam pengembangan.</CardDescription>
         </CardHeader>
         <CardContent>
              <Alert>
                 <Construction className="h-4 w-4" />
-                <AlertTitle>Under Construction!</AlertTitle>
+                <AlertTitle>Dalam Pembangunan!</AlertTitle>
                 <AlertDescription>
-                    The tourism category management page is currently being developed.
+                    Halaman manajemen kategori pariwisata saat ini sedang dikembangkan.
                 </AlertDescription>
             </Alert>
         </CardContent>

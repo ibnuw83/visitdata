@@ -13,15 +13,15 @@ export default function ReportsPage() {
       </div>
       <Card>
         <CardHeader>
-            <CardTitle>Generate Reports</CardTitle>
-            <CardDescription>This section is under development.</CardDescription>
+            <CardTitle>Buat Laporan</CardTitle>
+            <CardDescription>Bagian ini sedang dalam pengembangan.</CardDescription>
         </CardHeader>
         <CardContent>
              <Alert>
                 <Construction className="h-4 w-4" />
-                <AlertTitle>Under Construction!</AlertTitle>
+                <AlertTitle>Dalam Pembangunan!</AlertTitle>
                 <AlertDescription>
-                    The reporting module is currently being developed. Soon you will be able to view, filter, and export detailed tourism reports.
+                    Modul pelaporan saat ini sedang dikembangkan. Segera Anda akan dapat melihat, memfilter, dan mengekspor laporan pariwisata terperinci.
                 </AlertDescription>
             </Alert>
         </CardContent>

@@ -13,15 +13,15 @@ export default function SettingsPage() {
       </div>
       <Card>
         <CardHeader>
-            <CardTitle>Settings</CardTitle>
-            <CardDescription>This section is under development.</CardDescription>
+            <CardTitle>Pengaturan</CardTitle>
+            <CardDescription>Bagian ini sedang dalam pengembangan.</CardDescription>
         </CardHeader>
         <CardContent>
              <Alert>
                 <Construction className="h-4 w-4" />
-                <AlertTitle>Under Construction!</AlertTitle>
+                <AlertTitle>Dalam Pembangunan!</AlertTitle>
                 <AlertDescription>
-                    The settings page is currently being developed. Soon you will be able to manage your profile and application preferences here.
+                    Halaman pengaturan saat ini sedang dikembangkan. Segera Anda akan dapat mengelola profil dan preferensi aplikasi Anda di sini.
                 </AlertDescription>
             </Alert>
         </CardContent>

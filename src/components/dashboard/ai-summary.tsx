@@ -9,7 +9,7 @@ import { generateMonthlySummary } from '@/ai/flows/generate-monthly-summary';
 import { Destination, VisitData } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
-const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
 export default function AiSummary({ data, destinations, year }: { data: VisitData[], destinations: Destination[], year: number }) {
     const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ export default function AiSummary({ data, destinations, year }: { data: VisitDat
 
     const handleGenerate = async () => {
         if (!selectedDest || !selectedMonth) {
-            setError('Please select a destination and month.');
+            setError('Silakan pilih destinasi dan bulan.');
             return;
         }
 
@@ -31,7 +31,7 @@ export default function AiSummary({ data, destinations, year }: { data: VisitDat
         const visitRecord = data.find(d => d.destinationId === selectedDest && d.month === monthNum);
 
         if (!dest || !visitRecord) {
-            setError('No data found for the selected period.');
+            setError('Tidak ada data yang ditemukan untuk periode yang dipilih.');
             return;
         }
 
@@ -53,7 +53,7 @@ export default function AiSummary({ data, destinations, year }: { data: VisitDat
             });
             setSummary(result.summary);
         } catch (e) {
-            setError('Failed to generate summary. Please try again.');
+            setError('Gagal membuat ringkasan. Silakan coba lagi.');
             console.error(e);
         } finally {
             setLoading(false);
@@ -65,15 +65,15 @@ export default function AiSummary({ data, destinations, year }: { data: VisitDat
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Bot className="text-accent" />
-                    AI-Powered Insights
+                    Wawasan Berbasis AI
                 </CardTitle>
-                <CardDescription>Generate a summary for a specific month and destination.</CardDescription>
+                <CardDescription>Buat ringkasan untuk bulan dan destinasi tertentu.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                     <Select onValueChange={setSelectedDest} value={selectedDest}>
                         <SelectTrigger>
-                            <SelectValue placeholder="Select Destination" />
+                            <SelectValue placeholder="Pilih Destinasi" />
                         </SelectTrigger>
                         <SelectContent>
                             {destinations.map(d => (
@@ -83,7 +83,7 @@ export default function AiSummary({ data, destinations, year }: { data: VisitDat
                     </Select>
                      <Select onValueChange={setSelectedMonth} value={selectedMonth}>
                         <SelectTrigger>
-                            <SelectValue placeholder="Select Month" />
+                            <SelectValue placeholder="Pilih Bulan" />
                         </SelectTrigger>
                         <SelectContent>
                             {monthNames.map((m, i) => (
@@ -93,7 +93,7 @@ export default function AiSummary({ data, destinations, year }: { data: VisitDat
                     </Select>
                 </div>
                 <Button onClick={handleGenerate} disabled={loading || !selectedDest || !selectedMonth} className="w-full">
-                    {loading ? <Loader2 className="animate-spin" /> : 'Generate Summary'}
+                    {loading ? <Loader2 className="animate-spin" /> : 'Buat Ringkasan'}
                 </Button>
                 {error && (
                     <Alert variant="destructive">
@@ -102,7 +102,7 @@ export default function AiSummary({ data, destinations, year }: { data: VisitDat
                 )}
                 {summary && (
                      <Alert>
-                        <AlertTitle>Monthly Summary</AlertTitle>
+                        <AlertTitle>Ringkasan Bulanan</AlertTitle>
                         <AlertDescription className="text-sm">{summary}</AlertDescription>
                     </Alert>
                 )}
