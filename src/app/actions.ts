@@ -15,9 +15,8 @@ export async function login(prevState: unknown, formData: FormData) {
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user);
-    // We don't redirect from here directly.
-    // The middleware will handle the redirect after the session is created.
-    // This helps avoid race conditions with cookie setting.
+    // Redirect is now handled by the page reload and middleware.
+    // We just return a success state.
     return { success: true };
   } else {
     // In a real app, you would return an error message to the form.
