@@ -2,6 +2,7 @@
 
 import { createSession } from '@/lib/session';
 import { users } from '@/lib/mock-data'; // Server actions can only access server-side data
+import { redirect } from 'next/navigation';
 
 // prevState is required for useActionState, but we don't use it here.
 export async function login(prevState: any, formData: FormData) {
@@ -13,9 +14,14 @@ export async function login(prevState: any, formData: FormData) {
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user);
-    // Return success state instead of redirecting
-    return { success: true, error: null };
+    // Redirect is handled by the server action now.
+    redirect('/dashboard');
   } else {
     return { success: false, error: 'Email atau kata sandi tidak valid.' };
   }
+}
+
+export async function logout() {
+    await createSession(null);
+    redirect('/');
 }

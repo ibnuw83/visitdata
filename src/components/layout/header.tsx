@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { logout } from "@/app/actions";
+import { logout } from "@/app/auth-actions";
 import { SidebarTrigger } from "../ui/sidebar";
 import { User } from "@/lib/types";
 import { LogOut } from "lucide-react";
