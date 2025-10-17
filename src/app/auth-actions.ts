@@ -1,8 +1,9 @@
 'use server';
 
 import { createSession } from '@/lib/session';
-import { users } from '@/lib/mock-data'; // Server actions can only access server-side data
+import { users } from '@/lib/mock-data';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 
 // prevState is required for useActionState, but we don't use it here.
 export async function login(prevState: any, formData: FormData) {
@@ -14,7 +15,9 @@ export async function login(prevState: any, formData: FormData) {
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user);
-    // Redirect is handled by the server action now.
+    // Invalidate the cache for the entire app layout
+    // This ensures the middleware re-evaluates the session on the next navigation
+    revalidatePath('/', 'layout');
     redirect('/dashboard');
   } else {
     return { success: false, error: 'Email atau kata sandi tidak valid.' };
@@ -23,5 +26,6 @@ export async function login(prevState: any, formData: FormData) {
 
 export async function logout() {
     await createSession(null);
+    revalidatePath('/');
     redirect('/');
 }
