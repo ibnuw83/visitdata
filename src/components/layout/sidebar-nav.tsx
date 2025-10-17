@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
-import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree, Lightbulb } from 'lucide-react';
+import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree } from 'lucide-react';
 import { User } from '@/lib/types';
 
 const menuItems = [
@@ -21,7 +21,6 @@ const menuItems = [
   { href: '/destinations', label: 'Destinasi', icon: Landmark, roles: ['admin'] },
   { href: '/data-entry', label: 'Input Data', icon: Edit, roles: ['pengelola'] },
   { href: '/reports', label: 'Laporan', icon: FileText, roles: ['admin', 'pengelola'] },
-  { href: '/ai-suggestions', label: 'Saran AI', icon: Lightbulb, roles: ['admin'] },
   { href: '/unlock-requests', label: 'Permintaan Revisi', icon: KeyRound, roles: ['admin'] },
   { href: '/users', label: 'Pengguna', icon: Users, roles: ['admin'] },
 ];
