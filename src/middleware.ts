@@ -4,6 +4,7 @@ import { getSession } from '@/lib/session';
 const adminOnlyRoutes = ['/unlock-requests', '/categories', '/destinations', '/users'];
 const pengelolaOnlyRoutes = ['/data-entry'];
 const protectedRoutes = ['/dashboard', ...adminOnlyRoutes, ...pengelolaOnlyRoutes, '/reports', '/settings'];
+const authRoute = '/';
 
 export async function middleware(request: NextRequest) {
   const session = await getSession();
@@ -12,32 +13,30 @@ export async function middleware(request: NextRequest) {
 
   const isAccessingProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 
-  // If trying to access login page while logged in, redirect to dashboard
-  if (user && pathname === '/') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-
-  // If trying to access a protected route without a session, redirect to login
-  if (!user && isAccessingProtectedRoute) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
-  // Handle role-based access control if user is logged in
+  // If user is logged in
   if (user) {
-    const userRole = user.role;
+    // And tries to access the login page, redirect to dashboard
+    if (pathname === authRoute) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
 
-    // If a manager tries to access an admin-only route
+    // Role-based access control for protected routes
+    const userRole = user.role;
     if (userRole === 'pengelola' && adminOnlyRoutes.some(route => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
-    
-    // If an admin tries to access a manager-only route
     if (userRole === 'admin' && pengelolaOnlyRoutes.some(route => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
+  } 
+  // If user is not logged in
+  else {
+    // And is trying to access a protected route, redirect to login
+    if (isAccessingProtectedRoute) {
+      return NextResponse.redirect(new URL(authRoute, request.url));
+    }
   }
 
-  // If none of the above, continue as normal
   return NextResponse.next();
 }
 
