@@ -1,8 +1,19 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Construction } from "lucide-react";
+import { getDestinations } from "@/lib/local-data-service";
+import { FolderTree } from "lucide-react";
+import { Badge } from '@/components/ui/badge';
 
 export default function CategoriesPage() {
+  const [categories, setCategories] = useState<string[]>([]);
+  
+  useEffect(() => {
+    const uniqueCategories = [...new Set(getDestinations().map(d => d.category))];
+    setCategories(uniqueCategories);
+  }, []);
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -13,17 +24,18 @@ export default function CategoriesPage() {
       </div>
       <Card>
         <CardHeader>
-            <CardTitle>Kategori</CardTitle>
-            <CardDescription>Bagian ini sedang dalam pengembangan.</CardDescription>
+            <CardTitle>Daftar Kategori</CardTitle>
+            <CardDescription>Kategori ini secara otomatis diambil dari destinasi yang ada.</CardDescription>
         </CardHeader>
         <CardContent>
-             <Alert>
-                <Construction className="h-4 w-4" />
-                <AlertTitle>Dalam Pembangunan!</AlertTitle>
-                <AlertDescription>
-                    Halaman manajemen kategori pariwisata saat ini sedang dikembangkan.
-                </AlertDescription>
-            </Alert>
+            <div className="flex flex-wrap gap-4">
+                {categories.map(category => (
+                    <Badge key={category} variant="secondary" className="text-base capitalize p-4 py-2 flex items-center gap-2">
+                        <FolderTree className="h-4 w-4" />
+                        {category}
+                    </Badge>
+                ))}
+            </div>
         </CardContent>
       </Card>
     </div>

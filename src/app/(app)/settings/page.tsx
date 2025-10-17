@@ -1,8 +1,54 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Construction } from "lucide-react";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getCurrentUser } from '@/lib/session';
+import type { User } from '@/lib/types';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function SettingsPage() {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    getCurrentUser().then(setUser);
+  }, []);
+
+  const userImage = user ? PlaceHolderImages.find(p => p.id === user.avatar) : null;
+
+  if (!user) {
+    return (
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-2">
+            <Skeleton className="h-9 w-48" />
+            <Skeleton className="h-5 w-72" />
+        </div>
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-7 w-32" />
+                <Skeleton className="h-5 w-64" />
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Skeleton className="h-24 w-24 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <Skeleton className="h-10 w-32" />
+            </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -13,17 +59,34 @@ export default function SettingsPage() {
       </div>
       <Card>
         <CardHeader>
-            <CardTitle>Pengaturan</CardTitle>
-            <CardDescription>Bagian ini sedang dalam pengembangan.</CardDescription>
+            <CardTitle>Profil Pengguna</CardTitle>
+            <CardDescription>Perbarui informasi profil dan kata sandi Anda.</CardDescription>
         </CardHeader>
-        <CardContent>
-             <Alert>
-                <Construction className="h-4 w-4" />
-                <AlertTitle>Dalam Pembangunan!</AlertTitle>
-                <AlertDescription>
-                    Halaman pengaturan saat ini sedang dikembangkan. Segera Anda akan dapat mengelola profil dan preferensi aplikasi Anda di sini.
-                </AlertDescription>
-            </Alert>
+        <CardContent className="space-y-6">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-24 w-24">
+                <AvatarImage src={userImage?.imageUrl} alt={user.name} data-ai-hint={userImage?.imageHint}/>
+                <AvatarFallback className="text-3xl">{user.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <Button variant="outline">Ubah Foto</Button>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="name">Nama</Label>
+              <Input id="name" defaultValue={user.name} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" defaultValue={user.email} disabled />
+            </div>
+             <div className="grid gap-2">
+              <Label htmlFor="current-password">Kata Sandi Saat Ini</Label>
+              <Input id="current-password" type="password" />
+            </div>
+             <div className="grid gap-2">
+              <Label htmlFor="new-password">Kata Sandi Baru</Label>
+              <Input id="new-password" type="password" />
+            </div>
+            <Button>Simpan Perubahan</Button>
         </CardContent>
       </Card>
     </div>
