@@ -30,16 +30,12 @@ export async function createSession(user: User | null) {
   const sessionData = user ? { user, expires: expires.toISOString() } : null;
   const session = await encrypt(sessionData);
 
-  if (user) {
-    cookies().set('session', session, {
-      expires,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-    });
-  } else {
-    cookies().delete('session');
-  }
+  cookies().set('session', session, {
+    expires,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  });
 }
 
 export async function getSession(): Promise<{ user: User } | null> {
@@ -48,7 +44,10 @@ export async function getSession(): Promise<{ user: User } | null> {
 
   try {
     const parsed = await decrypt(sessionCookie);
+    // Check for expiration
     if (!parsed || !parsed.expires || new Date(parsed.expires) <= new Date()) {
+      // Explicitly delete expired cookie
+      cookies().delete('session');
       return null;
     }
     return parsed;
@@ -61,10 +60,19 @@ export async function getSession(): Promise<{ user: User } | null> {
 
 export async function getCurrentUser(): Promise<User | null> {
     const session = await getSession();
-    if (!session?.user?.uid) return null;
+    if (!session?.user?.uid) {
+        return null;
+    }
 
     // In a real app, this would be a database call.
     // Here we re-validate the user from mock data.
     const user = mockUsers.find(u => u.uid === session.user.uid);
-    return user ?? null;
+    
+    // If user is not found in our "DB", invalidate the session.
+    if (!user) {
+        await createSession(null);
+        return null;
+    }
+    
+    return user;
 }

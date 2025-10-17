@@ -14,7 +14,6 @@ export async function login(prevState: any, formData: FormData) {
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user);
-    // Redirect is called directly from the server action on success
     redirect('/dashboard');
   } else {
     return { error: 'Email atau kata sandi tidak valid.' };
