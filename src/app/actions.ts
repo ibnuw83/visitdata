@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { users } from '@/lib/mock-data';
 import { createSession, deleteSession } from '@/lib/session';
 
-export async function login(formData: FormData) {
+export async function login(prevState: unknown, formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
