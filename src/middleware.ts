@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getCurrentUser } from '@/lib/session';
 
+// This ensures the middleware is always executed dynamically,
+// preventing caching and forcing it to read the latest session cookie.
+export const dynamic = 'force-dynamic';
+
 const protectedRoutes = ['/dashboard', '/categories', '/destinations', '/data-entry', '/reports', '/unlock-requests', '/users', '/settings'];
 const authRoute = '/';
 const adminOnlyRoutes = ['/categories', '/destinations', '/users', '/unlock-requests'];

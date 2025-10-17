@@ -7,7 +7,7 @@ import { users as mockUsers } from './mock-data';
 
 // This forces the functions in this file to be dynamically executed,
 // preventing caching and ensuring the latest session cookie is always read.
-export const dynamic = 'force-dynamic';
+// This is achieved by setting `dynamic = 'force-dynamic'` in the middleware.
 
 // For demo purposes, we're not actually encrypting. In production, use a library like 'iron-session'.
 async function encrypt(payload: any) {
