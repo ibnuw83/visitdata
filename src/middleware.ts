@@ -13,7 +13,8 @@ export async function middleware(request: NextRequest) {
 
   // If no session and trying to access a protected route, redirect to login
   if (!session && isProtectedRoute) {
-    return NextResponse.redirect(new URL('/', request.url));
+    const loginUrl = new URL('/', request.url);
+    return NextResponse.redirect(loginUrl);
   }
 
   // If session exists and user is on the login page, redirect to dashboard
@@ -40,5 +41,12 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  /*
+   * Match all request paths except for the ones starting with:
+   * - api (API routes)
+   * - _next/static (static files)
+   * - _next/image (image optimization files)
+   * - favicon.ico (favicon file)
+   */
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
