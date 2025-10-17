@@ -2,6 +2,7 @@ import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar'
 import { getCurrentUser } from '@/lib/session';
 import Header from '@/components/layout/header';
 import SidebarNav from '@/components/layout/sidebar-nav';
+import { redirect } from 'next/navigation';
 
 export default async function AppLayout({
   children,
@@ -12,7 +13,7 @@ export default async function AppLayout({
 
   if (!user) {
     // This should be handled by middleware, but as a fallback
-    return null;
+    redirect('/');
   }
   
   return (
