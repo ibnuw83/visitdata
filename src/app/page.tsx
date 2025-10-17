@@ -69,11 +69,6 @@ export default function LoginPage() {
               Kembali ke halaman utama
             </Link>
           </div>
-          <div className="mt-4 text-center text-sm">
-            <p className="text-muted-foreground">Akun Demo:</p>
-            <p className="text-xs text-muted-foreground">admin@dinas.com / password123</p>
-            <p className="text-xs text-muted-foreground">pengelola@jatijajar.com / password123</p>
-          </div>
         </CardContent>
       </Card>
     </div>
