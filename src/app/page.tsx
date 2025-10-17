@@ -9,7 +9,7 @@ import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import { useFormStatus } from 'react-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useEffect, useActionState } from 'react';
+import { useActionState } from 'react';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -22,15 +22,6 @@ function SubmitButton() {
 
 export default function LoginPage() {
   const [state, formAction] = useActionState(login, undefined);
-
-  useEffect(() => {
-    if (state?.success) {
-      // Using window.location.replace to ensure a full page reload,
-      // which helps in making sure the middleware picks up the new session cookie.
-      window.location.replace('/dashboard');
-    }
-  }, [state?.success]);
-
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">

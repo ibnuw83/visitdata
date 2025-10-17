@@ -15,9 +15,8 @@ export async function login(prevState: unknown, formData: FormData) {
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user);
-    // Redirect is now handled by the page reload and middleware.
-    // We just return a success state.
-    return { success: true };
+    // Redirect is handled on the server side after session is created.
+    redirect('/dashboard');
   } else {
     // In a real app, you would return an error message to the form.
     return { success: false, error: 'InvalidCredentials' };
