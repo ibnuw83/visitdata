@@ -12,14 +12,14 @@ import {
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
-import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree } from 'lucide-react';
+import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree, Lightbulb } from 'lucide-react';
 import { User } from '@/lib/types';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard, roles: ['admin', 'pengelola'] },
   { href: '/categories', label: 'Kategori Wisata', icon: FolderTree, roles: ['admin'] },
   { href: '/destinations', label: 'Destinasi', icon: Landmark, roles: ['admin'] },
-  { href: '/data-entry', label: 'Input Data', icon: Edit, roles: ['pengelola'] },
+  { href: '/data-entry', label: 'Input Data', icon: Edit, roles: ['pengelola', 'admin'] },
   { href: '/reports', label: 'Laporan', icon: FileText, roles: ['admin', 'pengelola'] },
   { href: '/unlock-requests', label: 'Permintaan Revisi', icon: KeyRound, roles: ['admin'] },
   { href: '/users', label: 'Pengguna', icon: Users, roles: ['admin'] },

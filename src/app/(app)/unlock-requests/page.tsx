@@ -20,11 +20,11 @@ export default function UnlockRequestsPage() {
 
   const getDestinationName = (id: string) => destinations.find(d => d.id === id)?.name || 'Tidak Dikenal';
   
-  const statusVariant = {
+  const statusVariant: { [key in UnlockRequest['status']]: "secondary" | "default" | "destructive" } = {
       pending: "secondary",
       approved: "default",
       rejected: "destructive",
-  } as const;
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -58,7 +58,7 @@ export default function UnlockRequestsPage() {
                             <TableCell>{new Date(req.year, req.month -1).toLocaleString('id-ID', {month: 'long'})} {req.year}</TableCell>
                             <TableCell className="text-muted-foreground text-xs truncate max-w-xs">{req.reason}</TableCell>
                             <TableCell>
-                                <Badge variant={statusVariant[req.status]}>{req.status}</Badge>
+                                <Badge variant={statusVariant[req.status]} className="capitalize">{req.status}</Badge>
                             </TableCell>
                             <TableCell>{format(new Date(req.timestamp), 'dd MMM yyyy')}</TableCell>
                             <TableCell className="text-right">
