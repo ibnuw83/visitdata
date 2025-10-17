@@ -21,7 +21,7 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const [state, formAction, isPending] = useActionState(login, { success: false, error: null });
+  const [state, formAction] = useActionState(login, { success: false, error: null });
 
   useEffect(() => {
     if (state.success) {
