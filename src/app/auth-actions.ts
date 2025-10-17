@@ -1,9 +1,8 @@
 'use server';
 
-import { createSession } from '@/lib/session';
+import { createSession, deleteSession } from '@/lib/session';
 import { users } from '@/lib/mock-data';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
 
 // prevState is required for useActionState, but we don't use it here.
 export async function login(prevState: any, formData: FormData) {
@@ -15,8 +14,6 @@ export async function login(prevState: any, formData: FormData) {
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user.uid);
-    // Revalidate the root layout to ensure middleware gets fresh session data
-    revalidatePath('/', 'layout');
     redirect('/dashboard');
   } else {
     return { error: 'Email atau kata sandi tidak valid.' };
@@ -24,6 +21,6 @@ export async function login(prevState: any, formData: FormData) {
 }
 
 export async function logout() {
-    await createSession(null);
+    await deleteSession();
     redirect('/');
 }
