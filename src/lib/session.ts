@@ -5,31 +5,41 @@ import { cookies } from 'next/headers';
 import { User } from './types';
 import { users as mockUsers } from './mock-data';
 
-// This file uses `cookies()`, which is a dynamic function.
-// Functions that use it will not be cached, which is what we want for session management.
-
 // For demo purposes, we're not actually encrypting. In production, use a library like 'iron-session'.
 async function encrypt(payload: any) {
+  if (payload === null) {
+    return "";
+  }
   const data = JSON.stringify(payload);
   return Buffer.from(data).toString('base64');
 }
 
-async function decrypt(session: string) {
-  const data = Buffer.from(session, 'base64').toString('utf-8');
-  return JSON.parse(data);
+async function decrypt(session: string | undefined) {
+  if (!session) return null;
+  try {
+    const data = Buffer.from(session, 'base64').toString('utf-8');
+    return JSON.parse(data);
+  } catch (e) {
+    console.error('Failed to decrypt session', e);
+    return null;
+  }
 }
 
-export async function createSession(user: User) {
+export async function createSession(user: User | null) {
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-  const sessionData = { user, expires: expires.toISOString() };
+  const sessionData = user ? { user, expires: expires.toISOString() } : null;
   const session = await encrypt(sessionData);
 
-  cookies().set('session', session, {
-    expires,
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-  });
+  if (user) {
+    cookies().set('session', session, {
+      expires,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+  } else {
+    cookies().delete('session');
+  }
 }
 
 export async function getSession(): Promise<{ user: User } | null> {
@@ -38,18 +48,14 @@ export async function getSession(): Promise<{ user: User } | null> {
 
   try {
     const parsed = await decrypt(sessionCookie);
-    if (new Date(parsed.expires) > new Date()) {
-      return parsed;
+    if (!parsed || !parsed.expires || new Date(parsed.expires) <= new Date()) {
+      return null;
     }
-    return null;
+    return parsed;
   } catch (error) {
     console.error('Failed to parse session:', error);
     return null;
   }
-}
-
-export async function deleteSession() {
-  cookies().delete('session', { path: '/' });
 }
 
 
