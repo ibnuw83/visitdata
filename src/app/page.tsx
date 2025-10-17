@@ -6,31 +6,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import { useState } from 'react';
+import { useEffect, useActionState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function LoginPage() {
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const [state, formAction, isPending] = useActionState(login, null);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const formData = new FormData(event.currentTarget);
-    const result = await login(null, formData);
-
-    setLoading(false);
-
-    if (result?.error) {
-      setError(result.error);
-    } else {
+  useEffect(() => {
+    if (state?.success) {
       router.push('/dashboard');
     }
-  };
+  }, [state, router]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -44,10 +32,10 @@ export default function LoginPage() {
           <CardDescription>Masukkan kredensial Anda untuk mengakses dasbor.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="grid gap-4">
-             {error && (
+          <form action={formAction} className="grid gap-4">
+             {state?.error && (
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{state.error}</AlertDescription>
               </Alert>
             )}
             <div className="grid gap-2">
@@ -58,7 +46,7 @@ export default function LoginPage() {
                 name="email"
                 placeholder="email@example.com"
                 required
-                disabled={loading}
+                disabled={isPending}
               />
             </div>
             <div className="grid gap-2">
@@ -68,11 +56,12 @@ export default function LoginPage() {
                 type="password" 
                 name="password" 
                 required 
-                disabled={loading}
+                defaultValue="password123"
+                disabled={isPending}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Memeriksa...' : 'Masuk'}
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? 'Memeriksa...' : 'Masuk'}
             </Button>
           </form>
         </CardContent>

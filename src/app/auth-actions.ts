@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { createSession, deleteSession } from '@/lib/session';
 import { users } from '@/lib/mock-data';
 
-// prevState is required for useActionState, but we don't use it here.
+// The 'prevState' is required for useActionState, but we don't use it here.
 export async function login(prevState: any, formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;

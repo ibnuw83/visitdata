@@ -45,10 +45,14 @@ export default function Header({ user }: { user: User }) {
               <Link href="/settings">Pengaturan</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => logout()}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Keluar
-            </DropdownMenuItem>
+            <form action={logout}>
+              <DropdownMenuItem asChild>
+                <button type="submit" className="w-full">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Keluar
+                </button>
+              </DropdownMenuItem>
+            </form>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
