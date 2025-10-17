@@ -5,9 +5,9 @@ import { getCurrentUser } from '@/lib/session';
 // preventing caching and forcing it to read the latest session cookie.
 export const dynamic = 'force-dynamic';
 
-const protectedRoutes = ['/dashboard', '/categories', '/destinations', '/data-entry', '/reports', '/unlock-requests', '/users', '/settings'];
+const protectedRoutes = ['/dashboard', '/categories', '/destinations', '/data-entry', '/reports', '/unlock-requests', '/users', '/settings', '/ai-suggestions'];
 const authRoute = '/';
-const adminOnlyRoutes = ['/categories', '/destinations', '/users', '/unlock-requests'];
+const adminOnlyRoutes = ['/categories', '/destinations', '/users', '/unlock-requests', '/ai-suggestions'];
 const pengelolaOnlyRoutes = ['/data-entry'];
 
 
