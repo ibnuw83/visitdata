@@ -3,11 +3,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getCurrentUser } from '@/lib/session';
 
-// This ensures the middleware is always executed dynamically,
-// preventing caching and forcing it to read the latest session cookie.
+// This forces the middleware to be dynamic, preventing caching of `getCurrentUser`
 export const dynamic = 'force-dynamic';
 
-const protectedRoutes = ['/dashboard', '/categories', '/destinations', '/data-entry', '/reports', '/unlock-requests', '/users', '/settings', '/ai-suggestions'];
+const protectedRoutes = ['/dashboard', '/categories', '/destinations', '/data-entry', '/reports', '/unlock-requests', '/users', '/settings'];
 const authRoute = '/';
 
 export async function middleware(request: NextRequest) {
@@ -26,16 +25,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   
-  // If a logged-in user with role 'pengelola' tries to access an admin route, redirect them.
-  const adminOnlyRoutes = ['/categories', '/destinations', '/users', '/unlock-requests', '/ai-suggestions'];
-  if (user && user.role === 'pengelola' && adminOnlyRoutes.some(route => pathname.startsWith(route))) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-  
-  // If a logged-in user with role 'admin' tries to access a pengelola route, redirect them.
-  const pengelolaOnlyRoutes = ['/data-entry'];
-  if (user && user.role === 'admin' && pengelolaOnlyRoutes.some(route => pathname.startsWith(route))) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  // Role-based access control can be handled more gracefully in the UI,
+  // but a middleware layer is good for security.
+  if (user) {
+    const adminOnlyRoutes = ['/categories', '/destinations', '/users', '/unlock-requests'];
+    const pengelolaOnlyRoutes = ['/data-entry'];
+
+    if (user.role === 'pengelola' && adminOnlyRoutes.some(route => pathname.startsWith(route))) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    
+    if (user.role === 'admin' && pengelolaOnlyRoutes.some(route => pathname.startsWith(route))) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
   }
 
 
