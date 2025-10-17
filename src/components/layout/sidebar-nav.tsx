@@ -12,14 +12,17 @@ import {
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
-import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText } from 'lucide-react';
+import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree } from 'lucide-react';
 import { User } from '@/lib/types';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'pengelola'] },
-  { href: '/data-entry', label: 'Input Data', icon: Edit, roles: ['pengelola'] },
+  { href: '/categories', label: 'Kategori Wisata', icon: FolderTree, roles: ['admin'] },
+  { href: '/destinations', label: 'Destinasi', icon: Landmark, roles: ['admin'] },
+  { href: '/data-entry', label: 'Input Data', icon: Edit, roles: ['admin', 'pengelola'] },
   { href: '/reports', label: 'Laporan', icon: FileText, roles: ['admin', 'pengelola'] },
   { href: '/unlock-requests', label: 'Permintaan Revisi', icon: KeyRound, roles: ['admin'] },
+  { href: '/users', label: 'Pengguna', icon: Users, roles: ['admin'] },
 ];
 
 const bottomMenuItems = [
@@ -46,7 +49,7 @@ export default function SidebarNav({ user }: { user: User }) {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === item.href}
+                isActive={pathname.startsWith(item.href)}
                 tooltip={item.label}
               >
                 <Link href={item.href}>
