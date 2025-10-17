@@ -16,10 +16,10 @@ import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmar
 import { User } from '@/lib/types';
 
 const menuItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'pengelola'] },
+  { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard, roles: ['admin', 'pengelola'] },
   { href: '/categories', label: 'Kategori Wisata', icon: FolderTree, roles: ['admin'] },
   { href: '/destinations', label: 'Destinasi', icon: Landmark, roles: ['admin'] },
-  { href: '/data-entry', label: 'Input Data', icon: Edit, roles: ['admin', 'pengelola'] },
+  { href: '/data-entry', label: 'Input Data', icon: Edit, roles: ['pengelola'] },
   { href: '/reports', label: 'Laporan', icon: FileText, roles: ['admin', 'pengelola'] },
   { href: '/unlock-requests', label: 'Permintaan Revisi', icon: KeyRound, roles: ['admin'] },
   { href: '/users', label: 'Pengguna', icon: Users, roles: ['admin'] },
@@ -48,14 +48,13 @@ export default function SidebarNav({ user }: { user: User }) {
           {menuItems.filter(item => isUserInRole(item.roles)).map((item) => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
-                asChild
+                as={Link}
+                href={item.href}
                 isActive={pathname.startsWith(item.href)}
                 tooltip={item.label}
               >
-                <Link href={item.href}>
-                  <item.icon />
-                  <span>{item.label}</span>
-                </Link>
+                <item.icon />
+                <span>{item.label}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
@@ -67,14 +66,13 @@ export default function SidebarNav({ user }: { user: User }) {
             {bottomMenuItems.filter(item => isUserInRole(item.roles)).map((item) => (
                 <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
-                      asChild
+                      as={Link}
+                      href={item.href}
                       isActive={pathname.startsWith(item.href)}
                       tooltip={item.label}
                     >
-                      <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </Link>
+                      <item.icon />
+                      <span>{item.label}</span>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
             ))}
