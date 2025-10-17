@@ -14,6 +14,7 @@ import { logout } from "@/app/auth-actions";
 import { SidebarTrigger } from "../ui/sidebar";
 import { User } from "@/lib/types";
 import { LogOut } from "lucide-react";
+import Link from "next/link";
 
 export default function Header({ user }: { user: User }) {
   const userImage = PlaceHolderImages.find(p => p.id === user.avatar);
@@ -40,15 +41,13 @@ export default function Header({ user }: { user: User }) {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{user.name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Pengaturan</DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-                <form action={logout} className="w-full">
-                    <button type="submit" className="flex w-full items-center">
-                        <LogOut className="mr-2 h-4 w-4" />
-                        Keluar
-                    </button>
-                </form>
+              <Link href="/settings">Pengaturan</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => logout()}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Keluar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
