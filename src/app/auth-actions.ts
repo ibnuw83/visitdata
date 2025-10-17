@@ -3,7 +3,6 @@
 import { createSession } from '@/lib/session';
 import { users } from '@/lib/mock-data';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
 
 // prevState is required for useActionState, but we don't use it here.
 export async function login(prevState: any, formData: FormData) {
@@ -15,15 +14,14 @@ export async function login(prevState: any, formData: FormData) {
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user);
-    revalidatePath('/', 'layout');
-    return { success: true, error: null };
+    // Redirect is called directly from the server action on success
+    redirect('/dashboard');
   } else {
-    return { success: false, error: 'Email atau kata sandi tidak valid.' };
+    return { error: 'Email atau kata sandi tidak valid.' };
   }
 }
 
 export async function logout() {
     await createSession(null);
-    revalidatePath('/');
     redirect('/');
 }

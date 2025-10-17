@@ -7,10 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
-import { useActionState, useEffect } from 'react';
+import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useRouter } from 'next/navigation';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -22,15 +21,7 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const [state, formAction] = useActionState(login, { success: false, error: null });
-  const router = useRouter();
-
-  useEffect(() => {
-    if (state.success) {
-      router.push('/dashboard');
-    }
-  }, [state.success, router]);
-
+  const [state, formAction] = useActionState(login, undefined);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
