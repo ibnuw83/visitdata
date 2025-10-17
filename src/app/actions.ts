@@ -1,25 +1,23 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { users } from '@/lib/mock-data';
-import { createSession, deleteSession } from '@/lib/session';
+import { createSession } from '@/lib/session';
+import { users } from '@/lib/mock-data'; // Server actions can only access server-side data
 
 export async function login(prevState: unknown, formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
   // In a real app, you'd hash the password and compare.
-  // Here we do a simple lookup.
+  // Here we do a simple lookup from the mock data, as server actions cannot access localStorage.
   const user = users.find((u) => u.email === email);
 
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user);
-    // Redirect is handled on the server side after session is created.
     redirect('/dashboard');
   } else {
-    // In a real app, you would return an error message to the form.
-    return { success: false, error: 'InvalidCredentials' };
+    return { error: 'Email atau kata sandi tidak valid.' };
   }
 }
 

@@ -2,7 +2,16 @@
 
 import { cookies } from 'next/headers';
 import { User } from './types';
-import { users } from './mock-data';
+import { users as mockUsers } from './mock-data'; // Keep mock as fallback
+
+// This is a workaround since we can't directly import client-side services in server files.
+// In a real app, this would be a database call.
+function findUserByUid(uid: string): User | undefined {
+    // This is not ideal as it reads the static mock data file.
+    // A better approach in a real app is an API route or DB call.
+    return mockUsers.find(u => u.uid === uid);
+}
+
 
 // For demo purposes, we're not actually encrypting. In production, use a library like 'iron-session'.
 const secret = process.env.SESSION_SECRET || 'complex_secret_for_development_only_must_be_at_least_32_characters_long';
@@ -55,7 +64,11 @@ export async function deleteSession() {
 export async function getCurrentUser(): Promise<User | null> {
     const session = await getSession();
     if (!session?.user?.uid) return null;
-    // Re-validate user from mock data to ensure freshness, similar to a DB lookup
-    const user = users.find(u => u.uid === session.user.uid);
+    
+    // Re-validate user from mock data.
+    // In a real app with a DB, this would be a DB query.
+    // With localStorage, this check happens on the server, which can't access localStorage.
+    // We rely on the mock data as the source of truth for the server.
+    const user = findUserByUid(session.user.uid);
     return user ?? null;
 }

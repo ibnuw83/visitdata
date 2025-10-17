@@ -1,13 +1,28 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Landmark, BarChart, Globe, Plane } from "lucide-react";
+import { Users, Landmark, Plane, Globe } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-card";
 import MonthlyVisitorsChart from "@/components/dashboard/monthly-visitors-chart";
 import VisitorBreakdownChart from "@/components/dashboard/visitor-breakdown-chart";
 import TopDestinationsCard from "@/components/dashboard/top-destinations-card";
 import AiSummary from "@/components/dashboard/ai-summary";
-import { destinations, visitData } from "@/lib/mock-data";
+import { getVisitData, getDestinations } from "@/lib/local-data-service";
+import type { VisitData, Destination } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export default async function DashboardPage() {
+export default function DashboardPage() {
+    const [visitData, setVisitData] = useState<VisitData[]>([]);
+    const [destinations, setDestinations] = useState<Destination[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        setVisitData(getVisitData());
+        setDestinations(getDestinations());
+        setLoading(false);
+    }, []);
+
     const year = 2023;
     const yearlyData = visitData.filter(d => d.year === year);
     
@@ -15,6 +30,31 @@ export default async function DashboardPage() {
     const totalWisnus = yearlyData.reduce((sum, item) => sum + item.wisnus, 0);
     const totalWisman = yearlyData.reduce((sum, item) => sum + item.wisman, 0);
     const totalDestinations = destinations.length;
+
+    if (loading) {
+        return (
+             <div className="flex flex-col gap-8">
+                <div className="flex flex-col gap-2">
+                    <Skeleton className="h-9 w-48" />
+                    <Skeleton className="h-5 w-72" />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Skeleton className="h-28" />
+                    <Skeleton className="h-28" />
+                    <Skeleton className="h-28" />
+                    <Skeleton className="h-28" />
+                </div>
+                 <div className="grid gap-4 lg:grid-cols-5">
+                    <Skeleton className="lg:col-span-3 h-80" />
+                    <Skeleton className="lg:col-span-2 h-80" />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <Skeleton className="lg:col-span-2 h-96" />
+                    <Skeleton className="h-96" />
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="flex flex-col gap-8">

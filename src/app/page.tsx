@@ -38,7 +38,7 @@ export default function LoginPage() {
           <form action={formAction} className="grid gap-4">
              {state?.error && (
               <Alert variant="destructive">
-                <AlertDescription>Email atau kata sandi tidak valid.</AlertDescription>
+                <AlertDescription>{state.error}</AlertDescription>
               </Alert>
             )}
             <div className="grid gap-2">

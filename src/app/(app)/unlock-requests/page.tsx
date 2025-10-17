@@ -1,11 +1,23 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { destinations, unlockRequests } from "@/lib/mock-data";
+import { getDestinations, getUnlockRequests } from "@/lib/local-data-service";
+import type { Destination, UnlockRequest } from '@/lib/types';
 import { format } from 'date-fns';
 
 export default function UnlockRequestsPage() {
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [unlockRequests, setUnlockRequests] = useState<UnlockRequest[]>([]);
+  
+  useEffect(() => {
+    setDestinations(getDestinations());
+    setUnlockRequests(getUnlockRequests());
+  }, []);
+
   const getDestinationName = (id: string) => destinations.find(d => d.id === id)?.name || 'Tidak Dikenal';
   
   const statusVariant = {
