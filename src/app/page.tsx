@@ -21,7 +21,15 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const [state, formAction] = useActionState(login, undefined);
+  const [state, formAction, isPending] = useActionState(login, { success: false, error: null });
+
+  useEffect(() => {
+    if (state.success) {
+        // Reload the page. The middleware will see the new session
+        // and handle the redirect to the dashboard.
+        window.location.reload();
+    }
+  }, [state.success]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">

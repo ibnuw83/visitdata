@@ -14,10 +14,10 @@ export async function login(prevState: unknown, formData: FormData) {
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user);
-    // The redirect MUST be called outside of a try/catch block.
-    redirect('/dashboard');
+    // Return success state instead of redirecting
+    return { success: true, error: null };
   } else {
-    return { error: 'Email atau kata sandi tidak valid.' };
+    return { success: false, error: 'Email atau kata sandi tidak valid.' };
   }
 }
 
