@@ -48,13 +48,15 @@ export default function SidebarNav({ user }: { user: User }) {
           {menuItems.filter(item => isUserInRole(item.roles)).map((item) => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
-                as={Link}
+                asChild
                 href={item.href}
                 isActive={pathname.startsWith(item.href)}
                 tooltip={item.label}
               >
-                <item.icon />
-                <span>{item.label}</span>
+                <Link href={item.href} className='flex items-center gap-2'>
+                  <item.icon />
+                  <span>{item.label}</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
@@ -66,13 +68,15 @@ export default function SidebarNav({ user }: { user: User }) {
             {bottomMenuItems.filter(item => isUserInRole(item.roles)).map((item) => (
                 <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
-                      as={Link}
+                      asChild
                       href={item.href}
                       isActive={pathname.startsWith(item.href)}
                       tooltip={item.label}
                     >
-                      <item.icon />
-                      <span>{item.label}</span>
+                      <Link href={item.href} className='flex items-center gap-2'>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
             ))}
