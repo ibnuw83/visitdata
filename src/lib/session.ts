@@ -21,7 +21,6 @@ export async function deleteSession() {
     cookies().delete('session');
 }
 
-// This function is safe for Server Components and Server Actions (Node.js runtime)
 export async function getCurrentUser(): Promise<User | null> {
     const sessionCookie = cookies().get('session')?.value;
     if (!sessionCookie) {
@@ -31,7 +30,6 @@ export async function getCurrentUser(): Promise<User | null> {
     const user = mockUsers.find(u => u.uid === sessionCookie);
     
     if (!user) {
-        // The UID in the cookie is invalid, so delete the cookie.
         await deleteSession();
         return null;
     }
@@ -39,14 +37,15 @@ export async function getCurrentUser(): Promise<User | null> {
     return user;
 }
 
-// This function is safe for Middleware (Edge runtime)
-export async function verifySession(request: { cookies: { get: (name: string) => { value: string } | undefined } }): Promise<boolean> {
-  const sessionCookie = request.cookies.get('session')?.value;
+export async function verifySession(): Promise<boolean> {
+  const sessionCookie = cookies().get('session')?.value;
   if (!sessionCookie) {
     return false;
   }
-  // In a real app, you'd verify the session against a database or an external service.
-  // For this mock app, we just check if a user with this UID exists.
   const userExists = mockUsers.some(u => u.uid === sessionCookie);
-  return userExists;
+  if (!userExists) {
+    await deleteSession();
+    return false;
+  }
+  return true;
 }

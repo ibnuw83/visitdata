@@ -1,8 +1,8 @@
 'use server';
 
+import { redirect } from 'next/navigation';
 import { createSession, deleteSession } from '@/lib/session';
 import { users } from '@/lib/mock-data';
-import { redirect } from 'next/navigation';
 
 // prevState is required for useActionState, but we don't use it here.
 export async function login(prevState: any, formData: FormData) {
