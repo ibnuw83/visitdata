@@ -15,10 +15,8 @@ export async function login(prevState: any, formData: FormData) {
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user);
-    // Invalidate the cache for the entire app layout
-    // This ensures the middleware re-evaluates the session on the next navigation
     revalidatePath('/', 'layout');
-    redirect('/dashboard');
+    return { success: true, error: null };
   } else {
     return { success: false, error: 'Email atau kata sandi tidak valid.' };
   }
