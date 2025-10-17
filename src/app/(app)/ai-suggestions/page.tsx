@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getDestinations, getVisitData } from "@/lib/local-data-service";
 import type { Destination, VisitData } from '@/lib/types';
 import { getReportSuggestions, ReportSuggestionsOutput } from '@/ai/flows/ai-powered-report-suggestions';
@@ -54,6 +54,11 @@ export default function AiSuggestionsPage() {
 
         // Create summaries
         const currentMonthData = relevantData.sort((a,b) => b.month - a.month)[0];
+        if (!currentMonthData) {
+            setError('Tidak ada data kunjungan untuk bulan terakhir di destinasi ini.');
+            setGenerating(false);
+            return;
+        }
         const currentMonthDataSummary = `Bulan ${currentMonthData.monthName}: ${currentMonthData.totalVisitors} total pengunjung (${currentMonthData.wisnus} nusantara, ${currentMonthData.wisman} mancanegara).`;
         
         const totalLast12Months = relevantData.reduce((sum, d) => sum + d.totalVisitors, 0);

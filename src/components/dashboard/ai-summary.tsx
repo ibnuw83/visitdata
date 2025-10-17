@@ -1,22 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Bot, Loader2 } from "lucide-react";
 import { generateMonthlySummary } from '@/ai/flows/generate-monthly-summary';
+import { getDestinations } from '@/lib/local-data-service';
 import { Destination, VisitData } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
-export default function AiSummary({ data, destinations, year }: { data: VisitData[], destinations: Destination[], year: number }) {
+export default function AiSummary({ data, year }: { data: VisitData[], year: number }) {
     const [loading, setLoading] = useState(false);
     const [summary, setSummary] = useState('');
     const [error, setError] = useState('');
     const [selectedDest, setSelectedDest] = useState<string | undefined>();
     const [selectedMonth, setSelectedMonth] = useState<string | undefined>();
+    const [destinations, setDestinations] = useState<Destination[]>([]);
+
+    useEffect(() => {
+        setDestinations(getDestinations());
+    }, [])
 
     const handleGenerate = async () => {
         if (!selectedDest || !selectedMonth) {

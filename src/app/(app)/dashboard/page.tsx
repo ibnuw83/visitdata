@@ -93,7 +93,7 @@ export default function DashboardPage() {
             
              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <TopDestinationsCard data={yearlyData} destinations={destinations} />
-                <AiSummary data={yearlyData} destinations={destinations} year={year} />
+                <AiSummary data={yearlyData} year={year} />
             </div>
         </div>
     )
