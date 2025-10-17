@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
+import Link from 'next/link';
 
 export default function LoginPage() {
   return (
@@ -44,6 +45,11 @@ export default function LoginPage() {
               Masuk
             </Button>
           </form>
+          <div className="mt-4 text-center text-sm">
+            <Link href="/" className="text-muted-foreground underline">
+              Kembali ke halaman utama
+            </Link>
+          </div>
           <div className="mt-4 text-center text-sm">
             <p className="text-muted-foreground">Akun Demo:</p>
             <p className="text-xs text-muted-foreground">admin@dinas.com / password123</p>
