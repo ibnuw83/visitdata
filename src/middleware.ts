@@ -7,34 +7,37 @@ const protectedRoutes = ['/dashboard', ...adminOnlyRoutes, ...pengelolaOnlyRoute
 
 export async function middleware(request: NextRequest) {
   const session = await getSession();
+  const user = session?.user;
   const { pathname } = request.nextUrl;
 
-  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
+  const isAccessingProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 
-  // 1. Jika tidak ada sesi dan mencoba mengakses rute yang dilindungi -> redirect ke login
-  if (!session && isProtectedRoute) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
-  // 2. Jika ada sesi dan berada di halaman login -> redirect ke dashboard
-  if (session && pathname === '/') {
+  // If trying to access login page while logged in, redirect to dashboard
+  if (user && pathname === '/') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // 3. Jika ada sesi, lakukan pengecekan peran (role)
-  if (session) {
-    const userRole = session.user.role;
+  // If trying to access a protected route without a session, redirect to login
+  if (!user && isAccessingProtectedRoute) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
 
+  // Handle role-based access control if user is logged in
+  if (user) {
+    const userRole = user.role;
+
+    // If a manager tries to access an admin-only route
     if (userRole === 'pengelola' && adminOnlyRoutes.some(route => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
     
+    // If an admin tries to access a manager-only route
     if (userRole === 'admin' && pengelolaOnlyRoutes.some(route => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 
-  // 4. Jika tidak ada kondisi di atas yang terpenuhi, lanjutkan permintaan
+  // If none of the above, continue as normal
   return NextResponse.next();
 }
 

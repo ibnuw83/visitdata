@@ -15,11 +15,13 @@ export async function login(formData: FormData) {
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user);
-    redirect('/dashboard');
+    // We don't redirect from here directly.
+    // The middleware will handle the redirect after the session is created.
+    // This helps avoid race conditions with cookie setting.
+    return { success: true };
   } else {
     // In a real app, you would return an error message to the form.
-    // For this example, we'll just redirect back with an error query param.
-    redirect('/?error=InvalidCredentials');
+    return { success: false, error: 'InvalidCredentials' };
   }
 }
 

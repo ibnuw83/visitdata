@@ -1,3 +1,5 @@
+'use client';
+
 import { login } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,8 +7,32 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
+import { useFormState, useFormStatus } from 'react-dom';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { redirect } from 'next/navigation';
+import { useEffect } from 'react';
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? 'Memeriksa...' : 'Masuk'}
+    </Button>
+  );
+}
 
 export default function LoginPage() {
+  const [state, formAction] = useFormState(login, undefined);
+
+  useEffect(() => {
+    if (state?.success) {
+      // Using window.location.replace to ensure a full page reload,
+      // which helps in making sure the middleware picks up the new session cookie.
+      window.location.replace('/dashboard');
+    }
+  }, [state?.success]);
+
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
@@ -19,7 +45,12 @@ export default function LoginPage() {
           <CardDescription>Masukkan email Anda di bawah ini untuk masuk ke akun Anda.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={login} className="grid gap-4">
+          <form action={formAction} className="grid gap-4">
+             {state?.error && (
+              <Alert variant="destructive">
+                <AlertDescription>Email atau kata sandi tidak valid.</AlertDescription>
+              </Alert>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -41,9 +72,7 @@ export default function LoginPage() {
                 defaultValue="password123"
               />
             </div>
-            <Button type="submit" className="w-full">
-              Masuk
-            </Button>
+            <SubmitButton />
           </form>
           <div className="mt-4 text-center text-sm">
             <Link href="/" className="text-muted-foreground underline">
