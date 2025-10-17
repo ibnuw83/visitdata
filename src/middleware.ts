@@ -1,47 +1,40 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSession } from '@/lib/session';
 
-// We will keep the role-based redirects and the redirect from / to /dashboard here.
-// The primary session check will now live in the layout.
 const adminOnlyRoutes = ['/unlock-requests', '/categories', '/destinations', '/users'];
 const pengelolaOnlyRoutes = ['/data-entry'];
+const protectedRoutes = ['/dashboard', ...adminOnlyRoutes, ...pengelolaOnlyRoutes, '/reports', '/settings'];
 
 export async function middleware(request: NextRequest) {
   const session = await getSession();
   const { pathname } = request.nextUrl;
 
-  // If session exists and user is on the login page, redirect to dashboard.
+  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
+
+  // 1. Jika tidak ada sesi dan mencoba mengakses rute yang dilindungi -> redirect ke login
+  if (!session && isProtectedRoute) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+
+  // 2. Jika ada sesi dan berada di halaman login -> redirect ke dashboard
   if (session && pathname === '/') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // If no session and user is on the login page, allow them to proceed.
-  if (!session && pathname === '/') {
-    return NextResponse.next();
-  }
-
-  // Handle role-based authorization for logged-in users.
+  // 3. Jika ada sesi, lakukan pengecekan peran (role)
   if (session) {
     const userRole = session.user.role;
 
-    // If a 'pengelola' tries to access an admin-only route, redirect to their dashboard.
     if (userRole === 'pengelola' && adminOnlyRoutes.some(route => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
     
-    // If an 'admin' tries to access a 'pengelola'-only route, redirect to their dashboard.
     if (userRole === 'admin' && pengelolaOnlyRoutes.some(route => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 
-  // Fallback for protected routes if session is somehow missed, redirect to login.
-  const protectedRoutes = ['/dashboard', '/data-entry', '/reports', '/unlock-requests', '/settings', '/categories', '/destinations', '/users'];
-  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
-  if (!session && isProtectedRoute) {
-     return NextResponse.redirect(new URL('/', request.url));
-  }
-
+  // 4. Jika tidak ada kondisi di atas yang terpenuhi, lanjutkan permintaan
   return NextResponse.next();
 }
 
