@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import { createSession } from '@/lib/session';
 import { users } from '@/lib/mock-data'; // Server actions can only access server-side data
 
@@ -15,6 +16,8 @@ export async function login(prevState: unknown, formData: FormData) {
   // Simple password check for demo
   if (user && password === 'password123') {
     await createSession(user);
+    // Revalidate the root path to ensure middleware re-evaluates with the new session
+    revalidatePath('/');
     redirect('/dashboard');
   } else {
     return { error: 'Email atau kata sandi tidak valid.' };
