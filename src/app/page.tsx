@@ -38,7 +38,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect if user is already logged in
+    // Redirect if user is already logged in and loading is complete
     if (!isLoading && user) {
       router.push('/dashboard');
     }
@@ -50,12 +50,12 @@ export default function LoginPage() {
     await login(formData);
   };
   
-  // Show skeleton while loading or if user is logged in and we are redirecting
+  // Show skeleton while the session is being checked or if the user exists (and we're redirecting).
   if (isLoading || user) {
      return <LoginSkeleton />;
   }
 
-
+  // Only render the login form if we are done loading and there is no user.
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">

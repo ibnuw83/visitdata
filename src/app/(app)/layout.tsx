@@ -49,35 +49,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
-  // Redirect jika belum login
+  // Redirect if not logged in
   useEffect(() => {
     if (!isLoading && !user) {
       router.replace('/');
     }
   }, [user, isLoading, router]);
 
-  // Loading skeleton saat cek session
+  // Show loading skeleton while checking the session. This is the first gate.
   if (isLoading) {
     return <AppLayoutSkeleton />;
   }
 
-  // Jangan render apapun saat redirect
-  if (!user) {
-    return null;
+  // If there's a user, they can see the content.
+  // The useEffect above will handle redirection if the user logs out.
+  if (user) {
+    return (
+      <SidebarProvider>
+        <Sidebar>
+          <SidebarNav />
+        </Sidebar>
+        <SidebarInset>
+          <div className="flex h-full flex-col">
+            <Header />
+            <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">{children}</main>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    );
   }
 
-  // Jika login, render layout utama
-  return (
-    <SidebarProvider>
-      <Sidebar>
-        <SidebarNav />
-      </Sidebar>
-      <SidebarInset>
-        <div className="flex h-full flex-col">
-          <Header />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">{children}</main>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
-  );
+  // If loading is done and there's no user, render nothing while redirecting.
+  // The useEffect handles the router.replace.
+  return null;
 }

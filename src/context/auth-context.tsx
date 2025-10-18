@@ -24,54 +24,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const checkSession = async () => {
+    // Immediately Invoked Function Expression (IIFE) to run async code in useEffect
+    (async () => {
       try {
+        // First, try a quick sync restore from localStorage to prevent UI flicker
+        const storedUserJson = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedUserJson) {
+          setUser(JSON.parse(storedUserJson));
+        }
+
+        // Then, verify with the server
         const sessionUser = await getSessionUser();
         if (sessionUser) {
           setUser(sessionUser);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessionUser));
         } else {
+          // If server has no session, clear client state
           setUser(null);
           localStorage.removeItem(LOCAL_STORAGE_KEY);
         }
       } catch (e) {
+        console.error("Session check failed", e);
         setUser(null);
         localStorage.removeItem(LOCAL_STORAGE_KEY);
       } finally {
+        // THIS IS CRITICAL: Always set loading to false after the check is complete.
         setIsLoading(false);
       }
-    };
-
-    // First, try a quick sync restore from localStorage
-    try {
-        const storedUserJson = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (storedUserJson) {
-            setUser(JSON.parse(storedUserJson));
-        }
-    } catch (e) {
-        // Ignore parsing errors
-    }
-
-    // Then, verify with the server
-    checkSession();
+    })();
   }, []);
 
   const login = async (formData: FormData) => {
     setIsLoading(true);
     setError(null);
     try {
-        const result = await loginAction(formData);
-        if (result) {
-          setUser(result);
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(result));
-          router.push('/dashboard');
-        } else {
-          setError('Email atau kata sandi tidak valid.');
-        }
+      const result = await loginAction(formData);
+      if (result) {
+        setUser(result);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(result));
+        router.push('/dashboard');
+      } else {
+        setError('Email atau kata sandi tidak valid.');
+      }
     } catch (e: any) {
-        setError(e.message || 'Terjadi kesalahan saat login.');
+      setError(e.message || 'Terjadi kesalahan saat login.');
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
