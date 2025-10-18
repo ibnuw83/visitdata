@@ -10,9 +10,11 @@ import { Logo } from '@/components/logo';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth, useAuthUser } from '@/lib/firebase/client-provider';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { AuthError } from '@/lib/firebase/errors';
 import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const { user, isLoading: isInitializing } = useAuthUser();
@@ -20,6 +22,9 @@ export default function LoginPage() {
   const router = useRouter();
   const [appTitle, setAppTitle] = useState('VisitData Hub');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Redirect if user is already logged in and loading is complete
@@ -44,6 +49,28 @@ export default function LoginPage() {
       errorEmitter.emit('auth-error', authError);
     } finally {
        setIsSubmitting(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!resetEmail) {
+      toast({
+        variant: "destructive",
+        title: "Email diperlukan",
+        description: "Harap masukkan alamat email Anda.",
+      });
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      toast({
+        title: "Tautan Reset Terkirim",
+        description: `Tautan untuk mereset kata sandi telah dikirim ke ${resetEmail}.`,
+      });
+      setIsResetDialogOpen(false);
+    } catch (e: any) {
+      const authError = new AuthError(e.code, e.message);
+      errorEmitter.emit('auth-error', authError);
     }
   };
   
@@ -82,7 +109,45 @@ export default function LoginPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password">Kata Sandi</Label>
+              <div className="flex items-center">
+                <Label htmlFor="password">Kata Sandi</Label>
+                <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+                    <DialogTrigger asChild>
+                        <button type="button" className="ml-auto inline-block text-sm underline">
+                            Lupa kata sandi?
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                        <DialogTitle>Reset Kata Sandi</DialogTitle>
+                        <DialogDescription>
+                            Masukkan alamat email Anda di bawah ini. Kami akan mengirimkan tautan untuk mereset kata sandi Anda.
+                        </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="reset-email" className="text-right">
+                            Email
+                            </Label>
+                            <Input
+                            id="reset-email"
+                            type="email"
+                            value={resetEmail}
+                            onChange={(e) => setResetEmail(e.target.value)}
+                            className="col-span-3"
+                            placeholder="email@example.com"
+                            />
+                        </div>
+                        </div>
+                        <DialogFooter>
+                          <DialogClose asChild>
+                            <Button variant="outline">Batal</Button>
+                          </DialogClose>
+                          <Button onClick={handlePasswordReset}>Kirim Tautan Reset</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+              </div>
               <Input 
                 id="password" 
                 type="password" 
