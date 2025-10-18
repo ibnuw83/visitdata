@@ -77,6 +77,14 @@ export default function DashboardPage() {
     const totalWisnus = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisnus, 0), [yearlyData]);
     const totalWisman = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisman, 0), [yearlyData]);
 
+    const dashboardTitle = useMemo(() => {
+        if (user?.role === 'pengelola' && destinations.length > 0) {
+            const destinationNames = destinations.map(d => d.name).join(', ');
+            return `Dasbor: ${destinationNames}`;
+        }
+        return 'Dasbor';
+    }, [user, destinations]);
+
     if (loading) {
         return (
              <div className="flex flex-col gap-8">
@@ -108,7 +116,7 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="font-headline text-3xl font-bold tracking-tight">Dasbor</h1>
+                    <h1 className="font-headline text-3xl font-bold tracking-tight">{dashboardTitle}</h1>
                     <p className="text-muted-foreground">Ringkasan data pariwisata untuk tahun {selectedYear}.</p>
                 </div>
                 <div className="w-full sm:w-auto">
