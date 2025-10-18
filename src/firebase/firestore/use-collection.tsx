@@ -1,59 +1,50 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { onSnapshot, Query, DocumentData, collection, query, where, getDocs, QuerySnapshot, CollectionReference } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { onSnapshot, Query, DocumentData, collection, query as firestoreQuery, where, getDocs, QuerySnapshot, CollectionReference } from 'firebase/firestore';
 import { useFirestore } from '../client-provider';
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
-interface UseCollectionOptions {
-  // Add any options here
-}
+// A helper function to create a stable dependency string from a query object.
+// This is a simplified version; a real implementation might need to be more robust.
+const getQueryKey = (q: Query<any> | CollectionReference<any> | null): string => {
+    if (!q) return 'null';
+    if ('path' in q) { // It's a CollectionReference
+        return q.path;
+    }
+    // It's a Query
+    const queryParts: string[] = [(q as any)._query.path.segments.join('/')];
+    if ((q as any)._query.filters) {
+        (q as any)._query.filters.forEach((f: any) => {
+            queryParts.push(`${f.field.segments.join('.')}${f.op}${f.value}`);
+        });
+    }
+    return queryParts.join('|');
+};
 
-// Overload for when query is provided
-export function useCollection<T>(q: Query<T> | null): { data: T[]; loading: boolean; error: Error | null };
-// Overload for when path is provided
-export function useCollection<T>(path: string | null): { data: T[]; loading: boolean; error: Error | null };
-// Overload for when path and queryFn are provided
-export function useCollection<T>(
-  path: string | null,
-  queryFn: (ref: any) => any
-): { data: T[]; loading: boolean; error: Error | null };
 
-
-export function useCollection<T>(
-  pathOrQuery: string | Query<T> | null,
-  queryFn?: (ref: any) => any
-): { data: T[]; loading: boolean; error: Error | null } {
+export function useCollection<T>(q: Query<T> | null): { data: T[]; loading: boolean; error: Error | null } {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const firestore = useFirestore();
-
-  const queryObj = useMemo(() => {
-    if (!pathOrQuery || !firestore) {
-      return null;
-    }
-
-    if (typeof pathOrQuery === 'string') {
-        let ref = collection(firestore, pathOrQuery);
-        return queryFn ? queryFn(ref) : ref;
-    }
-    return pathOrQuery;
-  }, [pathOrQuery, queryFn, firestore]);
-  
+  // Create a stable key from the query object to use in useEffect dependencies
+  const queryKey = getQueryKey(q);
 
   useEffect(() => {
-    if (!queryObj) {
+    if (!q) {
       setLoading(false);
       setData([]);
       return;
     }
+    
+    // Set loading to true whenever the query changes
+    setLoading(true);
 
     const unsubscribe = onSnapshot(
-      queryObj as Query<DocumentData>,
+      q as Query<DocumentData>,
       (snapshot: QuerySnapshot<DocumentData>) => {
         const data = snapshot.docs.map((doc) => ({
           ...doc.data(),
@@ -61,25 +52,29 @@ export function useCollection<T>(
         })) as T[];
         setData(data);
         setLoading(false);
+        setError(null);
       },
       (err: Error) => {
         console.error("useCollection error:", err);
         
-        let path = 'unknown path';
+        let path = 'unknown_path';
         try {
-          if ('path' in queryObj) {
-            path = (queryObj as CollectionReference).path;
-          } else if ('_query' in queryObj && (queryObj as any)._query.path) {
-            path = (queryObj as any)._query.path.segments.join('/');
-          }
+            // This is a simplified way to get path from a query.
+            // Firestore queries have a private `_query` property. This is not stable API,
+            // but it's one of the few ways to get the path for debugging.
+            const internalQuery = (q as any)._query;
+            if (internalQuery && internalQuery.path) {
+                path = internalQuery.path.segments.join('/');
+            }
         } catch (e) {
-          // Ignore errors while trying to get the path
+            console.warn("Could not extract path from Firestore query for error reporting.", e);
         }
-        
+
         const permissionError = new FirestorePermissionError({
             path: path,
             operation: 'list',
         });
+
         errorEmitter.emit('permission-error', permissionError);
         setError(err);
         setLoading(false);
@@ -87,7 +82,10 @@ export function useCollection<T>(
     );
 
     return () => unsubscribe();
-  }, [queryObj]);
+  // We use the stable queryKey as a dependency now
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey]);
 
   return { data, loading, error };
 }
+
