@@ -31,24 +31,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const res = await fetch('/api/session', { cache: 'no-store' });
         
         if (res.ok) {
-            const serverSessionUser = await res.json();
-            if (serverSessionUser && serverSessionUser.uid) {
-              // The session cookie is valid, now get the definitive user data from client-side storage.
+            const serverSession = await res.json();
+            // Server confirms a session exists and gives us the UID.
+            // Now, we use that UID to get the REAL user data from our client-side source of truth.
+            if (serverSession && serverSession.uid) {
               const allClientUsers = getUsers();
-              const clientUser = allClientUsers.find(u => u.uid === serverSessionUser.uid);
+              const clientUser = allClientUsers.find(u => u.uid === serverSession.uid);
               
               if (clientUser) {
-                setUser(clientUser); // Set user from localStorage
+                setUser(clientUser); // Set user from the definitive client-side data
               } else {
-                // User exists in session but not in client storage, likely stale. Log them out.
+                // The UID in the session is stale/invalid, log them out.
                 await logoutAction();
                 setUser(null);
               }
             } else {
+              // No valid session object returned by the server.
               setUser(null);
             }
         } else {
-            // If the API call fails (e.g. 404 if session is missing), assume no session
+            // If the API call fails (e.g., 404 if session cookie is missing), there's no session.
             setUser(null);
         }
       } catch (e) {
@@ -98,7 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await logoutAction();
     setUser(null);
-    router.push('/');
+    // Use replace so user can't go back to a protected route
+    router.replace('/login');
   };
 
   return (

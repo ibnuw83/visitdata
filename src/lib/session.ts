@@ -5,7 +5,6 @@ import 'server-only';
 import { cookies } from 'next/headers';
 import { User } from './types';
 // This file runs on the server, so it can't access localStorage.
-// It relies on the initial mock data to find a user from a session ID.
 // The AuthProvider on the client is responsible for getting the *latest* data.
 import { users as mockUsers } from './mock-data';
 
@@ -33,15 +32,10 @@ export async function getCurrentUser(): Promise<{ uid: string } | null> {
         return null;
     }
     
-    // The server only needs to know the UID exists in the session.
-    // The client will fetch the full, up-to-date user object from its own storage.
-    const userExistsInInitialData = mockUsers.some(u => u.uid === sessionCookie);
-
-    // This check against mock data is a fallback. The main source of truth is the client.
-    // A user created on the client won't be in mockUsers, but their session is still valid
-    // as long as the cookie exists. We return the UID for the client to handle.
-    
-    // For now, we return the UID directly from the cookie.
+    // The server's only job is to confirm a session cookie exists and return the UID.
+    // It does NOT validate the user against any data source.
+    // The client (`AuthContext`) is responsible for fetching the real, up-to-date user
+    // data from its own source of truth (localStorage) using this UID.
     return { uid: sessionCookie };
 }
 
