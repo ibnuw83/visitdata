@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -30,6 +31,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { cn } from '@/lib/utils';
+
+const colorPalette = [
+    "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800/50",
+    "bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800/50",
+    "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800/50",
+    "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800/50",
+    "bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800/50",
+    "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800/50",
+    "bg-pink-100 dark:bg-pink-900/30 border-pink-200 dark:border-pink-800/50",
+    "bg-indigo-100 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800/50",
+];
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -161,19 +174,19 @@ export default function CategoriesPage() {
         </CardHeader>
         <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {categories.map(category => (
-                    <div key={category.id} className="group flex items-center justify-between p-3 pl-4 rounded-lg border bg-secondary/50 hover:bg-secondary transition-colors">
+                {categories.map((category, index) => (
+                    <div key={category.id} className={cn("group flex items-center justify-between p-3 pl-4 rounded-lg border", colorPalette[index % colorPalette.length])}>
                         <div className="flex items-center gap-3 font-medium text-secondary-foreground">
                            <FolderTree className="h-5 w-5" />
                            <span className="capitalize">{category.name}</span>
                         </div>
-                        <div className="flex items-center">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => openEditDialog(category)}>
+                        <div className="flex flex-col items-center">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => openEditDialog(category)}>
                                 <FilePenLine className="h-4 w-4" />
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive">
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                               </AlertDialogTrigger>
@@ -230,3 +243,5 @@ export default function CategoriesPage() {
     </div>
   );
 }
+
+    
