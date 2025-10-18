@@ -383,6 +383,7 @@ export default function DataEntryPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [selectedDestinationFilter, setSelectedDestinationFilter] = useState<string>('all');
   const { toast } = useToast();
   
   const destinationsQuery = useMemo(() => {
@@ -436,7 +437,7 @@ export default function DataEntryPage() {
     if (!firestore) return;
     const visitDocRef = doc(firestore, 'destinations', updatedData.destinationId, 'visits', updatedData.id);
     
-    const dataToSet = { ...updatedData };
+    const dataToSet: Partial<VisitData> = { ...updatedData };
     if (!dataToSet.lastUpdatedBy) {
         delete dataToSet.lastUpdatedBy;
     }
@@ -497,7 +498,7 @@ export default function DataEntryPage() {
       
       batch.commit()
         .then(() => {
-            setAllVisitData(prevData => [...prevData, ...newVisitEntries]);
+            setAllVisitData(prevData => [...(prevData || []), ...newVisitEntries]);
             setSelectedYear(newYear);
             toast({
                 title: "Tahun Ditambahkan",
@@ -556,7 +557,7 @@ export default function DataEntryPage() {
     
     batch.commit()
       .then(() => {
-        setAllVisitData(prevData => prevData.filter(d => d.year !== selectedYear));
+        setAllVisitData(prevData => (prevData || []).filter(d => d.year !== selectedYear));
         const newYear = availableYears.find(y => y !== selectedYear.toString()) || new Date().getFullYear().toString();
         setSelectedYear(parseInt(newYear));
         toast({
@@ -579,7 +580,12 @@ export default function DataEntryPage() {
 
   const dataByDestination = useMemo(() => {
     if (!destinations || !allVisitData) return [];
-    return destinations.map(dest => {
+    
+    const filteredDestinations = selectedDestinationFilter === 'all'
+      ? destinations
+      : destinations.filter(d => d.id === selectedDestinationFilter);
+
+    return filteredDestinations.map(dest => {
       let destData = allVisitData.filter(d => d.destinationId === dest.id && d.year === selectedYear);
       
       if (destData.length === 0 || destData.length < 12) {
@@ -606,7 +612,7 @@ export default function DataEntryPage() {
       
       return { destination: dest, data: destData.sort((a,b) => a.month - b.month) };
     });
-  }, [destinations, allVisitData, selectedYear]);
+  }, [destinations, allVisitData, selectedYear, selectedDestinationFilter]);
 
   if (!appUser) {
     return null; // or a loading skeleton
@@ -624,15 +630,26 @@ export default function DataEntryPage() {
       </div>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <CardTitle>Data Kunjungan Tahun {selectedYear}</CardTitle>
               <CardDescription>Klik pada setiap destinasi untuk mengelola data.</CardDescription>
             </div>
              
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                <Select value={selectedDestinationFilter} onValueChange={setSelectedDestinationFilter}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Pilih Destinasi" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Semua Destinasi</SelectItem>
+                        {(destinations || []).map(d => (
+                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                 <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder="Pilih Tahun" />
                   </SelectTrigger>
                   <SelectContent>
@@ -687,8 +704,15 @@ export default function DataEntryPage() {
                   />
               ))}
             </Accordion>
+             {dataByDestination.length === 0 && (
+                <div className="text-center text-muted-foreground py-12">
+                    <p>Tidak ada data untuk destinasi atau tahun yang dipilih.</p>
+                </div>
+             )}
         </CardContent>
       </Card>
     </div>
   );
 }
+
+    
