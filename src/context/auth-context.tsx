@@ -28,22 +28,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const checkSession = async () => {
       setIsLoading(true);
       try {
-        // Check if a session cookie exists on the server
         const res = await fetch('/api/session', { cache: 'no-store' });
         
         if (res.ok) {
             const serverSession = await res.json();
             if (serverSession && serverSession.uid) {
-              // If server session exists, find the full user data in client-side localStorage
               const allClientUsers = getUsers();
               const clientUser = allClientUsers.find(u => u.uid === serverSession.uid);
               
               if (clientUser) {
-                // Set user state, excluding password
                 const { password: _, ...userToSet } = clientUser;
                 setUser(userToSet); 
               } else {
-                // If user not found in client data, something is wrong, so log out.
                 await logoutAction();
                 setUser(null);
               }
@@ -51,7 +47,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setUser(null);
             }
         } else {
-            // No session found on server
             setUser(null);
         }
       } catch (e) {
@@ -75,30 +70,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Email dan kata sandi harus diisi.");
       }
       
-      // 1. Validate credentials via API route
-      const validationRes = await fetch('/api/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      // 1. Validate credentials on the client side against localStorage data
+      const allUsers = getUsers();
+      const foundUser = allUsers.find(u => u.email === email && u.password === password);
 
-      const validationData = await validationRes.json();
-
-      if (!validationRes.ok || !validationData.success) {
-        throw new Error(validationData.message || 'Email atau kata sandi tidak valid.');
+      if (!foundUser) {
+        throw new Error('Email atau kata sandi tidak valid.');
       }
       
-      const { uid } = validationData;
+      const { uid } = foundUser;
 
       // 2. If valid, call server action to create a session cookie
       const sessionResult = await loginAction(uid);
 
       if (sessionResult.success) {
         // 3. Set user state in the client
-        const allUsers = getUsers();
-        const foundUser = allUsers.find(u => u.uid === uid);
-        if (!foundUser) throw new Error('Pengguna tidak ditemukan setelah login berhasil.');
-
         const { password: _, ...userToSet } = foundUser;
         setUser(userToSet);
         router.push('/dashboard');
@@ -115,11 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    // Call server action to delete the session cookie
     await logoutAction();
-    // Clear user state on the client
     setUser(null);
-    // Redirect to login page
     router.replace('/login');
   };
 
