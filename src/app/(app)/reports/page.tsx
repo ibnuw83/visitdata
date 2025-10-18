@@ -169,7 +169,7 @@ export default function ReportsPage() {
     })
   }
 
-  if (!appUser || !destinations || !visitData) {
+  if (!appUser) {
     return null; // or a loading skeleton
   }
 

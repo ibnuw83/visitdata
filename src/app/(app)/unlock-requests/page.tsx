@@ -60,7 +60,7 @@ export default function UnlockRequestsPage() {
       .then(() => {
         // Optimistically update UI
         setUnlockRequests(prevRequests => 
-          prevRequests.map(req => 
+          (prevRequests || []).map(req => 
             req.id === requestId ? { ...req, status: newStatus, processedBy: appUser.uid } : req
           )
         );

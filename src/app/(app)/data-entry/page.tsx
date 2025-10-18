@@ -395,7 +395,7 @@ export default function DataEntryPage() {
       constraints.push(where('id', 'in', appUser.assignedLocations));
       return query(collection(firestore, 'destinations'), ...constraints);
     }
-
+    
     if (appUser.role === 'pengelola') {
         return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
     }

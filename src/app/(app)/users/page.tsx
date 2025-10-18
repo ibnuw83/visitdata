@@ -50,7 +50,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useFirestore, useCollection, errorEmitter, FirestorePermissionError, AuthError, useAuth } from '@/firebase';
+import { useFirestore, useCollection, errorEmitter, FirestorePermissionError, AuthError, useAuth, useUser } from '@/firebase';
 import { collection, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
@@ -145,6 +145,7 @@ function MultiSelect({
 export default function UsersPage() {
   const firestore = useFirestore();
   const auth = useAuth();
+  const { appUser } = useUser();
   const usersQuery = useMemo(() => firestore ? collection(firestore, 'users') : null, [firestore]);
   const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
 
@@ -301,6 +302,19 @@ export default function UsersPage() {
   const getAssignedLocationsNames = (locationIds: string[]) => {
     if (!destinations || !locationIds || locationIds.length === 0) return '-';
     return locationIds.map(id => destinations.find(d => d.id === id)?.name).filter(Boolean).join(', ');
+  }
+  
+  if (appUser?.role !== 'admin') {
+    return (
+        <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-2">
+                <h1 className="font-headline text-3xl font-bold tracking-tight">Akses Ditolak</h1>
+                <p className="text-muted-foreground">
+                Halaman ini hanya dapat diakses oleh admin.
+                </p>
+            </div>
+        </div>
+    )
   }
 
   return (

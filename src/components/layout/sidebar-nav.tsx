@@ -38,7 +38,7 @@ export default function SidebarNav() {
   const firestore = useFirestore();
 
   const requestsQuery = useMemo(() => {
-    if (!firestore || appUser?.role !== 'admin') return null;
+    if (!firestore || !appUser || appUser.role !== 'admin') return null;
     return query(collection(firestore, 'unlock-requests'), where('status', '==', 'pending'));
   }, [firestore, appUser]);
 

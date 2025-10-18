@@ -31,6 +31,8 @@ export default function DashboardPage() {
             return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
         }
 
+        // For 'pengelola' with no assigned locations, we query an impossible condition
+        // to return an empty set, preventing security rule errors.
         if (appUser.role === 'pengelola') {
             return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
         }
@@ -46,7 +48,7 @@ export default function DashboardPage() {
     
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
 
-    const loading = destinationsLoading || visitsLoading;
+    const loading = !appUser || destinationsLoading || visitsLoading;
 
     const userVisitData = useMemo(() => {
         if (!allVisitData || !appUser || !destinations) return [];
