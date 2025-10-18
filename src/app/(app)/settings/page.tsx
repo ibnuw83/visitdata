@@ -7,15 +7,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError, AuthError } from '@/firebase';
+import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError, AuthError, useCollection, useQuery } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Textarea } from '@/components/ui/textarea';
 import DestinationImageSettings from '@/components/settings/destination-image-settings';
-import { doc, updateDoc, setDoc } from 'firebase/firestore';
-import { AppSettings } from '@/lib/types';
+import { doc, updateDoc, setDoc, collection, getDocs, writeBatch, getDoc, collectionGroup } from 'firebase/firestore';
+import { AppSettings, User, Category, Destination, UnlockRequest, VisitData, Country } from '@/lib/types';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
 
@@ -24,6 +25,11 @@ function AppSettingsCard() {
     const firestore = useFirestore();
     const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings/app') : null, [firestore]);
     const { data: settingsData, loading } = useDoc<AppSettings>(settingsRef);
+    const [isExporting, setIsExporting] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [appTitle, setAppTitle] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
@@ -68,19 +74,145 @@ function AppSettingsCard() {
                 errorEmitter.emit('permission-error', permissionError);
             });
     }
-    
-    const handleBackupData = () => {
-        toast({
-            title: "Info Pencadangan Data",
-            description: "Gunakan fitur ekspor/impor pada konsol Firebase Firestore untuk mencadangkan dan memulihkan data.",
-        });
-    }
 
-    const handleRestoreClick = () => {
-         toast({
-            title: "Info Pemulihan Data",
-            description: "Gunakan fitur ekspor/impor pada konsol Firebase Firestore untuk mencadangkan dan memulihkan data.",
-        });
+    const handleExportData = async () => {
+        if (!firestore) return;
+        setIsExporting(true);
+        toast({ title: "Mengekspor data...", description: "Harap tunggu, proses ini mungkin memakan waktu beberapa saat." });
+
+        try {
+            const collectionsToExport = {
+                users: collection(firestore, 'users'),
+                categories: collection(firestore, 'categories'),
+                destinations: collection(firestore, 'destinations'),
+                unlockRequests: collection(firestore, 'unlock-requests'),
+                countries: collection(firestore, 'countries'),
+            };
+
+            const exportedData: Record<string, any> = {};
+
+            for (const [key, coll] of Object.entries(collectionsToExport)) {
+                const snapshot = await getDocs(coll);
+                exportedData[key] = snapshot.docs.map(d => d.data());
+            }
+            
+            // Get settings
+            const appSettingsDoc = await getDoc(doc(firestore, 'settings/app'));
+            if(appSettingsDoc.exists()) {
+                exportedData.appSettings = appSettingsDoc.data();
+            }
+
+            // Get all visits subcollections
+            const allVisitsSnapshot = await getDocs(collectionGroup(firestore, 'visits'));
+            exportedData.visits = allVisitsSnapshot.docs.map(d => d.data());
+
+
+            const jsonString = JSON.stringify(exportedData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup-visitdata-hub-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            toast({ title: "Ekspor Berhasil", description: "Data Anda telah diunduh sebagai file JSON." });
+        } catch (error: any) {
+            console.error("Export error:", error);
+            errorEmitter.emit('firestore-error', error);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+    
+    const handleImportData = async () => {
+        if (!importFile || !firestore) {
+            toast({ variant: 'destructive', title: 'Tidak ada file dipilih' });
+            return;
+        }
+
+        setIsImporting(true);
+        toast({ title: "Mengimpor data...", description: "Ini akan menimpa data yang ada. Jangan tutup jendela ini." });
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const data = JSON.parse(event.target?.result as string);
+                const batch = writeBatch(firestore);
+
+                // Import users
+                if (data.users && Array.isArray(data.users)) {
+                    data.users.forEach((user: User) => {
+                        const docRef = doc(firestore, 'users', user.uid);
+                        batch.set(docRef, user);
+                    });
+                }
+                
+                // Import categories
+                if (data.categories && Array.isArray(data.categories)) {
+                    data.categories.forEach((category: Category) => {
+                        const docRef = doc(firestore, 'categories', category.id);
+                        batch.set(docRef, category);
+                    });
+                }
+                
+                // Import destinations
+                if (data.destinations && Array.isArray(data.destinations)) {
+                    data.destinations.forEach((destination: Destination) => {
+                        const docRef = doc(firestore, 'destinations', destination.id);
+                        batch.set(docRef, destination);
+                    });
+                }
+                
+                // Import countries
+                if (data.countries && Array.isArray(data.countries)) {
+                    data.countries.forEach((country: Country) => {
+                        const docRef = doc(firestore, 'countries', country.code);
+                        batch.set(docRef, country);
+                    });
+                }
+
+                // Import unlock-requests
+                if (data.unlockRequests && Array.isArray(data.unlockRequests)) {
+                    data.unlockRequests.forEach((request: UnlockRequest) => {
+                        const docRef = doc(firestore, 'unlock-requests', request.id);
+                        batch.set(docRef, request);
+                    });
+                }
+                
+                // Import visits
+                if (data.visits && Array.isArray(data.visits)) {
+                     data.visits.forEach((visit: VisitData) => {
+                        const docRef = doc(firestore, 'destinations', visit.destinationId, 'visits', visit.id);
+                        batch.set(docRef, visit);
+                    });
+                }
+
+                // Import appSettings
+                if (data.appSettings) {
+                    const docRef = doc(firestore, 'settings', 'app');
+                    batch.set(docRef, data.appSettings);
+                }
+
+                await batch.commit();
+
+                toast({ title: "Impor Berhasil", description: "Data telah dipulihkan. Harap segarkan halaman." });
+
+            } catch (error: any) {
+                console.error("Import error:", error);
+                 const permissionError = new FirestorePermissionError({
+                    path: 'batch import',
+                    operation: 'write',
+                    details: error.message
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            } finally {
+                setIsImporting(false);
+                setIsImportDialogOpen(false);
+                setImportFile(null);
+            }
+        };
+        reader.readAsText(importFile);
     };
 
     if (loading) {
@@ -135,11 +267,56 @@ function AppSettingsCard() {
                 <div className="border-t pt-6 space-y-4">
                      <div>
                         <h3 className="text-base font-medium">Cadangkan & Pulihkan Data</h3>
-                        <p className="text-sm text-muted-foreground">Gunakan fitur ekspor/impor pada konsol Firebase Firestore untuk mencadangkan dan memulihkan data.</p>
+                        <p className="text-sm text-muted-foreground">Ekspor semua data aplikasi ke file JSON, atau impor dari file cadangan.</p>
                     </div>
                     <div className='flex justify-between items-center'>
-                        <Button variant="outline" onClick={handleBackupData}>Info Pencadangan</Button>
-                        <Button variant="outline" onClick={handleRestoreClick}>Info Pemulihan</Button>
+                        <Button variant="outline" onClick={handleExportData} disabled={isExporting}>
+                            {isExporting ? 'Mengekspor...' : 'Ekspor Semua Data'}
+                        </Button>
+                        
+                        <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="destructive">Impor Data</Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <AlertDialog>
+                                    <DialogHeader>
+                                        <DialogTitle>Impor Data dari Cadangan</DialogTitle>
+                                        <DialogDescription>Pilih file cadangan JSON (`.json`) untuk diimpor. Ini akan menimpa semua data yang ada saat ini.</DialogDescription>
+                                    </DialogHeader>
+                                    <div className="py-4">
+                                        <Input 
+                                            type="file" 
+                                            accept=".json" 
+                                            ref={fileInputRef} 
+                                            onChange={(e) => setImportFile(e.target.files ? e.target.files[0] : null)} 
+                                        />
+                                        {importFile && <p className="text-sm mt-2 text-muted-foreground">File dipilih: {importFile.name}</p>}
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>Batal</Button>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="destructive" disabled={!importFile || isImporting}>
+                                                {isImporting ? 'Mengimpor...' : 'Lanjutkan Impor'}
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                    </DialogFooter>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Apakah Anda benar-benar yakin?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Tindakan ini akan **MENIMPA** semua data yang ada di database dengan konten dari file cadangan. Tindakan ini tidak dapat diurungkan.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleImportData} className="bg-destructive hover:bg-destructive/90">Ya, Timpa dan Impor</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </DialogContent>
+                        </Dialog>
+
                     </div>
                 </div>
             </CardContent>
