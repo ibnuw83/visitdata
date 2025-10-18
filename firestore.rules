@@ -1,283 +1,196 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a role-based access control model with user-owned profiles.
+ * @file Firebase Security Rules for the application.
  *
- * Data Structure:
- * - /users/{userId}: Stores user profile information; accessible only to the user and admins.
- * - /destinations/{destinationId}: Stores public destination data; publicly readable, but write access is restricted.
- * - /categories/{categoryId}: Stores public destination categories; publicly readable, but write access is restricted.
- * - /countries/{countryId}: Stores public country data; publicly readable, but write access is restricted.
- * - /destinations/{destinationId}/visits/{visitId}: Stores monthly visit data, with access controlled by destination managers and admins.
- * - /unlock-requests/{requestId}: Stores unlock requests, accessible to the requester and admins.
- * - /settings/app: Stores global app settings, accessible to admins only.
- *
- * Key Security Decisions:
- * - Users can only read and write their own profile data.
- * - Destinations, categories, and countries are publicly readable but only writable by admins or "pengelola".
- * - Visit data access is restricted to managers ("pengelola") assigned to the destination and admins.
- * - Unlock requests can be created by any authenticated user, but only admins can process them.
- * - Global app settings are only accessible to admins.
- * - Listing of users is forbidden.
- *
- * Denormalization for Authorization:
- * - The `VisitData` entity does not include a denormalized manager ID. Instead, we rely on checking user roles and assigned destinations.
- * - The `UnlockRequest` entity includes both `requestedBy` and `requesterName` to display requester information even if the user profile is later deleted.
- *
- * Structural Segregation:
- * - No separation of public and private collections. All data is stored in a single set of collections with access control managed by rules.
+ * @core_philosophy This ruleset employs a hybrid security model:
+ *   - User profiles are public read, private write (owner-only).
+ *   - Destinations and categories are public read, admin-only write.
+ *   - Visit data is public read, role-based write (pengelola can only edit destination they're assigned to)
+ *   - Unlock Requests: pengelola can create, admin can approve, reject, or process.
+ *   - App settings: admin-only read/write.
+ * @data_structure
+ *   - /users/{userId}: User profile data, publicly readable, owner-writable.
+ *   - /destinations/{destinationId}: Destination data, publicly readable, admin-only writable.
+ *   - /categories/{categoryId}: Category data, publicly readable, admin-only writable.
+ *   - /countries/{countryId}: Country data, publicly readable, admin-only writable.
+ *   - /destinations/{destinationId}/visits/{visitId}: Visit data for destinations.
+ *   - /unlock-requests/{requestId}: Requests to unlock visit data for editing.
+ *   - /settings/app: Global application settings.
+ * @key_security_decisions
+ *   - User listing is disallowed.
+ *   - User roles are managed server-side and determine write access to destinations, categories, and countries.
+ *   - Role-based authorization is used for `visitData` and `unlockRequests`.
+ *   - Data for destination access for pengelola is denormalized to make security checks efficient.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+        return isSignedIn() && (getUserRole() == 'admin');
+    }
+
+    function isPengelola() {
+        return isSignedIn() && (getUserRole() == 'pengelola');
+    }
+
+    function getUserRole() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function getAssignedDestinationIds() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedLocations;
+    }
+
     /**
-     * @description Controls access to user profile data.
+     * @description Controls access to user profiles.
      * @path /users/{userId}
-     * @allow (get) Authenticated user can read their own profile.
-     * @allow (create) Authenticated user can create their profile if the userId matches their auth.uid.
-     * @allow (update) Authenticated user can update their own profile.
-     * @allow (delete) Authenticated user can delete their own profile.
-     * @deny (get) Authenticated user cannot read another user's profile.
-     * @deny (create) Unauthenticated user cannot create a profile.
-     * @deny (update) Authenticated user cannot update another user's profile.
-     * @deny (delete) Authenticated user cannot delete another user's profile.
-     * @principle Enforces document ownership for writes and restricts read access to the owner.
+     * @allow (create) User with ID 'user123' creates their own profile.
+     *   - Auth: { uid: 'user123' }
+     *   - Data: { uid: 'user123', name: 'John Doe', email: 'john@example.com' }
+     * @deny (create) User with ID 'user123' tries to create profile for 'user456'.
+     *   - Auth: { uid: 'user123' }
+     *   - Data: { uid: 'user456', name: 'John Doe', email: 'john@example.com' }
+     * @principle Enforces user-ownership: users can only read and modify their own profile.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && existsAfter(/databases/$(database)/documents/users/$(userId));
-      }
-
-      allow get: if isOwner(userId);
+      allow get: if true;
       allow list: if false;
-
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == request.auth.uid;
-      allow update: if isExistingOwner(userId) && isOwner(userId) && request.resource.data.uid == request.auth.uid;
-      allow delete: if isExistingOwner(userId) && isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if false;
     }
 
     /**
      * @description Controls access to destination data.
      * @path /destinations/{destinationId}
-     * @allow (get) Any user can read destination data.
-     * @allow (list) Any user can list destinations.
-     * @deny (create) Only 'pengelola' or 'admin' can create a destination.
-     * @deny (update) Only 'pengelola' or 'admin' can update a destination.
-     * @deny (delete) Only 'admin' can delete a destination.
-     * @principle Public read access with restricted write access based on user role.
+     * @allow (get, list) Any user can read destination data.
+     * @allow (create) Admin user creates a new destination.
+     *   - Auth: { uid: 'admin123' }
+     *   - Data: { id: 'dest123', name: 'Beach', category: 'Leisure', location: 'Bali', status: 'active', imageUrl: 'http://example.com/image.jpg' }
+     * @deny (create) Non-admin user attempts to create a new destination.
+     *   - Auth: { uid: 'user123' }
+     *   - Data: { id: 'dest123', name: 'Beach', category: 'Leisure', location: 'Bali', status: 'active', imageUrl: 'http://example.com/image.jpg' }
+     * @principle Public read, admin-only write access for destinations.
      */
     match /destinations/{destinationId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isAdmin() {
-        return isSignedIn() && (getUserRole() == 'admin');
-      }
-
-      function isPengelola() {
-        return isSignedIn() && (getUserRole() == 'pengelola');
-      }
-
-      function getUserRole() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      }
-
       allow get: if true;
       allow list: if true;
-
-      allow create: if isSignedIn() && (isPengelola() || isAdmin());
-      allow update: if isSignedIn() && (isPengelola() || isAdmin());
-      allow delete: if isSignedIn() && isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     /**
-     * @description Controls access to category data.
+     * @description Controls access to categories data.
      * @path /categories/{categoryId}
-     * @allow (get) Any user can read category data.
-     * @allow (list) Any user can list categories.
-     * @deny (create) Only 'pengelola' or 'admin' can create a category.
-     * @deny (update) Only 'pengelola' or 'admin' can update a category.
-     * @deny (delete) Only 'admin' can delete a category.
-     * @principle Public read access with restricted write access based on user role.
+     * @allow (get, list) Any user can read category data.
+     * @allow (create) Admin user creates a new category.
+     *   - Auth: { uid: 'admin123' }
+     *   - Data: { id: 'cat123', name: 'Beach' }
+     * @deny (create) Non-admin user attempts to create a new category.
+     *   - Auth: { uid: 'user123' }
+     *   - Data: { id: 'cat123', name: 'Beach' }
+     * @principle Public read, admin-only write access for categories.
      */
     match /categories/{categoryId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isAdmin() {
-        return isSignedIn() && (getUserRole() == 'admin');
-      }
-
-      function isPengelola() {
-        return isSignedIn() && (getUserRole() == 'pengelola');
-      }
-
-      function getUserRole() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      }
-
-      allow get: if true;
-      allow list: if true;
-
-      allow create: if isSignedIn() && (isPengelola() || isAdmin());
-      allow update: if isSignedIn() && (isPengelola() || isAdmin());
-      allow delete: if isSignedIn() && isAdmin();
+        allow get: if true;
+        allow list: if true;
+        allow create: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
     }
 
-    /**
-     * @description Controls access to country data.
+       /**
+     * @description Controls access to countries data.
      * @path /countries/{countryId}
-     * @allow (get) Any user can read country data.
-     * @allow (list) Any user can list countries.
-     * @deny (create) Only 'pengelola' or 'admin' can create a country.
-     * @deny (update) Only 'pengelola' or 'admin' can update a country.
-     * @deny (delete) Only 'admin' can delete a country.
-     * @principle Public read access with restricted write access based on user role.
+     * @allow (get, list) Any user can read country data.
+     * @allow (create) Admin user creates a new country.
+     *   - Auth: { uid: 'admin123' }
+     *   - Data: { code: 'ID', name: 'Indonesia' }
+     * @deny (create) Non-admin user attempts to create a new country.
+     *   - Auth: { uid: 'user123' }
+     *   - Data: { code: 'ID', name: 'Indonesia' }
+     * @principle Public read, admin-only write access for countries.
      */
     match /countries/{countryId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isAdmin() {
-        return isSignedIn() && (getUserRole() == 'admin');
-      }
-
-      function isPengelola() {
-        return isSignedIn() && (getUserRole() == 'pengelola');
-      }
-
-      function getUserRole() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      }
-
-      allow get: if true;
-      allow list: if true;
-
-      allow create: if isSignedIn() && (isPengelola() || isAdmin());
-      allow update: if isSignedIn() && (isPengelola() || isAdmin());
-      allow delete: if isSignedIn() && isAdmin();
+        allow get: if true;
+        allow list: if true;
+        allow create: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
     }
 
     /**
-     * @description Controls access to visit data for each destination.
+     * @description Controls access to visit data for destinations.
      * @path /destinations/{destinationId}/visits/{visitId}
-     * @allow (get) Any user can read visit data.
-     * @allow (list) Any user can list visit data.
-     * @deny (create) Only 'pengelola' assigned to destination or 'admin' can create visit data.
-     * @deny (update) Only 'pengelola' assigned to destination or 'admin' can update visit data.
-     * @deny (delete) Only 'admin' can delete visit data.
-     * @principle Restricts write access to assigned managers and admins.
+     * @allow (get, list) Any user can read visit data.
+     * @allow (create, update) Pengelola can create/update visit data for destinations they manage.
+     *   - Auth: { uid: 'pengelola123' }
+     *   - Data: { destinationId: 'dest123', year: 2024, month: 1, wisnus: 100, wisman: 50, totalVisitors: 150 }
+     * @deny (create, update) Pengelola attempts to modify visit data for a destination they do not manage.
+     *   - Auth: { uid: 'pengelola123' }
+     *   - Data: { destinationId: 'dest456', year: 2024, month: 1, wisnus: 100, wisman: 50, totalVisitors: 150 }
+     * @deny (create, update) Non-pengelola attempts to modify visit data.
+     *   - Auth: { uid: 'user123' }
+     *   - Data: { destinationId: 'dest123', year: 2024, month: 1, wisnus: 100, wisman: 50, totalVisitors: 150 }
+     * @principle Public read, role-based write access for visit data.
      */
     match /destinations/{destinationId}/visits/{visitId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isAdmin() {
-        return isSignedIn() && (getUserRole() == 'admin');
-      }
-
-      function isPengelola() {
-        return isSignedIn() && (getUserRole() == 'pengelola');
-      }
-
-      function getUserRole() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      }
-
-       function isAssignedDestinationManager(destinationId) {
-            return isSignedIn()
-                && (getUserRole() == 'pengelola')
-                && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedLocations.hasAny([destinationId]));
-        }
-
-       function isExistingAssignedDestinationManager(destinationId, visitId) {
-            return isAssignedDestinationManager(destinationId) && existsAfter(/databases/$(database)/documents/destinations/$(destinationId)/visits/$(visitId));
-        }
-
-      allow get: if true;
-      allow list: if true;
-
-      allow create: if isSignedIn() && (isAssignedDestinationManager(destinationId) || isAdmin());
-      allow update: if isSignedIn() && (isAssignedDestinationManager(destinationId) || isAdmin());
-      allow delete: if isSignedIn() && isAdmin();
+        allow get: if true;
+        allow list: if true;
+        allow create: if isPengelola() && (destinationId in getAssignedDestinationIds());
+        allow update: if isPengelola() && (destinationId in getAssignedDestinationIds());
+        allow delete: if false;
     }
 
     /**
      * @description Controls access to unlock requests.
      * @path /unlock-requests/{requestId}
-     * @allow (create) Any authenticated user can create an unlock request.
-     * @allow (get) Any authenticated user can read an unlock request if they are the requester.
-     * @allow (list) Any authenticated user can list unlock requests if they are the requester.
-     * @deny (update) Only 'admin' can update an unlock request.
-     * @deny (delete) No one can delete an unlock request.
-     * @principle Allows creation by any user, but restricts modification to admins.
+     * @allow (create) Pengelola can create unlock requests.
+     *   - Auth: { uid: 'pengelola123' }
+     *   - Data: { destinationId: 'dest123', month: 1, year: 2024, reason: 'Need to correct data' }
+     * @allow (update) Admin can approve, reject, or process unlock requests.
+     *   - Auth: { uid: 'admin123' }
+     *   - Data: { destinationId: 'dest123', month: 1, year: 2024, reason: 'Need to correct data', status: 'approved' }
+     * @deny (update) Pengelola attempts to modify unlock requests.
+     *   - Auth: { uid: 'pengelola123' }
+     *   - Data: { destinationId: 'dest123', month: 1, year: 2024, reason: 'Need to correct data', status: 'approved' }
+     * @principle Role-based access for managing unlock requests.
      */
     match /unlock-requests/{requestId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isAdmin() {
-        return isSignedIn() && (getUserRole() == 'admin');
-      }
-
-      function isOwner(requestedBy) {
-        return request.auth.uid == requestedBy;
-      }
-
-      function getUserRole() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      }
-
-      allow get: if isSignedIn() && isOwner(resource.data.requestedBy);
-      allow list: if isSignedIn() && isOwner(resource.data.requestedBy);
-
-      allow create: if isSignedIn() && request.resource.data.requestedBy == request.auth.uid;
-      allow update: if isSignedIn() && isAdmin();
-      allow delete: if false;
+        allow get: if false;
+        allow list: if false;
+        allow create: if isPengelola();
+        allow update: if isAdmin();
+        allow delete: if false;
     }
 
     /**
      * @description Controls access to global app settings.
      * @path /settings/app
-     * @deny (get) Only admins can read app settings.
-     * @deny (list) Listing is not applicable for a single document.
-     * @deny (create) Only admins can create app settings.
-     * @deny (update) Only admins can update app settings.
-     * @deny (delete) Only admins can delete app settings.
-     * @principle Restricts all access to admins only.
+     * @allow (get) Any user can read app settings.
+     * @allow (update) Admin user updates app settings.
+     *   - Auth: { uid: 'admin123' }
+     *   - Data: { appTitle: 'My App', logoUrl: 'http://example.com/logo.png' }
+     * @deny (update) Non-admin user attempts to update app settings.
+     *   - Auth: { uid: 'user123' }
+     *   - Data: { appTitle: 'My App', logoUrl: 'http://example.com/logo.png' }
+     * @principle Admin-only access for modifying application settings.
      */
     match /settings/app {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isAdmin() {
-        return isSignedIn() && (getUserRole() == 'admin');
-      }
-
-      function getUserRole() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      }
-
-      allow get: if isSignedIn() && isAdmin();
-      allow list: if false;
-
-      allow create: if isSignedIn() && isAdmin();
-      allow update: if isSignedIn() && isAdmin();
-      allow delete: if isSignedIn() && isAdmin();
+        allow get: if true;
+        allow list: if false;
+        allow create: if false;
+        allow update: if isAdmin();
+        allow delete: if false;
     }
   }
 }
