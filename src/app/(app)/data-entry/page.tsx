@@ -25,6 +25,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -111,15 +112,19 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
   const { toast } = useToast();
   const { user } = useAuth();
 
+  useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
+
   const debouncedSave = useCallback(
-    debounce((newData: VisitData[]) => {
+    debounce((newData: VisitData[], destName: string) => {
       onDataChange(newData);
       toast({
-        title: "Data Disimpan",
-        description: `Perubahan untuk ${destination.name} telah disimpan otomatis.`,
+        title: "Data Disimpan Otomatis",
+        description: `Perubahan untuk ${destName} telah disimpan.`,
       });
     }, 1000),
-    [destination.name]
+    [onDataChange]
   );
   
   const handleDataChange = (monthIndex: number, field: 'wisnus', value: number) => {
@@ -130,7 +135,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
       monthData[field] = value;
       monthData.totalVisitors = monthData.wisnus + monthData.wisman;
       setData(newData);
-      debouncedSave(newData);
+      debouncedSave(newData, destination.name);
     }
   };
 
@@ -142,7 +147,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
         monthData.wisman = wismanDetails.reduce((sum, detail) => sum + (detail.count || 0), 0);
         monthData.totalVisitors = monthData.wisnus + monthData.wisman;
         setData(newData);
-        debouncedSave(newData);
+        debouncedSave(newData, destination.name);
      }
   }
 
@@ -152,7 +157,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
     if (monthData) {
         monthData.locked = locked;
         setData(newData);
-        debouncedSave(newData);
+        onDataChange(newData); // Save immediately
         toast({
             title: `Data ${locked ? 'Dikunci' : 'Dibuka'}`,
             description: `Data untuk bulan ${monthData.monthName} telah ${locked ? 'dikunci' : 'dibuka'}.`,
@@ -361,7 +366,9 @@ export default function DataEntryPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
   const [unlockRequests, setUnlockRequests] = useState<UnlockRequest[]>([]);
-  const [year, setYear] = useState(new Date().getFullYear());
+  
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
     // This now runs only on client
@@ -374,8 +381,17 @@ export default function DataEntryPage() {
         // 'admin' sees all destinations
         setDestinations(allDestinations);
     }
-    setAllVisitData(getVisitData());
+    const visitData = getVisitData();
+    setAllVisitData(visitData);
     setUnlockRequests(getUnlockRequests());
+    
+    const yearsFromData = [...new Set(visitData.map(d => d.year))].sort((a,b) => b-a);
+    const currentYear = new Date().getFullYear();
+    const allYears = [...new Set([currentYear, ...yearsFromData])].sort((a,b) => b-a);
+
+    setAvailableYears(allYears);
+    setSelectedYear(allYears[0] || currentYear);
+
   }, [user]);
 
   const handleDataChange = (updatedData: VisitData[]) => {
@@ -393,10 +409,18 @@ export default function DataEntryPage() {
     setUnlockRequests(updatedRequests);
     saveUnlockRequests(updatedRequests);
   }
+  
+  const handleAddYear = () => {
+    const newYear = (availableYears[0] || new Date().getFullYear()) + 1;
+    if (!availableYears.includes(newYear)) {
+      setAvailableYears([newYear, ...availableYears]);
+      setSelectedYear(newYear);
+    }
+  };
 
   const dataByDestination = useMemo(() => {
     return destinations.map(dest => {
-      const destData = allVisitData.filter(d => d.destinationId === dest.id && d.year === year);
+      const destData = allVisitData.filter(d => d.destinationId === dest.id && d.year === selectedYear);
       
       // If no data for the year, create a default structure for all 12 months
       if (destData.length < 12) {
@@ -405,9 +429,9 @@ export default function DataEntryPage() {
             .map((monthName, index) => ({ monthName, monthIndex: index + 1 }))
             .filter(({ monthIndex }) => !existingMonths.includes(monthIndex))
             .map(({ monthName, monthIndex }) => ({
-                id: `visit-${dest.id}-${year}-${monthIndex}`,
+                id: `visit-${dest.id}-${selectedYear}-${monthIndex}`,
                 destinationId: dest.id,
-                year: year,
+                year: selectedYear,
                 month: monthIndex,
                 monthName: monthName,
                 wisnus: 0,
@@ -424,7 +448,7 @@ export default function DataEntryPage() {
       
       return { destination: dest, data: destData.sort((a,b) => a.month - b.month) };
     });
-  }, [destinations, allVisitData, year]);
+  }, [destinations, allVisitData, selectedYear]);
 
   if (!user) {
     return null; // or a loading skeleton
@@ -442,8 +466,31 @@ export default function DataEntryPage() {
       </div>
       <Card>
         <CardHeader>
-            <CardTitle>Data Kunjungan Tahun {year}</CardTitle>
-            <CardDescription>Klik pada setiap destinasi untuk mengelola data.</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Data Kunjungan Tahun {selectedYear}</CardTitle>
+              <CardDescription>Klik pada setiap destinasi untuk mengelola data.</CardDescription>
+            </div>
+             {user.role === 'admin' && (
+              <div className="flex items-center gap-2">
+                <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+                  <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Pilih Tahun" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {availableYears.map(year => (
+                          <SelectItem key={year} value={year.toString()}>
+                              Tahun {year}
+                          </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" onClick={handleAddYear}>
+                  <PlusCircle className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
             <Accordion type="multiple" className="w-full space-y-2">
@@ -465,3 +512,6 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+
+    
