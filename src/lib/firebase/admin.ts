@@ -11,9 +11,7 @@ import { getFirestore } from "firebase-admin/firestore";
 // In Local Development:
 // The Firebase Admin SDK, when using `applicationDefault()`, will automatically look for
 // a file specified by the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.
-// As a fallback for local development convenience, you can place your
-// `serviceAccountKey.json` file in the root directory. However, the recommended
-// approach is using the env variable.
+// This is the recommended approach for local development.
 
 if (getApps().length === 0) {
   initializeApp({
