@@ -26,6 +26,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -427,7 +438,8 @@ export default function DataEntryPage() {
   const handleAddYear = () => {
     const newYear = (availableYears[0] || new Date().getFullYear()) + 1;
     if (!availableYears.includes(newYear)) {
-      setAvailableYears([newYear, ...availableYears]);
+      const newAvailableYears = [newYear, ...availableYears].sort((a, b) => b - a);
+      setAvailableYears(newAvailableYears);
       setSelectedYear(newYear);
       toast({
         title: "Tahun Ditambahkan",
@@ -435,6 +447,26 @@ export default function DataEntryPage() {
       });
     }
   };
+
+  const handleDeleteYear = () => {
+    if (availableYears.length <= 1) {
+        toast({
+            variant: "destructive",
+            title: "Tindakan Ditolak",
+            description: "Tidak dapat menghapus satu-satunya tahun yang tersedia."
+        });
+        return;
+    }
+
+    const currentData = getVisitData();
+    const newData = currentData.filter(d => d.year !== selectedYear);
+    saveVisitData(newData);
+    
+    toast({
+        title: "Tahun Dihapus",
+        description: `Semua data untuk tahun ${selectedYear} telah dihapus.`,
+    });
+  }
 
   const dataByDestination = useMemo(() => {
     return destinations.map(dest => {
@@ -512,9 +544,30 @@ export default function DataEntryPage() {
                   </SelectContent>
                 </Select>
                  {user.role === 'admin' && (
-                    <Button variant="outline" size="icon" onClick={handleAddYear}>
-                        <PlusCircle className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                        <Button variant="outline" size="icon" onClick={handleAddYear}>
+                            <PlusCircle className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon">
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Hapus Semua Data Tahun {selectedYear}?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Tindakan ini akan menghapus semua data kunjungan untuk tahun <span className="font-bold">{selectedYear}</span> di semua destinasi. Tindakan ini tidak dapat diurungkan.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleDeleteYear} className="bg-destructive hover:bg-destructive/90">Ya, Hapus</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
                  )}
               </div>
             
