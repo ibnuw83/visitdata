@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -53,8 +53,9 @@ import {
 } from "@/components/ui/popover"
 import { useFirestore, useFirebaseApp } from '@/firebase/client-provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { users as seedUsers } from '@/lib/seed';
 
 function MultiSelect({
   options,
@@ -154,6 +155,62 @@ export default function UsersPage() {
   const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    const seedInitialUsers = async () => {
+        if (!firestore || !firebaseApp) return;
+
+        // Check if the users collection is empty
+        const usersCollection = collection(firestore, 'users');
+        const snapshot = await getDocs(usersCollection);
+        if (!snapshot.empty) {
+            console.log("Users collection is not empty, skipping seed.");
+            return;
+        }
+
+        console.log("Seeding initial users...");
+        const auth = getAuth(firebaseApp);
+
+        for (const userData of seedUsers) {
+            try {
+                if (!userData.email || !userData.password) continue;
+                
+                // 1. Create user in Firebase Auth
+                const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+                const newAuthUser = userCredential.user;
+
+                // 2. Create user profile in Firestore
+                const newUserDoc: AppUser = {
+                    uid: newAuthUser.uid,
+                    name: userData.name,
+                    email: userData.email,
+                    role: userData.role,
+                    assignedLocations: userData.assignedLocations || [],
+                    status: userData.status,
+                    avatarUrl: userData.avatarUrl || PlaceHolderImages[0].imageUrl
+                };
+                
+                await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserDoc);
+                 console.log(`Successfully seeded user: ${userData.name}`);
+            } catch (e: any) {
+                if (e.code === 'auth/email-already-in-use') {
+                    console.warn(`User ${userData.email} already exists in Auth. Checking Firestore...`);
+                    // If user exists in Auth but not Firestore, maybe create Firestore doc?
+                    // For now, we just skip to avoid complex logic during initial seed.
+                } else {
+                    console.error("Error seeding user:", userData.email, e);
+                }
+            }
+        }
+        toast({
+            title: "Pengguna Awal Dibuat",
+            description: "Pengguna default telah ditambahkan ke sistem."
+        });
+    };
+
+    seedInitialUsers();
+  }, [firestore, firebaseApp, toast]);
+
 
   // State for Add User Dialog
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
