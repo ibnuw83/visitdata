@@ -3,7 +3,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, Dispatch, SetStateAction } from 'react';
 import { useRouter } from 'next/navigation';
-import { createSessionForUser, logout as logoutAction } from '@/app/auth-actions';
+import { login as loginAction, logout as logoutAction } from '@/app/auth-actions';
 import { User } from '@/lib/types';
 import { getUsers } from '@/lib/local-data-service';
 
@@ -32,25 +32,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (res.ok) {
             const serverSession = await res.json();
-            // Server confirms a session exists and gives us the UID.
-            // Now, we use that UID to get the REAL user data from our client-side source of truth.
             if (serverSession && serverSession.uid) {
               const allClientUsers = getUsers();
               const clientUser = allClientUsers.find(u => u.uid === serverSession.uid);
               
               if (clientUser) {
-                setUser(clientUser); // Set user from the definitive client-side data
+                const { password: _, ...userToSet } = clientUser;
+                setUser(userToSet); 
               } else {
-                // The UID in the session is stale/invalid, log them out.
                 await logoutAction();
                 setUser(null);
               }
             } else {
-              // No valid session object returned by the server.
               setUser(null);
             }
         } else {
-            // If the API call fails (e.g., 404 if session cookie is missing), there's no session.
             setUser(null);
         }
       } catch (e) {
@@ -67,28 +63,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-        const email = formData.get('email') as string;
-        const password = formData.get('password') as string;
+      const result = await loginAction(formData);
 
-        if (!email || !password) {
-            setError("Email dan kata sandi harus diisi.");
-            setIsLoading(false);
-            return;
-        }
-        
-        // Client-side validation against localStorage data is the source of truth
-        const allClientUsers = getUsers();
-        const foundUser = allClientUsers.find(u => u.email === email);
-
-        if (foundUser && foundUser.password === password) {
-            // If credentials are correct, create a server session cookie
-            await createSessionForUser(foundUser.uid);
-            setUser(foundUser);
-            router.push('/dashboard');
-        } else {
-            setError('Email atau kata sandi tidak valid.');
-        }
-
+      if (result.success && result.user) {
+        setUser(result.user);
+        router.push('/dashboard');
+      } else {
+        setError(result.error || 'Terjadi kesalahan yang tidak diketahui.');
+      }
     } catch (e: any) {
       console.error("Login Error:", e);
       setError(e.message || 'Terjadi kesalahan saat login.');
@@ -100,7 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await logoutAction();
     setUser(null);
-    // Use replace so user can't go back to a protected route
     router.replace('/login');
   };
 
