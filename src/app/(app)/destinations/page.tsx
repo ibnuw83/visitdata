@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getDestinations, saveDestinations, getCategories } from "@/lib/local-data-service";
 import type { Destination, Category } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { Landmark, MoreHorizontal, FilePenLine, Trash2, ToggleLeft, ToggleRight, PlusCircle } from 'lucide-react';
+import { Landmark, MoreHorizontal, FilePenLine, Trash2, ToggleLeft, ToggleRight, PlusCircle, Building, Mountain } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -45,6 +45,7 @@ export default function DestinationsPage() {
   const [newDestinationName, setNewDestinationName] = useState('');
   const [newDestinationCategory, setNewDestinationCategory] = useState('');
   const [newDestinationLocation, setNewDestinationLocation] = useState('');
+  const [newDestinationManagement, setNewDestinationManagement] = useState<'pemerintah' | 'swasta' | ''>('');
 
   const { toast } = useToast();
   
@@ -57,10 +58,11 @@ export default function DestinationsPage() {
     setNewDestinationName('');
     setNewDestinationCategory('');
     setNewDestinationLocation('');
+    setNewDestinationManagement('');
   }
 
   const handleAddNewDestination = () => {
-    if (!newDestinationName.trim() || !newDestinationCategory.trim() || !newDestinationLocation.trim()) {
+    if (!newDestinationName.trim() || !newDestinationCategory.trim() || !newDestinationLocation.trim() || !newDestinationManagement) {
       toast({
         variant: "destructive",
         title: "Input tidak lengkap",
@@ -73,6 +75,7 @@ export default function DestinationsPage() {
       id: `dest-${Date.now()}`,
       name: newDestinationName.trim(),
       category: newDestinationCategory,
+      managementType: newDestinationManagement,
       location: newDestinationLocation.trim(),
       status: 'aktif',
       manager: 'pengelola-01', // Default manager for new destination
@@ -129,6 +132,15 @@ export default function DestinationsPage() {
     aktif: "default",
     nonaktif: "destructive",
   };
+  
+  const managementVariant: { [key in Destination['managementType']]: "secondary" | "outline" } = {
+    pemerintah: "secondary",
+    swasta: "outline",
+  };
+  
+  const ManagementIcon = ({ type }: { type: Destination['managementType']}) => {
+    return type === 'pemerintah' ? <Building className="h-4 w-4" /> : <Mountain className="h-4 w-4" />;
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -186,6 +198,20 @@ export default function DestinationsPage() {
                         </SelectContent>
                     </Select>
                   </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="dest-management" className="text-right">
+                      Pengelola
+                    </Label>
+                     <Select value={newDestinationManagement} onValueChange={(value) => setNewDestinationManagement(value as 'pemerintah' | 'swasta')}>
+                        <SelectTrigger id="dest-management" className="col-span-3">
+                            <SelectValue placeholder="Pilih Jenis Pengelola" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="pemerintah" className="capitalize">Pemerintah</SelectItem>
+                            <SelectItem value="swasta" className="capitalize">Swasta</SelectItem>
+                        </SelectContent>
+                    </Select>
+                  </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="dest-location" className="text-right">
                       Lokasi
@@ -214,6 +240,7 @@ export default function DestinationsPage() {
                     <TableRow>
                         <TableHead>Nama Destinasi</TableHead>
                         <TableHead>Kategori</TableHead>
+                        <TableHead>Jenis Pengelola</TableHead>
                         <TableHead>Lokasi</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Aksi</TableHead>
@@ -230,6 +257,12 @@ export default function DestinationsPage() {
                             </TableCell>
                             <TableCell>
                                 <Badge variant="outline" className="capitalize">{dest.category}</Badge>
+                            </TableCell>
+                            <TableCell>
+                                <Badge variant={managementVariant[dest.managementType]} className="capitalize flex items-center gap-1.5">
+                                  <ManagementIcon type={dest.managementType} />
+                                  {dest.managementType}
+                                </Badge>
                             </TableCell>
                             <TableCell className="text-muted-foreground">{dest.location}</TableCell>
                             <TableCell>

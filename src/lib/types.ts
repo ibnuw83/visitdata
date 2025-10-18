@@ -12,6 +12,7 @@ export type Destination = {
   id: string;
   name: string;
   category: string; // Now a string to allow dynamic categories
+  managementType: 'pemerintah' | 'swasta';
   manager: string; // uid of pengelola
   location: string;
   status: 'aktif' | 'nonaktif';
