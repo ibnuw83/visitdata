@@ -75,24 +75,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Email dan kata sandi harus diisi.");
       }
       
-      // 1. Validate against client-side data from localStorage
-      const allUsers = getUsers();
-      const foundUser = allUsers.find(u => u.email === email && u.password === password);
-      
-      if (!foundUser) {
-        throw new Error('Email atau kata sandi tidak valid.');
+      // 1. Validate credentials via API route
+      const validationRes = await fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const validationData = await validationRes.json();
+
+      if (!validationRes.ok || !validationData.success) {
+        throw new Error(validationData.message || 'Email atau kata sandi tidak valid.');
       }
       
-      // 2. If valid, call server action to create a session cookie
-      const result = await loginAction(foundUser.uid);
+      const { uid } = validationData;
 
-      if (result.success) {
+      // 2. If valid, call server action to create a session cookie
+      const sessionResult = await loginAction(uid);
+
+      if (sessionResult.success) {
         // 3. Set user state in the client
+        const allUsers = getUsers();
+        const foundUser = allUsers.find(u => u.uid === uid);
+        if (!foundUser) throw new Error('Pengguna tidak ditemukan setelah login berhasil.');
+
         const { password: _, ...userToSet } = foundUser;
         setUser(userToSet);
         router.push('/dashboard');
       } else {
-        throw new Error(result.error || 'Gagal membuat sesi server.');
+        throw new Error(sessionResult.error || 'Gagal membuat sesi server.');
       }
 
     } catch (e: any) {
