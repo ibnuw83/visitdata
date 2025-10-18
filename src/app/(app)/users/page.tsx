@@ -7,7 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { User as AppUser, Destination } from '@/lib/types';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { MoreHorizontal, FilePenLine, Trash2, PlusCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
@@ -55,7 +54,6 @@ import { useFirestore, useFirebaseApp } from '@/firebase/client-provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { users as seedUsers } from '@/lib/seed';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -274,7 +272,7 @@ export default function UsersPage() {
         role: newUserRole,
         assignedLocations: newUserRole === 'pengelola' ? newUserAssignedLocations : [],
         status: 'aktif',
-        avatarUrl: PlaceHolderImages[(users.length || 0) % PlaceHolderImages.length].imageUrl
+        avatarUrl: `https://i.pravatar.cc/150?u=${newAuthUser.uid}`
       };
       
       const userDocRef = doc(firestore, 'users', newAuthUser.uid);
@@ -583,3 +581,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+    
