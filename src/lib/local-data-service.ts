@@ -11,6 +11,11 @@ import {
 } from './mock-data';
 import type { User, Destination, VisitData, UnlockRequest, Category, Country } from './types';
 
+// For authentication, always use the static mock data to avoid inconsistencies.
+export function getUsers(): User[] {
+  return mockUsers;
+}
+
 function initializeData<T>(key: string, mockData: T[]): T[] {
   try {
     if (typeof window === 'undefined') return mockData; // Return mock data in SSR
@@ -39,12 +44,10 @@ function saveData<T>(key: string, data: T[]): void {
 
 // --- Data Access Functions ---
 
-export function getUsers(): User[] {
-  return initializeData('users', mockUsers);
-}
-
 export function saveUsers(users: User[]): void {
-  saveData('users', users);
+  // We don't save users to localStorage to keep the mock data consistent for login
+  // This can be re-enabled if a user management feature requires persistence.
+  console.log("Note: User data is based on mock-data.ts and is not saved to localStorage.");
 }
 
 export function getDestinations(): Destination[] {
@@ -105,7 +108,7 @@ export function saveAllData(data: {
     categories: Category[],
     countries: Country[],
 }) {
-    saveUsers(data.users);
+    // saveUsers(data.users); // users are not saved
     saveDestinations(data.destinations);
     saveVisitData(data.visitData);
     saveUnlockRequests(data.unlockRequests);

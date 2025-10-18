@@ -74,9 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       const allUsers = getUsers();
-      const foundUser = allUsers.find(u => u.email === email);
+      const foundUser = allUsers.find(u => u.email === email && u.password === password);
       
-      if (foundUser && foundUser.password === password) {
+      if (foundUser) {
         const result = await loginAction(foundUser.uid);
 
         if (result.success) {
