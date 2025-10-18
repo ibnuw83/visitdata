@@ -283,7 +283,6 @@ export default function UsersPage() {
             errorEmitter.emit('permission-error', permissionError);
           });
     } catch (e: any) {
-        console.error("Error creating user:", e);
         const authError = new AuthError(e.code, e.message);
         errorEmitter.emit('auth-error', authError);
     }
@@ -422,7 +421,7 @@ export default function UsersPage() {
                 </TableHeader>
                 <TableBody>
                     {usersLoading ? (
-                      <TableRow>
+                      <TableRow key="loading-row">
                         <TableCell colSpan={5} className="h-24 text-center">
                           Memuat data pengguna...
                         </TableCell>
@@ -565,5 +564,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    
