@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getDestinations, getVisitData } from "@/lib/local-data-service";
 import { Destination, VisitData } from "@/lib/types";
 import { useEffect, useState, useMemo } from "react";
 import { Download } from "lucide-react";
@@ -12,12 +11,28 @@ import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
-import { useAuth } from "@/context/auth-context";
+import { useAuth } from '@/context/auth-context';
+import { useCollection, useFirestore } from "@/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 export default function ReportsPage() {
   const { user } = useAuth();
-  const [destinations, setDestinations] = useState<Destination[]>([]);
-  const [visitData, setVisitData] = useState<VisitData[]>([]);
+  const firestore = useFirestore();
+
+  const destinationsQuery = useMemo(() => {
+    if (!firestore || !user) return null;
+    if (user.role === 'admin') {
+      return collection(firestore, 'destinations');
+    }
+    if (user.assignedLocations && user.assignedLocations.length > 0) {
+      return query(collection(firestore, 'destinations'), where('id', 'in', user.assignedLocations));
+    }
+    return null;
+  }, [firestore, user]);
+
+  const { data: destinations } = useCollection<Destination>(destinationsQuery);
+  const { data: visitData } = useCollection<VisitData>(firestore ? collection(firestore, 'visits') : null);
+
 
   // Filter state
   const [selectedDestination, setSelectedDestination] = useState('all');
@@ -26,33 +41,29 @@ export default function ReportsPage() {
 
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!user) return;
-
-    const allDestinations = getDestinations();
-    const allVisitData = getVisitData();
-
-    if (user.role === 'pengelola') {
-      const assignedDestinationIds = user.assignedLocations;
-      const assignedDestinations = allDestinations.filter(d => assignedDestinationIds.includes(d.id));
-      const assignedVisitData = allVisitData.filter(vd => assignedDestinationIds.includes(vd.destinationId));
-      
-      setDestinations(assignedDestinations);
-      setVisitData(assignedVisitData);
-    } else {
-      setDestinations(allDestinations);
-      setVisitData(allVisitData);
+  const years = useMemo(() => {
+    if (!visitData) return [new Date().getFullYear()];
+    const allYears = [...new Set(visitData.map(d => d.year))].sort((a,b) => b-a);
+    if (!allYears.includes(new Date().getFullYear())) {
+        allYears.unshift(new Date().getFullYear());
     }
-  }, [user]);
-  
+    return allYears;
+  },[visitData]);
 
-  const years = [...new Set(visitData.map(d => d.year))].sort((a,b) => b - a);
   const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, name: new Date(0, i).toLocaleString('id-ID', { month: 'long' }) }));
   
-  const destinationMap = useMemo(() => new Map(destinations.map(d => [d.id, d.name])), [destinations]);
+  const destinationMap = useMemo(() => new Map(destinations?.map(d => [d.id, d.name])), [destinations]);
 
   const filteredData = useMemo(() => {
+    if (!visitData || !destinations) return [];
+
     let data = visitData;
+
+    // Filter based on user role
+    if (user?.role === 'pengelola' && user.assignedLocations.length > 0) {
+      data = data.filter(d => user.assignedLocations.includes(d.destinationId));
+    }
+    
     if (selectedDestination !== 'all') {
       data = data.filter(d => d.destinationId === selectedDestination);
     }
@@ -66,7 +77,7 @@ export default function ReportsPage() {
         if (a.year !== b.year) return b.year - a.year;
         return a.month - b.month;
     });
-  }, [visitData, selectedDestination, selectedYear, selectedMonth]);
+  }, [visitData, destinations, selectedDestination, selectedYear, selectedMonth, user]);
 
 
   const handleDownload = () => {
@@ -141,7 +152,7 @@ export default function ReportsPage() {
     })
   }
 
-  if (!user) {
+  if (!user || !destinations || !visitData) {
     return null; // or a loading skeleton
   }
 

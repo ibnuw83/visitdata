@@ -2,7 +2,7 @@ export type User = {
   uid: string;
   name: string;
   email: string;
-  password?: string; // Added for user creation
+  password?: string; // Only for creation, won't be stored in Firestore
   role: 'admin' | 'pengelola';
   assignedLocations: string[]; // Array of destination IDs
   status: 'aktif' | 'nonaktif';
@@ -12,11 +12,11 @@ export type User = {
 export type Destination = {
   id: string;
   name: string;
-  category: string; // Now a string to allow dynamic categories
+  category: string; 
   managementType: 'pemerintah' | 'swasta';
-  manager: string; // uid of pengelola
   location: string;
   status: 'aktif' | 'nonaktif';
+  imageUrl?: string;
 };
 
 export type Category = {
@@ -35,7 +35,7 @@ export type WismanDetail = {
 };
 
 export type VisitData = {
-  id: string;
+  id: string; // {destinationId}-{year}-{month}
   destinationId: string;
   year: number;
   month: number; // 1-12
@@ -43,23 +43,21 @@ export type VisitData = {
   wisnus: number; // Wisatawan Nusantara
   wisman: number; // Wisatawan Mancanegara (total)
   wismanDetails: WismanDetail[];
-  eventVisitors: number;
-  historicalVisitors: number;
   totalVisitors: number;
   locked: boolean;
   lastUpdatedBy?: string; // uid of user
-  revisionRequests?: any[]; // Simplified for now
-  verifiedBy?: string; // uid of admin
 };
 
 export type UnlockRequest = {
   id: string;
   destinationId: string;
+  destinationName?: string; // For display purposes
   month: number;
   year: number;
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
   requestedBy: string; // uid of pengelola
+  requesterName?: string; // For display purposes
   processedBy?: string; // uid of admin
   timestamp: string;
 };

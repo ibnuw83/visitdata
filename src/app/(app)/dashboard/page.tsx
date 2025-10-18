@@ -8,7 +8,7 @@ import StatCard from "@/components/dashboard/stat-card";
 import MonthlyVisitorsChart from "@/components/dashboard/monthly-visitors-chart";
 import VisitorBreakdownChart from "@/components/dashboard/visitor-breakdown-chart";
 import TopDestinationsCard from "@/components/dashboard/top-destinations-card";
-import { getVisitData, getDestinations } from "@/lib/local-data-service";
+// Removed local-data-service imports
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,8 +25,9 @@ export default function DashboardPage() {
         if (!user) return;
 
         setLoading(true);
-        const visitDataFromDb = getVisitData();
-        const destinationsFromDb = getDestinations();
+        // This data will come from Firestore
+        const visitDataFromDb: VisitData[] = [];
+        const destinationsFromDb: Destination[] = [];
 
         let userDestinations = destinationsFromDb;
         let userVisitData = visitDataFromDb;
@@ -54,20 +55,18 @@ export default function DashboardPage() {
 
     useEffect(() => {
         fetchData();
-        window.addEventListener('storage', fetchData);
-        return () => {
-            window.removeEventListener('storage', fetchData);
-        };
+        // The 'storage' event listener is no longer needed
     }, [fetchData]);
     
     const availableYears = useMemo(() => {
-        const allYears = [...new Set(getVisitData().map(d => d.year))].sort((a,b) => b-a);
+        // This will be populated from Firestore data
+        const allYears = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
         const currentYear = new Date().getFullYear();
         if(!allYears.includes(currentYear)) {
             allYears.unshift(currentYear);
         }
         return allYears;
-    }, []);
+    }, [allVisitData]);
 
     const yearlyData = useMemo(() => {
         return allVisitData.filter(d => d.year === parseInt(selectedYear));

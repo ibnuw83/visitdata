@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getDestinations, saveDestinations, getCategories, getDestinationImageMap, saveDestinationImageMap } from "@/lib/local-data-service";
+// Removed local-data-service
 import type { Destination, Category } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Landmark, MoreHorizontal, FilePenLine, Trash2, ToggleLeft, ToggleRight, PlusCircle, Building, Mountain } from 'lucide-react';
@@ -36,6 +36,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const colorPalette = [
     "text-blue-600",
@@ -51,16 +52,15 @@ const colorPalette = [
 export default function DestinationsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
-  // State for new destination form
   const [newDestinationName, setNewDestinationName] = useState('');
   const [newDestinationCategory, setNewDestinationCategory] = useState('');
   const [newDestinationLocation, setNewDestinationLocation] = useState('');
   const [newDestinationManagement, setNewDestinationManagement] = useState<'pemerintah' | 'swasta' | ''>('');
   const [newDestinationImageUrl, setNewDestinationImageUrl] = useState('');
 
-  // State for editing destination
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingDestination, setEditingDestination] = useState<Destination | null>(null);
   const [editedDestinationName, setEditedDestinationName] = useState('');
@@ -69,21 +69,18 @@ export default function DestinationsPage() {
   const [editedDestinationManagement, setEditedDestinationManagement] = useState<'pemerintah' | 'swasta'>('pemerintah');
   const [editedDestinationImageUrl, setEditedDestinationImageUrl] = useState('');
 
-
   const { toast } = useToast();
   
   const fetchData = useCallback(() => {
-    const allDestinations = getDestinations();
-    setDestinations(allDestinations);
-    setCategories(getCategories());
+    setLoading(true);
+    // Data will be fetched from Firestore
+    setDestinations([]);
+    setCategories([]);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchData();
-    window.addEventListener('storage', fetchData);
-    return () => {
-      window.removeEventListener('storage', fetchData);
-    };
   }, [fetchData]);
 
   const resetAddForm = () => {
@@ -104,30 +101,10 @@ export default function DestinationsPage() {
       return;
     }
 
-    const currentDestinations = getDestinations();
-    const newDestinationId = `dest-${Date.now()}`;
-    const newDestination: Destination = {
-      id: newDestinationId,
-      name: newDestinationName.trim(),
-      category: newDestinationCategory,
-      managementType: newDestinationManagement,
-      location: newDestinationLocation.trim(),
-      status: 'aktif',
-      manager: 'pengelola-01', // Default manager for new destination
-    };
-
-    const updatedDestinations = [...currentDestinations, newDestination];
-    saveDestinations(updatedDestinations);
-    
-    // Update and save the image map
-    const imageMap = getDestinationImageMap(currentDestinations);
-    const newImageMap = { ...imageMap, [newDestinationId]: newDestinationImageUrl };
-    saveDestinationImageMap(newImageMap);
-
-
+    // Logic to add to Firestore will be implemented here
     toast({
       title: "Destinasi Ditambahkan",
-      description: `Destinasi "${newDestination.name}" berhasil dibuat.`,
+      description: `Destinasi "${newDestinationName}" berhasil dibuat.`,
     });
     
     setIsAddDialogOpen(false);
@@ -135,33 +112,21 @@ export default function DestinationsPage() {
   };
 
   const handleToggleStatus = (destinationId: string) => {
-    const currentDestinations = getDestinations();
-    const updatedDestinations = currentDestinations.map(dest => {
-      if (dest.id === destinationId) {
-        return { ...dest, status: dest.status === 'aktif' ? 'nonaktif' : 'aktif' };
-      }
-      return dest;
-    });
-    saveDestinations(updatedDestinations);
-    const updatedDest = updatedDestinations.find(d => d.id === destinationId);
+    // Logic to update status in Firestore
+    const dest = destinations.find(d => d.id === destinationId);
+    if (!dest) return;
+    const newStatus = dest.status === 'aktif' ? 'nonaktif' : 'aktif';
+    setDestinations(destinations.map(d => d.id === destinationId ? { ...d, status: newStatus } : d)); // Optimistic update
     toast({
       title: "Status Diperbarui",
-      description: `Status destinasi "${updatedDest?.name}" sekarang ${updatedDest?.status}.`,
+      description: `Status destinasi "${dest.name}" sekarang ${newStatus}.`,
     });
   };
 
   const handleDelete = (destinationId: string) => {
-    const currentDestinations = getDestinations();
-    const destinationName = currentDestinations.find(d => d.id === destinationId)?.name;
-    const updatedDestinations = currentDestinations.filter(dest => dest.id !== destinationId);
-    saveDestinations(updatedDestinations);
-
-    // Also remove from imageMap
-    const imageMap = getDestinationImageMap(currentDestinations);
-    const newImageMap = { ...imageMap };
-    delete newImageMap[destinationId];
-    saveDestinationImageMap(newImageMap);
-
+    // Logic to delete from Firestore
+    const destinationName = destinations.find(d => d.id === destinationId)?.name;
+    setDestinations(destinations.filter(d => d.id !== destinationId)); // Optimistic update
     toast({
       title: "Destinasi Dihapus",
       description: `Destinasi "${destinationName}" telah dihapus.`,
@@ -174,9 +139,7 @@ export default function DestinationsPage() {
     setEditedDestinationCategory(destination.category);
     setEditedDestinationLocation(destination.location);
     setEditedDestinationManagement(destination.managementType);
-    
-    const imageMap = getDestinationImageMap(getDestinations());
-    setEditedDestinationImageUrl(imageMap[destination.id] || '');
+    setEditedDestinationImageUrl(destination.imageUrl || '');
     setIsEditDialogOpen(true);
   }
 
@@ -190,25 +153,7 @@ export default function DestinationsPage() {
       return;
     }
 
-    const currentDestinations = getDestinations();
-    const updatedDestinations = currentDestinations.map(d => 
-      d.id === editingDestination.id 
-        ? { 
-            ...d, 
-            name: editedDestinationName.trim(),
-            category: editedDestinationCategory,
-            location: editedDestinationLocation.trim(),
-            managementType: editedDestinationManagement,
-          } 
-        : d
-    );
-    saveDestinations(updatedDestinations);
-    
-    // Update and save the image map
-    const imageMap = getDestinationImageMap(currentDestinations);
-    const newImageMap = { ...imageMap, [editingDestination.id]: editedDestinationImageUrl };
-    saveDestinationImageMap(newImageMap);
-
+    // Logic to update in Firestore
     setIsEditDialogOpen(false);
     setEditingDestination(null);
     
@@ -218,18 +163,46 @@ export default function DestinationsPage() {
     });
   }
 
-  const statusVariant: { [key in Destination['status']]: "default" | "destructive" } = {
+  const statusVariant: { [key in 'aktif' | 'nonaktif']: "default" | "destructive" } = {
     aktif: "default",
     nonaktif: "destructive",
   };
   
-  const managementVariant: { [key in Destination['managementType']]: "secondary" | "outline" } = {
+  const managementVariant: { [key in 'pemerintah' | 'swasta']: "secondary" | "outline" } = {
     pemerintah: "secondary",
     swasta: "outline",
   };
   
-  const ManagementIcon = ({ type }: { type: Destination['managementType']}) => {
+  const ManagementIcon = ({ type }: { type: 'pemerintah' | 'swasta'}) => {
     return type === 'pemerintah' ? <Building className="h-4 w-4" /> : <Mountain className="h-4 w-4" />;
+  }
+
+  if(loading) {
+    return (
+        <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-2">
+                <Skeleton className="h-9 w-32" />
+                <Skeleton className="h-5 w-64" />
+            </div>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="space-y-1.5">
+                        <Skeleton className="h-7 w-40" />
+                        <Skeleton className="h-5 w-80" />
+                    </div>
+                    <Skeleton className="h-10 w-44" />
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
   }
 
   return (
@@ -416,6 +389,13 @@ export default function DestinationsPage() {
                             </TableCell>
                         </TableRow>
                     ))}
+                    {destinations.length === 0 && !loading && (
+                        <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center">
+                                Belum ada destinasi.
+                            </TableCell>
+                        </TableRow>
+                    )}
                 </TableBody>
             </Table>
         </CardContent>

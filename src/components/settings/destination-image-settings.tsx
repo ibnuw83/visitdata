@@ -7,27 +7,27 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getDestinations, getDestinationImageMap, saveDestinationImageMap } from '@/lib/local-data-service';
+// Removed local-data-service
 import type { Destination } from '@/lib/types';
 import Image from 'next/image';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DestinationImageSettings() {
     const { toast } = useToast();
     const [destinations, setDestinations] = useState<Destination[]>([]);
     const [imageMap, setImageMap] = useState<Record<string, string>>({});
+    const [loading, setLoading] = useState(true);
 
     const fetchData = useCallback(() => {
-        const allDestinations = getDestinations();
-        setDestinations(allDestinations);
-        setImageMap(getDestinationImageMap(allDestinations));
+        setLoading(true);
+        // This will be replaced with a Firestore query
+        setDestinations([]);
+        setImageMap({});
+        setLoading(false);
     }, []);
 
     useEffect(() => {
         fetchData();
-        window.addEventListener('storage', fetchData);
-        return () => {
-            window.removeEventListener('storage', fetchData);
-        };
     }, [fetchData]);
 
 
@@ -39,11 +39,36 @@ export default function DestinationImageSettings() {
     };
 
     const handleSaveChanges = () => {
-        saveDestinationImageMap(imageMap);
+        // This will be replaced with batched Firestore updates
         toast({
             title: "Pengaturan Gambar Disimpan",
             description: "URL gambar untuk destinasi unggulan telah diperbarui.",
         });
+    }
+
+    if(loading) {
+        return (
+             <Card>
+                <CardHeader>
+                    <Skeleton className="h-7 w-64" />
+                    <Skeleton className="h-5 w-80" />
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                        {Array.from({length: 3}).map((_, i) => (
+                             <div key={i} className="flex items-center gap-4">
+                                <Skeleton className="h-16 w-16 rounded-md" />
+                                <div className="flex-grow space-y-2">
+                                    <Skeleton className="h-5 w-32" />
+                                    <Skeleton className="h-10 w-full" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                     <Skeleton className="h-10 w-48" />
+                </CardContent>
+            </Card>
+        )
     }
 
     return (

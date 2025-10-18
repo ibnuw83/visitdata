@@ -7,25 +7,23 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import Image from "next/image";
 import { useMemo, useState, useEffect } from "react";
 import Autoplay from "embla-carousel-autoplay";
-import { getDestinationImageMap, getDestinations as getAllDestinations } from "@/lib/local-data-service";
+// Removed local-data-service
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function TopDestinationsCarousel({ data, destinations }: { data: VisitData[], destinations: Destination[] }) {
+    // imageMap will be fetched from firestore or passed as a prop
     const [imageMap, setImageMap] = useState<Record<string, string>>({});
 
     useEffect(() => {
-        const updateMap = () => {
-            const map = getDestinationImageMap(getAllDestinations());
-            setImageMap(map);
-        }
-        updateMap();
-        
-        // Listen for storage changes to update the images in real-time
-        window.addEventListener('storage', updateMap);
-        return () => {
-            window.removeEventListener('storage', updateMap);
-        };
-    }, []);
+        // This will be replaced with Firestore data
+        const map: Record<string, string> = {};
+        destinations.forEach(dest => {
+            if(dest.imageUrl) {
+                map[dest.id] = dest.imageUrl;
+            }
+        });
+        setImageMap(map);
+    }, [destinations]);
     
     const destinationTotals = useMemo(() => destinations.map(dest => {
         const totalVisitors = data
@@ -37,6 +35,20 @@ export default function TopDestinationsCarousel({ data, destinations }: { data: 
     const top5 = useMemo(() => destinationTotals.sort((a, b) => b.totalVisitors - a.totalVisitors).slice(0, 5), [destinationTotals]);
     
     const defaultImage = PlaceHolderImages[0];
+
+    if (top5.length === 0) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Peringkat Destinasi Unggulan</CardTitle>
+                    <CardDescription>5 destinasi teratas berdasarkan total kunjungan tahunan.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-48">
+                    <p className="text-muted-foreground">Data destinasi tidak tersedia.</p>
+                </CardContent>
+            </Card>
+        )
+    }
 
     return (
         <Card>
@@ -59,7 +71,7 @@ export default function TopDestinationsCarousel({ data, destinations }: { data: 
                 >
                     <CarouselContent>
                         {top5.map((dest, index) => {
-                            const imageUrl = imageMap[dest.id] || defaultImage.imageUrl;
+                            const imageUrl = dest.imageUrl || defaultImage.imageUrl;
                             return (
                                 <CarouselItem key={dest.id} className="md:basis-1/2 lg:basis-1/3">
                                     <div className="p-1">

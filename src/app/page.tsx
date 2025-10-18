@@ -8,7 +8,7 @@ import StatCard from "@/components/dashboard/stat-card";
 import MonthlyVisitorsChart from "@/components/dashboard/monthly-visitors-chart";
 import VisitorBreakdownChart from "@/components/dashboard/visitor-breakdown-chart";
 import TopDestinationsCarousel from "@/components/dashboard/top-destinations-carousel";
-import { getVisitData, getDestinations } from "@/lib/local-data-service";
+// Removed local-data-service imports
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,47 +27,21 @@ function DashboardContent() {
 
     const fetchData = useCallback(() => {
         setLoading(true);
-        const visitDataFromDb = getVisitData();
-        const destinationsFromDb = getDestinations();
-
-        let userDestinations = destinationsFromDb;
-        let userVisitData = visitDataFromDb;
-
-        if (user && user.role === 'pengelola') {
-            const assignedIds = user.assignedLocations;
-            userDestinations = destinationsFromDb.filter(d => assignedIds.includes(d.id));
-            userVisitData = visitDataFromDb.filter(vd => assignedIds.includes(vd.destinationId));
-        }
-        
-        setDestinations(userDestinations);
-        setAllVisitData(userVisitData);
-        
-        const availableYears = [...new Set(userVisitData.map(d => d.year))].sort((a,b) => b-a);
-        if (availableYears.length > 0) {
-            if (!availableYears.includes(parseInt(selectedYear))) {
-                setSelectedYear(availableYears[0].toString());
-            }
-        } else {
-            setSelectedYear(new Date().getFullYear().toString());
-        }
+        // This will be replaced by Firestore queries
+        setDestinations([]);
+        setAllVisitData([]);
+        setSelectedYear(new Date().getFullYear().toString());
         setLoading(false);
-    }, [user, selectedYear]);
+    }, []);
 
     useEffect(() => {
         fetchData();
-        window.addEventListener('storage', fetchData);
-        return () => {
-            window.removeEventListener('storage', fetchData);
-        };
+        // The 'storage' event listener is no longer needed
     }, [fetchData]);
     
     const availableYears = useMemo(() => {
-        const allYears = [...new Set(getVisitData().map(d => d.year))].sort((a,b) => b-a);
-        const currentYear = new Date().getFullYear();
-        if(!allYears.includes(currentYear)) {
-            allYears.unshift(currentYear);
-        }
-        return allYears;
+        // This will be replaced by a query to get distinct years from Firestore
+        return [new Date().getFullYear()];
     }, []);
 
     const yearlyData = useMemo(() => {
@@ -171,6 +145,7 @@ function PublicLandingPage() {
 
 
   useEffect(() => {
+    // This will be replaced with data from a settings collection in Firestore
     const updateText = () => {
         setAppTitle(localStorage.getItem('appTitle') || 'VisitData Hub');
         setAppFooter(localStorage.getItem('appFooter') || `© ${new Date().getFullYear()} VisitData Hub`);
@@ -178,7 +153,7 @@ function PublicLandingPage() {
         setHeroSubtitle(localStorage.getItem('heroSubtitle') || 'Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.');
     }
     
-    updateText(); // Initial load
+    updateText();
 
     window.addEventListener('storage', updateText);
     return () => {

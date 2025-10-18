@@ -1,13 +1,12 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getUsers, saveUsers, getDestinations } from '@/lib/local-data-service';
-import type { User, Destination } from '@/lib/types';
+import type { User as AppUser, Destination } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { MoreHorizontal, FilePenLine, Trash2, PlusCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -52,6 +51,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { useCollection, useFirestore, useFirebaseApp } from '@/firebase';
+import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 
 function MultiSelect({
   options,
@@ -142,8 +144,11 @@ function MultiSelect({
 }
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const firestore = useFirestore();
+  const firebaseApp = useFirebaseApp();
+  const { data: users, loading: usersLoading } = useCollection<AppUser>(firestore ? collection(firestore, 'users') : null);
+  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(firestore ? collection(firestore, 'destinations') : null);
+
   const { toast } = useToast();
 
   // State for Add User Dialog
@@ -156,27 +161,14 @@ export default function UsersPage() {
   
   // State for Edit User Dialog
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [editedUserName, setEditedUserName] = useState('');
   const [editedUserRole, setEditedUserRole] = useState<'admin' | 'pengelola'>('pengelola');
   const [editedUserAssignedLocations, setEditedUserAssignedLocations] = useState<string[]>([]);
 
-  const fetchData = useCallback(() => {
-    setUsers(getUsers());
-    setDestinations(getDestinations());
-  }, []);
+  const destinationOptions = useMemo(() => destinations?.map(d => ({ value: d.id, label: d.name})) || [], [destinations]);
 
-  useEffect(() => {
-    fetchData();
-    window.addEventListener('storage', fetchData);
-    return () => {
-      window.removeEventListener('storage', fetchData);
-    };
-  }, [fetchData]);
-
-  const destinationOptions = destinations.map(d => ({ value: d.id, label: d.name}));
-
-  const openEditDialog = (user: User) => {
+  const openEditDialog = (user: AppUser) => {
     setEditingUser(user);
     setEditedUserName(user.name);
     setEditedUserRole(user.role);
@@ -184,37 +176,47 @@ export default function UsersPage() {
     setIsEditDialogOpen(true);
   }
 
-  const handleUpdateUser = () => {
-    if (!editingUser || !editedUserName.trim()) {
+  const handleUpdateUser = async () => {
+    if (!editingUser || !editedUserName.trim() || !firestore) {
       toast({ variant: "destructive", title: "Nama tidak boleh kosong."});
       return;
     }
     
-    const currentUsers = getUsers();
-    const updatedUsers = currentUsers.map(u => u.uid === editingUser.uid ? {
-      ...u,
-      name: editedUserName.trim(),
-      role: editedUserRole,
-      assignedLocations: editedUserRole === 'admin' ? [] : editedUserAssignedLocations
-    } : u);
-
-    saveUsers(updatedUsers);
-    setIsEditDialogOpen(false);
-    toast({ title: "Pengguna Diperbarui", description: `Data untuk ${editedUserName} telah diperbarui.`});
+    const userRef = doc(firestore, 'users', editingUser.uid);
+    try {
+      await updateDoc(userRef, {
+        name: editedUserName.trim(),
+        role: editedUserRole,
+        assignedLocations: editedUserRole === 'admin' ? [] : editedUserAssignedLocations
+      });
+      setIsEditDialogOpen(false);
+      toast({ title: "Pengguna Diperbarui", description: `Data untuk ${editedUserName} telah diperbarui.`});
+    } catch(e) {
+        console.error("Error updating user: ", e);
+        toast({ variant: "destructive", title: "Gagal memperbarui", description: "Terjadi kesalahan saat memperbarui pengguna."});
+    }
   }
 
-  const handleDeleteUser = (userId: string) => {
-    const currentUsers = getUsers();
-    const userToDelete = currentUsers.find(u => u.uid === userId);
+  const handleDeleteUser = async (userId: string) => {
+    if (!firestore) return;
+    const userToDelete = users.find(u => u.uid === userId);
     if (!userToDelete) return;
 
-    const updatedUsers = currentUsers.filter(u => u.uid !== userId);
-    saveUsers(updatedUsers);
-
-    toast({
-      title: "Pengguna Dihapus",
-      description: `Pengguna "${userToDelete.name}" telah berhasil dihapus.`,
-    });
+    const userRef = doc(firestore, 'users', userId);
+    try {
+      await deleteDoc(userRef);
+      // Note: Deleting the auth user is a separate, more complex operation
+      // and is not handled here to prevent accidental user lockouts.
+      // The user will no longer be able to log in to the app, but their auth record remains.
+      // The user will no longer be able to log in to the app, but their auth record remains.
+      toast({
+        title: "Pengguna Dihapus",
+        description: `Pengguna "${userToDelete.name}" telah berhasil dihapus.`,
+      });
+    } catch (e) {
+      console.error("Error deleting user: ", e);
+      toast({ variant: "destructive", title: "Gagal menghapus", description: "Terjadi kesalahan saat menghapus pengguna."});
+    }
   }
   
   const resetAddForm = () => {
@@ -225,7 +227,7 @@ export default function UsersPage() {
     setNewUserAssignedLocations([]);
   };
 
-  const handleAddNewUser = () => {
+  const handleAddNewUser = async () => {
     if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
       toast({
         variant: "destructive",
@@ -234,10 +236,10 @@ export default function UsersPage() {
       });
       return;
     }
+    if (!firestore || !firebaseApp) return;
     
-    const currentUsers = getUsers();
-    // Check for duplicate email
-    if (currentUsers.some(user => user.email === newUserEmail.trim())) {
+    // Check for duplicate email in Firestore
+    if (users.some(user => user.email === newUserEmail.trim())) {
       toast({
         variant: "destructive",
         title: "Email sudah ada",
@@ -246,27 +248,42 @@ export default function UsersPage() {
       return;
     }
 
-    const newUser: User = {
-      uid: `user-${Date.now()}`,
-      name: newUserName.trim(),
-      email: newUserEmail.trim(),
-      password: newUserPassword.trim(),
-      role: newUserRole,
-      assignedLocations: newUserRole === 'pengelola' ? newUserAssignedLocations : [],
-      status: 'aktif',
-      avatarUrl: PlaceHolderImages[currentUsers.length % PlaceHolderImages.length].imageUrl
-    };
+    try {
+      // Create user in Firebase Auth
+      const auth = getAuth(firebaseApp);
+      const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail.trim(), newUserPassword.trim());
+      const newAuthUser = userCredential.user;
 
-    const updatedUsers = [...currentUsers, newUser];
-    saveUsers(updatedUsers);
+      // Create user profile in Firestore
+      const newUserDoc: AppUser = {
+        uid: newAuthUser.uid,
+        name: newUserName.trim(),
+        email: newUserEmail.trim(),
+        role: newUserRole,
+        assignedLocations: newUserRole === 'pengelola' ? newUserAssignedLocations : [],
+        status: 'aktif',
+        avatarUrl: PlaceHolderImages[(users.length || 0) % PlaceHolderImages.length].imageUrl
+      };
+      
+      await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserDoc);
 
-    toast({
-      title: "Pengguna Ditambahkan",
-      description: `Pengguna "${newUser.name}" berhasil dibuat.`,
-    });
+      toast({
+        title: "Pengguna Ditambahkan",
+        description: `Pengguna "${newUserDoc.name}" berhasil dibuat.`,
+      });
 
-    setIsAddDialogOpen(false);
-    resetAddForm();
+      setIsAddDialogOpen(false);
+      resetAddForm();
+    } catch (e: any) {
+        console.error("Error creating user:", e);
+        let errorMessage = "Terjadi kesalahan saat membuat pengguna.";
+        if (e.code === 'auth/email-already-in-use') {
+            errorMessage = "Email yang Anda masukkan sudah terdaftar.";
+        } else if (e.code === 'auth/weak-password') {
+            errorMessage = "Kata sandi terlalu lemah. Minimal 6 karakter.";
+        }
+        toast({ variant: "destructive", title: "Gagal Menambahkan", description: errorMessage });
+    }
   };
 
   const statusVariant = {
@@ -280,7 +297,7 @@ export default function UsersPage() {
   } as const;
 
   const getAssignedLocationsNames = (locationIds: string[]) => {
-    if (locationIds.length === 0) return '-';
+    if (!destinations || locationIds.length === 0) return '-';
     return locationIds.map(id => destinations.find(d => d.id === id)?.name).filter(Boolean).join(', ');
   }
 
@@ -348,7 +365,7 @@ export default function UsersPage() {
                       value={newUserPassword}
                       onChange={(e) => setNewUserPassword(e.target.value)}
                       className="col-span-3"
-                      placeholder="Kata sandi awal"
+                      placeholder="Kata sandi awal (min. 6 karakter)"
                     />
                   </div>
                    <div className="grid grid-cols-4 items-center gap-4">
@@ -401,7 +418,13 @@ export default function UsersPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {users.map(user => {
+                    {usersLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                          Memuat data pengguna...
+                        </TableCell>
+                      </TableRow>
+                    ) : users.map(user => {
                       return (
                         <TableRow key={user.uid}>
                             <TableCell className="font-medium">
@@ -451,7 +474,7 @@ export default function UsersPage() {
                                     <AlertDialogHeader>
                                       <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
                                       <AlertDialogDescription>
-                                        Tindakan ini akan menghapus pengguna <span className="font-bold">"{user.name}"</span> secara permanen. Tindakan ini tidak dapat diurungkan.
+                                        Tindakan ini akan menghapus pengguna <span className="font-bold">"{user.name}"</span> secara permanen dari daftar aplikasi. Tindakan ini tidak dapat diurungkan.
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -539,3 +562,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+    

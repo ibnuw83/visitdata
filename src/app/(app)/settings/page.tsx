@@ -11,7 +11,7 @@ import { useAuth } from '@/context/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { getAllData, saveUsers, getUsers, saveAllData } from '@/lib/local-data-service';
+// Removed local-data-service
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import DestinationImageSettings from '@/components/settings/destination-image-settings';
@@ -26,21 +26,16 @@ function AppSettingsCard() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        setAppTitle(localStorage.getItem('appTitle') || 'VisitData Hub');
-        setLogoUrl(localStorage.getItem('logoUrl') || '');
-        setFooterText(localStorage.getItem('appFooter') || `© ${new Date().getFullYear()} VisitData Hub`);
-        setHeroTitle(localStorage.getItem('heroTitle') || 'Pusat Data Pariwisata Modern Anda');
-        setHeroSubtitle(localStorage.getItem('heroSubtitle') || 'Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.');
+        // This will be replaced by data from Firestore
+        setAppTitle('');
+        setLogoUrl('');
+        setFooterText('');
+        setHeroTitle('');
+        setHeroSubtitle('');
     }, []);
 
     const handleSaveAppSettings = () => {
-        localStorage.setItem('appTitle', appTitle);
-        localStorage.setItem('logoUrl', logoUrl);
-        localStorage.setItem('appFooter', footerText);
-        localStorage.setItem('heroTitle', heroTitle);
-        localStorage.setItem('heroSubtitle', heroSubtitle);
-        // Dispatch a storage event to notify other components of the change
-        window.dispatchEvent(new Event('storage'));
+        // This will be replaced by a call to Firestore
         toast({
             title: "Pengaturan Aplikasi Disimpan",
             description: "Pengaturan tampilan aplikasi telah diperbarui.",
@@ -48,78 +43,23 @@ function AppSettingsCard() {
     }
     
     const handleBackupData = () => {
-        try {
-            const allData = getAllData();
-            const jsonString = JSON.stringify(allData, null, 2);
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `visitdata-backup-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            toast({
-                title: "Pencadangan Berhasil",
-                description: "Semua data telah diunduh sebagai file JSON.",
-            });
-        } catch (error) {
-            console.error("Backup failed", error);
-            toast({
-                variant: 'destructive',
-                title: "Pencadangan Gagal",
-                description: "Terjadi kesalahan saat mencoba mencadangkan data.",
-            });
-        }
+        toast({
+            variant: 'destructive',
+            title: "Fungsi Tidak Tersedia",
+            description: "Pencadangan data akan menggunakan fitur ekspor/impor bawaan Firestore.",
+        });
     }
 
     const handleRestoreClick = () => {
-        fileInputRef.current?.click();
+         toast({
+            variant: 'destructive',
+            title: "Fungsi Tidak Tersedia",
+            description: "Pemulihan data akan menggunakan fitur ekspor/impor bawaan Firestore.",
+        });
     };
 
     const handleRestoreData = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const text = e.target?.result;
-                if (typeof text !== 'string') {
-                    throw new Error("Gagal membaca file.");
-                }
-                const data = JSON.parse(text);
-
-                // Basic validation
-                if (data && data.users && data.destinations && data.visitData) {
-                    saveAllData(data);
-                    toast({
-                        title: "Pemulihan Berhasil",
-                        description: "Data telah dipulihkan. Harap muat ulang halaman.",
-                    });
-                     // Optional: prompt user to reload
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
-                } else {
-                    throw new Error("Format file cadangan tidak valid.");
-                }
-            } catch (error: any) {
-                console.error("Restore failed", error);
-                toast({
-                    variant: 'destructive',
-                    title: "Pemulihan Gagal",
-                    description: error.message || "Terjadi kesalahan saat memulihkan data.",
-                });
-            } finally {
-                // Reset file input
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                }
-            }
-        };
-        reader.readAsText(file);
+        // This logic is now obsolete
     };
 
     return (
@@ -155,11 +95,11 @@ a.click();
                 <div className="border-t pt-6 space-y-4">
                      <div>
                         <h3 className="text-base font-medium">Cadangkan & Pulihkan Data</h3>
-                        <p className="text-sm text-muted-foreground">Simpan semua data aplikasi ke file JSON, atau pulihkan dari file cadangan.</p>
+                        <p className="text-sm text-muted-foreground">Gunakan fitur ekspor/impor pada konsol Firebase Firestore untuk mencadangkan dan memulihkan data.</p>
                     </div>
                     <div className='flex justify-between items-center'>
-                        <Button variant="outline" onClick={handleBackupData}>Cadangkan Semua Data (JSON)</Button>
-                        <Button variant="outline" onClick={handleRestoreClick}>Pulihkan Data dari JSON</Button>
+                        <Button variant="outline" onClick={handleBackupData}>Info Pencadangan</Button>
+                        <Button variant="outline" onClick={handleRestoreClick}>Info Pemulihan</Button>
                         <input
                           type="file"
                           ref={fileInputRef}
@@ -229,10 +169,7 @@ export default function SettingsPage() {
 
   const handleSaveChanges = () => {
     if (!user) return;
-    // In a real app, this would involve API calls. Here we update local state and localStorage.
-    const allUsers = getUsers();
-    const updatedUsers = allUsers.map(u => u.uid === user.uid ? {...u, name: name} : u);
-    saveUsers(updatedUsers);
+    // This will be replaced by an update to the user's document in Firestore
     setUser({...user, name: name});
 
     toast({
@@ -243,9 +180,7 @@ export default function SettingsPage() {
 
   const handlePhotoChange = (newUrl: string) => {
     if (!user) return;
-    const allUsers = getUsers();
-    const updatedUsers = allUsers.map(u => u.uid === user.uid ? {...u, avatarUrl: newUrl} : u);
-    saveUsers(updatedUsers);
+    // This will be replaced by an update to the user's document in Firestore
     setUser({...user, avatarUrl: newUrl});
     toast({
         title: "Foto Profil Diperbarui",

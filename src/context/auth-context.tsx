@@ -3,9 +3,11 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect, Dispatch, SetStateAction, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { loginAction, logoutAction } from '@/app/auth-actions';
-import { getUsers, resetAndSeedData, getUnlockRequests } from '@/lib/local-data-service';
-import type { User } from '@/lib/types';
+import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { useUser, useFirestore, useFirebaseApp } from '@/firebase';
+
+import type { User, UnlockRequest } from '@/lib/types';
 
 interface AuthContextType {
   user: User | null;
@@ -20,117 +22,62 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// A flag to ensure seeding only happens once per application lifecycle.
-let hasSeeded = false;
-
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { user: appUser, loading: userLoading } = useUser();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const router = useRouter();
-  
-  const refreshPendingRequests = useCallback(() => {
-    if (typeof window !== 'undefined') {
-        const requests = getUnlockRequests();
-        const pendingCount = requests.filter(req => req.status === 'pending').length;
-        setPendingRequestsCount(pendingCount);
-    }
-  }, []);
+  const firestore = useFirestore();
+  const firebaseApp = useFirebaseApp();
 
   useEffect(() => {
-    // This effect runs only once when the provider mounts.
-    if (!hasSeeded) {
-      resetAndSeedData();
-      hasSeeded = true;
+    setUser(appUser);
+    setIsLoading(userLoading);
+  }, [appUser, userLoading]);
+  
+  const refreshPendingRequests = useCallback(async () => {
+    if (user && user.role === 'admin' && firestore) {
+      const requestsQuery = query(collection(firestore, 'unlock-requests'), where('status', '==', 'pending'));
+      const snapshot = await getDocs(requestsQuery);
+      setPendingRequestsCount(snapshot.size);
     }
-    
-    const checkSession = async () => {
-      setIsLoading(true);
-      try {
-        const res = await fetch('/api/session', { cache: 'no-store' });
-        
-        if (res.ok) {
-            const serverSession = await res.json();
-            if (serverSession && serverSession.uid) {
-              const allClientUsers = getUsers();
-              const clientUser = allClientUsers.find(u => u.uid === serverSession.uid);
-              
-              if (clientUser) {
-                const { password: _, ...userToSet } = clientUser;
-                setUser(userToSet); 
-                if (userToSet.role === 'admin') {
-                  refreshPendingRequests();
-                }
-              } else {
-                await logoutAction();
-                setUser(null);
-              }
-            } else {
-              setUser(null);
-            }
-        } else {
-            setUser(null);
-        }
-      } catch (e) {
-        console.error("Session check failed:", e);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    checkSession();
+  }, [user, firestore]);
+
+  useEffect(() => {
+    refreshPendingRequests();
   }, [refreshPendingRequests]);
+
 
   const login = async (formData: FormData) => {
     setIsLoading(true);
     setError(null);
+    const auth = getAuth(firebaseApp);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
     try {
-      const email = formData.get('email') as string;
-      const password = formData.get('password') as string;
-
-      if (!email || !password) {
-        throw new Error("Email dan kata sandi harus diisi.");
-      }
-      
-      // 1. Validate credentials on the client side against fresh data
-      const allUsers = getUsers();
-      const foundUser = allUsers.find(u => u.email === email && u.password === password);
-
-      if (!foundUser) {
-        throw new Error('Email atau kata sandi tidak valid.');
-      }
-      
-      const { uid } = foundUser;
-
-      // 2. If valid, call server action to create a session cookie
-      const sessionResult = await loginAction(uid);
-
-      if (sessionResult.success) {
-        // 3. Set user state in the client
-        const { password: _, ...userToSet } = foundUser;
-        setUser(userToSet);
-        if (userToSet.role === 'admin') {
-          refreshPendingRequests();
-        }
-        router.push('/dashboard');
-      } else {
-        throw new Error(sessionResult.error || 'Gagal membuat sesi server.');
-      }
-
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push('/dashboard');
     } catch (e: any) {
       console.error("Login Error:", e);
-      setError(e.message || 'Terjadi kesalahan saat login.');
+      if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password') {
+        setError('Email atau kata sandi salah.');
+      } else {
+        setError(e.message || 'Terjadi kesalahan saat login.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const logout = async () => {
-    await logoutAction();
+    const auth = getAuth(firebaseApp);
+    await signOut(auth);
     setUser(null);
     setPendingRequestsCount(0);
-    router.replace('/login');
+    router.push('/login');
   };
 
   return (

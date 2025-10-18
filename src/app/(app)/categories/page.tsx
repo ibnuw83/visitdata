@@ -18,7 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getCategories, saveCategories } from '@/lib/local-data-service';
+// Removed local-data-service
 import { Category } from '@/lib/types';
 import {
   AlertDialog,
@@ -32,6 +32,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const colorPalette = [
     "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800/50",
@@ -46,6 +47,7 @@ const colorPalette = [
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editedCategoryName, setEditedCategoryName] = useState('');
@@ -54,15 +56,14 @@ export default function CategoriesPage() {
   const { toast } = useToast();
   
   const fetchCategories = useCallback(() => {
-    setCategories(getCategories());
+    setLoading(true);
+    // This will be replaced with a Firestore query
+    setCategories([]);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchCategories();
-    window.addEventListener('storage', fetchCategories);
-    return () => {
-      window.removeEventListener('storage', fetchCategories);
-    };
   }, [fetchCategories]);
 
   const handleAddCategory = () => {
@@ -73,13 +74,13 @@ export default function CategoriesPage() {
         });
         return;
     }
-    const currentCategories = getCategories();
+    // This will be replaced with a Firestore `addDoc` call
     const newCategory: Category = {
         id: `cat-${Date.now()}`,
         name: newCategoryName.trim().toLowerCase(),
     };
-    const updatedCategories = [...currentCategories, newCategory];
-    saveCategories(updatedCategories);
+    
+    setCategories(prev => [...prev, newCategory]); // Optimistic update
     setNewCategoryName('');
     setIsAddDialogOpen(false);
     toast({
@@ -89,10 +90,9 @@ export default function CategoriesPage() {
   }
 
   const handleDeleteCategory = (categoryId: string) => {
-    const currentCategories = getCategories();
-    const categoryName = currentCategories.find(c => c.id === categoryId)?.name;
-    const updatedCategories = currentCategories.filter(c => c.id !== categoryId);
-    saveCategories(updatedCategories);
+    // This will be replaced with a Firestore `deleteDoc` call
+    const categoryName = categories.find(c => c.id === categoryId)?.name;
+    setCategories(prev => prev.filter(c => c.id !== categoryId)); // Optimistic update
     toast({
         title: "Kategori Dihapus",
         description: `Kategori "${categoryName}" telah dihapus.`,
@@ -114,12 +114,11 @@ export default function CategoriesPage() {
         return;
     }
 
-    const currentCategories = getCategories();
-    const updatedCategories = currentCategories.map(c => 
+    // This will be replaced with a Firestore `updateDoc` call
+    setCategories(prev => prev.map(c => 
         c.id === editingCategory.id ? { ...c, name: editedCategoryName.trim().toLowerCase() } : c
-    );
+    )); // Optimistic update
 
-    saveCategories(updatedCategories);
     setIsEditDialogOpen(false);
     setEditingCategory(null);
     
@@ -127,6 +126,31 @@ export default function CategoriesPage() {
         title: "Kategori Diperbarui",
         description: `Kategori "${editingCategory.name}" telah diubah menjadi "${editedCategoryName}".`,
     });
+  }
+  
+  if(loading) {
+    return (
+        <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-2">
+                <Skeleton className="h-9 w-48" />
+                <Skeleton className="h-5 w-64" />
+            </div>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="space-y-1.5">
+                        <Skeleton className="h-7 w-32" />
+                        <Skeleton className="h-5 w-72" />
+                    </div>
+                    <Skeleton className="h-10 w-40" />
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
   }
 
   return (
@@ -215,6 +239,13 @@ export default function CategoriesPage() {
                     </div>
                 ))}
             </div>
+             {categories.length === 0 && (
+                <div className="text-center text-muted-foreground py-12">
+                    <FolderTree className="mx-auto h-12 w-12" />
+                    <p className="mt-4">Belum ada kategori.</p>
+                    <p className="text-sm">Mulai dengan menambahkan kategori baru.</p>
+                </div>
+             )}
         </CardContent>
       </Card>
 

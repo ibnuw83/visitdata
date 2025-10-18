@@ -1,34 +1,32 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getDestinations, getUnlockRequests, saveUnlockRequests, getVisitData, saveVisitData, getUsers } from "@/lib/local-data-service";
-import type { Destination, UnlockRequest, User, VisitData } from '@/lib/types';
+import type { Destination, UnlockRequest, User as AppUser } from '@/lib/types';
 import { format } from 'date-fns';
 import { MoreHorizontal, CheckCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
+import { useCollection, useFirestore } from '@/firebase';
+import { collection, doc, updateDoc } from 'firebase/firestore';
 
 export default function UnlockRequestsPage() {
   const { user, refreshPendingRequests } = useAuth();
-  const [destinations, setDestinations] = useState<Destination[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [unlockRequests, setUnlockRequests] = useState<UnlockRequest[]>([]);
+  const firestore = useFirestore();
+
+  const { data: destinations } = useCollection<Destination>(firestore ? collection(firestore, 'destinations') : null);
+  const { data: users } = useCollection<AppUser>(firestore ? collection(firestore, 'users') : null);
+  const { data: unlockRequests } = useCollection<UnlockRequest>(firestore ? collection(firestore, 'unlock-requests') : null);
+
   const { toast } = useToast();
   
-  useEffect(() => {
-    setDestinations(getDestinations());
-    setUnlockRequests(getUnlockRequests());
-    setUsers(getUsers());
-  }, []);
-
-  const getDestinationName = (id: string) => destinations.find(d => d.id === id)?.name || 'Tidak Dikenal';
-  const getRequesterName = (id: string) => users.find(u => u.uid === id)?.name || 'Tidak Dikenal';
+  const destinationMap = useMemo(() => new Map(destinations?.map(d => [d.id, d.name])), [destinations]);
+  const userMap = useMemo(() => new Map(users?.map(u => [u.uid, u.name])), [users]);
   
   const statusVariant: { [key in UnlockRequest['status']]: "secondary" | "default" | "destructive" } = {
       pending: "secondary",
@@ -36,37 +34,44 @@ export default function UnlockRequestsPage() {
       rejected: "destructive",
   };
 
-  const handleAction = (requestId: string, newStatus: 'approved' | 'rejected') => {
-    if (!user) return;
+  const handleAction = async (requestId: string, newStatus: 'approved' | 'rejected') => {
+    if (!user || !firestore || !unlockRequests) return;
 
-    const updatedRequests = unlockRequests.map(req => 
-      req.id === requestId ? { ...req, status: newStatus, processedBy: user.uid } : req
-    );
-    setUnlockRequests(updatedRequests);
-    saveUnlockRequests(updatedRequests);
-    
-    // After saving, refresh the global count
-    refreshPendingRequests();
-
-    const targetRequest = updatedRequests.find(req => req.id === requestId);
+    const requestRef = doc(firestore, 'unlock-requests', requestId);
+    const targetRequest = unlockRequests.find(req => req.id === requestId);
     if (!targetRequest) return;
-
-    if (newStatus === 'approved') {
-      const visitData = getVisitData();
-      const updatedVisitData = visitData.map(vd => {
-        if (vd.destinationId === targetRequest.destinationId && vd.year === targetRequest.year && vd.month === targetRequest.month) {
-          return { ...vd, locked: false };
-        }
-        return vd;
-      });
-      saveVisitData(updatedVisitData);
-    }
     
-    toast({
-      title: `Permintaan ${newStatus === 'approved' ? 'Disetujui' : 'Ditolak'}`,
-      description: `Status permintaan telah diperbarui.`,
-    });
+    try {
+      await updateDoc(requestRef, {
+        status: newStatus,
+        processedBy: user.uid,
+      });
+
+      if (newStatus === 'approved') {
+        const visitDataId = `visit-${targetRequest.destinationId}-${targetRequest.year}-${targetRequest.month}`;
+        const visitDocRef = doc(firestore, 'destinations', targetRequest.destinationId, 'visits', visitDataId);
+        await updateDoc(visitDocRef, { locked: false });
+      }
+
+      toast({
+        title: `Permintaan ${newStatus === 'approved' ? 'Disetujui' : 'Ditolak'}`,
+        description: `Status permintaan telah diperbarui.`,
+      });
+      refreshPendingRequests();
+    } catch (error) {
+      console.error("Error updating request: ", error);
+      toast({
+        variant: "destructive",
+        title: "Gagal memperbarui",
+        description: "Terjadi kesalahan saat memproses permintaan.",
+      });
+    }
   }
+
+  const sortedRequests = useMemo(() => {
+    if (!unlockRequests) return [];
+    return [...unlockRequests].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [unlockRequests]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -95,14 +100,15 @@ export default function UnlockRequestsPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {unlockRequests.map(req => {
-                      const destinationName = getDestinationName(req.destinationId);
+                    {sortedRequests.map(req => {
+                      const destinationName = destinationMap.get(req.destinationId) || 'Memuat...';
+                      const requesterName = userMap.get(req.requestedBy) || 'Memuat...';
                       const period = `${new Date(req.year, req.month -1).toLocaleString('id-ID', {month: 'long'})} ${req.year}`;
                       return (
                         <TableRow key={req.id}>
                             <TableCell className="font-medium">{destinationName}</TableCell>
                             <TableCell>{period}</TableCell>
-                            <TableCell className="text-muted-foreground">{getRequesterName(req.requestedBy)}</TableCell>
+                            <TableCell className="text-muted-foreground">{requesterName}</TableCell>
                             <TableCell className="text-muted-foreground text-xs truncate max-w-xs">{req.reason}</TableCell>
                             <TableCell>
                                 <Badge variant={statusVariant[req.status]} className="capitalize">{req.status}</Badge>
@@ -133,6 +139,13 @@ export default function UnlockRequestsPage() {
                         </TableRow>
                       )
                     })}
+                     {sortedRequests.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={7} className="h-24 text-center">
+                                Tidak ada permintaan revisi.
+                            </TableCell>
+                        </TableRow>
+                    )}
                 </TableBody>
             </Table>
         </CardContent>

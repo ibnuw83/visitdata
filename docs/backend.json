@@ -1,0 +1,117 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Represents a user's public profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user's unique ID." },
+        "name": { "type": "string", "description": "The user's display name." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "role": { "type": "string", "enum": ["admin", "pengelola"], "description": "The user's role." },
+        "assignedLocations": { "type": "array", "items": { "type": "string" }, "description": "Array of destination IDs managed by the user." },
+        "status": { "type": "string", "enum": ["aktif", "nonaktif"], "description": "The user's account status." },
+        "avatarUrl": { "type": "string", "format": "uri", "description": "URL of the user's avatar image." }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Destination": {
+      "title": "Destination",
+      "description": "Represents a tourist destination.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "managementType": { "type": "string", "enum": ["pemerintah", "swasta"] },
+        "location": { "type": "string" },
+        "status": { "type": "string", "enum": ["aktif", "nonaktif"] },
+        "imageUrl": { "type": "string", "format": "uri" }
+      },
+      "required": ["id", "name", "category", "managementType", "location", "status"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Represents a destination category.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "VisitData": {
+        "title": "Visit Data",
+        "description": "Monthly visit data for a destination.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "destinationId": { "type": "string" },
+            "year": { "type": "number" },
+            "month": { "type": "number" },
+            "monthName": { "type": "string" },
+            "wisnus": { "type": "number" },
+            "wisman": { "type": "number" },
+            "wismanDetails": { 
+                "type": "array", 
+                "items": { 
+                    "type": "object",
+                    "properties": {
+                        "country": { "type": "string" },
+                        "count": { "type": "number" }
+                    },
+                    "required": ["country", "count"]
+                }
+            },
+            "totalVisitors": { "type": "number" },
+            "locked": { "type": "boolean" },
+            "lastUpdatedBy": { "type": "string" }
+        },
+        "required": ["id", "destinationId", "year", "month", "monthName", "wisnus", "wisman", "totalVisitors", "locked"]
+    },
+    "UnlockRequest": {
+        "title": "Unlock Request",
+        "description": "A request to unlock data entry for a specific period.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "destinationId": { "type": "string" },
+            "destinationName": { "type": "string" },
+            "month": { "type": "number" },
+            "year": { "type": "number" },
+            "reason": { "type": "string" },
+            "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+            "requestedBy": { "type": "string" },
+            "requesterName": { "type": "string" },
+            "processedBy": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "destinationId", "month", "year", "reason", "status", "requestedBy", "timestamp"]
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Stores public profiles for all users."
+    },
+    "/destinations/{destinationId}": {
+      "schema": { "$ref": "#/entities/Destination" },
+      "description": "Stores information about each tourist destination."
+    },
+    "/categories/{categoryId}": {
+        "schema": { "$ref": "#/entities/Category" },
+        "description": "Stores all available destination categories."
+    },
+    "/destinations/{destinationId}/visits/{visitId}": {
+        "schema": { "$ref": "#/entities/VisitData" },
+        "description": "Stores monthly visit data for each destination. visitId is in the format YYYY-MM."
+    },
+    "/unlock-requests/{requestId}": {
+        "schema": { "$ref": "#/entities/UnlockRequest" },
+        "description": "Stores all unlock requests from managers."
+    }
+  }
+}
