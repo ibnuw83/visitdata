@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/context/theme-provider';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { AuthProvider } from '@/context/auth-context';
+import { AppProviders } from './providers';
 
 export const metadata: Metadata = {
   title: 'VisitData Hub',
@@ -24,18 +25,9 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <FirebaseClientProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
-          </FirebaseClientProvider>
-        </ThemeProvider>
+        <AppProviders>
+          {children}
+        </AppProviders>
         <Toaster />
       </body>
     </html>
