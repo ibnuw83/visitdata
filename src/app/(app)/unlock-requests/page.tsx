@@ -20,7 +20,8 @@ export default function UnlockRequestsPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
 
-  const { data: unlockRequests } = useCollection<UnlockRequest>(firestore ? collection(firestore, 'unlock-requests') : null);
+  const unlockRequestsQuery = useMemo(() => firestore ? collection(firestore, 'unlock-requests') : null, [firestore]);
+  const { data: unlockRequests } = useCollection<UnlockRequest>(unlockRequestsQuery);
 
   const { toast } = useToast();
   
@@ -69,7 +70,10 @@ export default function UnlockRequestsPage() {
         // Sort by status first (pending comes first), then by timestamp
         if (a.status === 'pending' && b.status !== 'pending') return -1;
         if (a.status !== 'pending' && b.status === 'pending') return 1;
-        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        // Timestamps might be null for Firestore server timestamps initially, handle that
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return timeB - timeA;
     });
   }, [unlockRequests]);
 
@@ -111,7 +115,7 @@ export default function UnlockRequestsPage() {
                             <TableCell>
                                 <Badge variant={statusVariant[req.status]} className="capitalize">{req.status}</Badge>
                             </TableCell>
-                            <TableCell>{format(new Date(req.timestamp), 'dd MMM yyyy')}</TableCell>
+                            <TableCell>{req.timestamp ? format(new Date(req.timestamp), 'dd MMM yyyy') : 'Baru saja'}</TableCell>
                             <TableCell className="text-right">
                                 {req.status === 'pending' && (
                                     <DropdownMenu>

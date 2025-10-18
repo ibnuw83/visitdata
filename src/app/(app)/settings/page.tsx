@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +23,7 @@ import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 
 function AppSettingsCard() {
     const { toast } = useToast();
     const firestore = useFirestore();
-    const settingsRef = firestore ? doc(firestore, 'settings', 'app') : null;
+    const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings', 'app') : null, [firestore]);
     const { data: settingsData, loading } = useDoc<AppSettings>(settingsRef);
 
     const [appTitle, setAppTitle] = useState('');

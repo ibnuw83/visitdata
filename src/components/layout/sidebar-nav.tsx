@@ -48,7 +48,7 @@ export default function SidebarNav() {
   const { data: pendingRequests } = useCollection<UnlockRequest>(requestsQuery);
   const pendingRequestsCount = pendingRequests?.length || 0;
 
-  const settingsRef = firestore ? doc(firestore, 'settings', 'app') : null;
+  const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings', 'app') : null, [firestore]);
   const { data: settings } = useDoc<AppSettings>(settingsRef);
 
   const appTitle = settings?.appTitle || 'VisitData Hub';

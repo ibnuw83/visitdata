@@ -24,7 +24,8 @@ import { doc } from 'firebase/firestore';
 
 function DashboardContent() {
     const firestore = useFirestore();
-    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(firestore ? collection(firestore, 'destinations') : null);
+    const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
+    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     const visitsQuery = useMemo(() => firestore ? collectionGroup(firestore, 'visits') : null, [firestore]);
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
     
@@ -140,7 +141,7 @@ function DashboardContent() {
 
 function PublicLandingPage() {
     const firestore = useFirestore();
-    const settingsRef = firestore ? doc(firestore, 'settings', 'app') : null;
+    const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings', 'app') : null, [firestore]);
     const { data: settings } = useDoc<AppSettings>(settingsRef);
   
     const appTitle = settings?.appTitle || 'VisitData Hub';

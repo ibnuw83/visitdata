@@ -12,11 +12,15 @@ export const useDoc = <T>(ref: DocumentReference<T> | null) => {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    // Set loading to true when the ref changes.
+    setLoading(true);
+    setData(null); // Clear old data
+
     if (!ref) {
       setLoading(false);
-      setData(null);
       return;
     }
+    
     const unsubscribe = onSnapshot(
       ref as DocumentReference<DocumentData>,
       (doc) => {
@@ -30,15 +34,8 @@ export const useDoc = <T>(ref: DocumentReference<T> | null) => {
       (err) => {
         console.error("useDoc error:", err);
         
-        let path = 'unknown path';
-        try {
-          path = ref.path;
-        } catch (e) {
-          // Ignore if path cannot be retrieved
-        }
-
         const permissionError = new FirestorePermissionError({
-            path: path,
+            path: ref.path,
             operation: 'get',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -48,7 +45,7 @@ export const useDoc = <T>(ref: DocumentReference<T> | null) => {
     );
 
     return () => unsubscribe();
-  }, [ref]);
+  }, [ref]); // Depend directly on the ref object. Stability must be ensured by the caller with useMemo.
 
   return { data, loading, error };
 };
