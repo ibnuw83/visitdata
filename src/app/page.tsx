@@ -42,17 +42,17 @@ function DashboardContent() {
     const currentYear = useMemo(() => new Date().getFullYear(), []);
     
     const availableYears = useMemo(() => {
-        if (!allVisitData) return [currentYear.toString()];
+        if (!allVisitData || allVisitData.length === 0) return [currentYear.toString()];
         const allYearsSet = new Set(allVisitData.map(d => d.year.toString()));
         allYearsSet.add(currentYear.toString());
         return Array.from(allYearsSet).sort((a,b) => parseInt(b) - parseInt(a));
     }, [allVisitData, currentYear]);
 
     useEffect(() => {
-        if (!availableYears.includes(selectedYear)) {
-            setSelectedYear(currentYear.toString());
+        if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
+            setSelectedYear(availableYears[0]);
         }
-    }, [availableYears, selectedYear, currentYear]);
+    }, [availableYears, selectedYear]);
 
     const yearlyData = useMemo(() => {
         if (!allVisitData) return [];
@@ -159,11 +159,12 @@ export default function HomePage() {
     const footerText = settings?.footerText || `Hak Cipta © ${new Date().getFullYear()} Dinas Pariwisata`;
     
     useEffect(() => {
-        if (settings?.logoUrl) {
-            localStorage.setItem('logoUrl', settings.logoUrl);
-            window.dispatchEvent(new Event('storage'));
-        } else if (settings && !settings.logoUrl) {
-            localStorage.removeItem('logoUrl');
+        if (settings) {
+            if (settings.logoUrl) {
+                localStorage.setItem('logoUrl', settings.logoUrl);
+            } else {
+                localStorage.removeItem('logoUrl');
+            }
             window.dispatchEvent(new Event('storage'));
         }
     }, [settings]);
@@ -216,3 +217,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
