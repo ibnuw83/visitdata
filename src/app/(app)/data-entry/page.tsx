@@ -21,7 +21,7 @@ import debounce from 'lodash.debounce';
 import { Combobox } from '@/components/ui/combobox';
 import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -602,7 +602,7 @@ export default function DataEntryPage() {
               if (existingData) return existingData;
 
               // Default to locked if the period is in the future
-              const isFuture = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
+              const isPastOrPresent = selectedYear < currentYear || (selectedYear === currentYear && monthIndex <= currentMonth);
 
               return {
                   id: `${dest.id}-${selectedYear}-${monthIndex}`,
@@ -614,7 +614,7 @@ export default function DataEntryPage() {
                   wisman: 0,
                   wismanDetails: [],
                   totalVisitors: 0,
-                  locked: isFuture,
+                  locked: !isPastOrPresent,
               };
           });
           return { destination: dest, data: fullYearData.sort((a,b) => a.month - b.month) };
