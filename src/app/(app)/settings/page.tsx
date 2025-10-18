@@ -7,11 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError, AuthError } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import DestinationImageSettings from '@/components/settings/destination-image-settings';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -227,11 +227,13 @@ export default function SettingsPage() {
 
   const handlePasswordChange = async () => {
     if (!user || !user.email) {
-        toast({ variant: 'destructive', title: "Gagal", description: "Pengguna tidak ditemukan." });
+        const authError = new AuthError('auth/no-current-user', "Pengguna tidak ditemukan.");
+        errorEmitter.emit('auth-error', authError);
         return;
     }
     if (!currentPassword || !newPassword) {
-        toast({ variant: 'destructive', title: "Input Tidak Lengkap", description: "Harap isi kata sandi saat ini dan yang baru." });
+        const authError = new AuthError('auth/missing-password', "Harap isi kata sandi saat ini dan yang baru.");
+        errorEmitter.emit('auth-error', authError);
         return;
     }
 
@@ -247,17 +249,8 @@ export default function SettingsPage() {
         setNewPassword('');
     } catch (error: any) {
         console.error("Error updating password:", error);
-        let description = "Terjadi kesalahan saat mengubah kata sandi.";
-        if (error.code === 'auth/wrong-password') {
-            description = "Kata sandi saat ini yang Anda masukkan salah.";
-        } else if (error.code === 'auth/weak-password') {
-            description = "Kata sandi baru terlalu lemah. Minimal 6 karakter.";
-        }
-        toast({
-            variant: 'destructive',
-            title: "Gagal Mengubah Kata Sandi",
-            description: description,
-        });
+        const authError = new AuthError(error.code, error.message);
+        errorEmitter.emit('auth-error', authError);
     }
   }
 
@@ -377,3 +370,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    

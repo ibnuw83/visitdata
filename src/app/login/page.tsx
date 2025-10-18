@@ -60,9 +60,6 @@ export default function LoginPage() {
       // Emit a structured error for the global listener
       const authError = new AuthError(e.code, e.message);
       errorEmitter.emit('auth-error', authError);
-      
-      // We can still set a local error if needed for inline messages
-      setError('Email atau kata sandi salah.');
     } finally {
        setIsLoading(false);
     }
