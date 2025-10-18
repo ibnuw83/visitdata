@@ -10,6 +10,7 @@ import { useAuth } from '@/context/auth-context';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -39,6 +40,11 @@ export default function SettingsPage() {
         description: "Fungsi untuk mengubah foto profil akan segera hadir.",
     })
   }
+  
+  const roleVariant = {
+      admin: "secondary",
+      pengelola: "outline",
+  } as const;
 
   if (!user) {
     return (
@@ -88,7 +94,12 @@ export default function SettingsPage() {
                 <AvatarImage src={userImage?.imageUrl} alt={user.name} data-ai-hint={userImage?.imageHint}/>
                 <AvatarFallback className="text-3xl">{name.charAt(0)}</AvatarFallback>
               </Avatar>
-              <Button variant="outline" onClick={handlePhotoChange}>Ubah Foto</Button>
+               <div>
+                <Button variant="outline" onClick={handlePhotoChange}>Ubah Foto</Button>
+                <p className="text-sm text-muted-foreground mt-2">
+                    Masuk sebagai: <Badge variant={roleVariant[user.role]} className="capitalize">{user.role}</Badge>
+                </p>
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="name">Nama</Label>

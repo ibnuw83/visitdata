@@ -16,6 +16,7 @@ import { User } from "@/lib/types";
 import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
+import { Badge } from "../ui/badge";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -25,6 +26,11 @@ export default function Header() {
   }
 
   const userImage = PlaceHolderImages.find(p => p.id === user.avatar);
+
+  const roleVariant = {
+    admin: "secondary",
+    pengelola: "outline",
+  } as const;
 
   const handleLogout = async () => {
     await logout();
@@ -50,7 +56,12 @@ export default function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>{user.name}</DropdownMenuLabel>
+            <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user.name}</p>
+                    <p className="text-xs leading-none text-muted-foreground capitalize">{user.role}</p>
+                </div>
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/settings">Pengaturan</Link>
