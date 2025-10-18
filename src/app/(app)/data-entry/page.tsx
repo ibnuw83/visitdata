@@ -16,11 +16,10 @@ import { Label } from "@/components/ui/label";
 import { Destination, VisitData, WismanDetail, Country, UnlockRequest } from "@/lib/types";
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { PlusCircle, Trash2, Lock, Unlock, KeyRound } from 'lucide-react';
-import debounce from 'lodash.debounce';
+import { PlusCircle, Trash2, Lock, Unlock, KeyRound, Save } from 'lucide-react';
 import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,7 +32,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup } from 'firebase/firestore';
 
@@ -117,8 +115,9 @@ const colorPalette = [
     "text-indigo-600",
 ];
 
-function DestinationDataEntry({ destination, initialData, onDataChange, onNewRequest, colorClass }: { destination: Destination, initialData: VisitData[], onDataChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void, colorClass: string }) {
+function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLockChange, onNewRequest, colorClass }: { destination: Destination, initialData: VisitData[], onBulkDataChange: (updatedData: VisitData[]) => void, onLockChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void, colorClass: string }) {
   const [data, setData] = useState<VisitData[]>(initialData);
+  const [hasChanges, setHasChanges] = useState(false);
   const { toast } = useToast();
   const { appUser } = useUser();
   const firestore = useFirestore();
@@ -127,15 +126,8 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
 
   useEffect(() => {
     setData(initialData);
+    setHasChanges(false);
   }, [initialData]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedSave = useCallback(
-    debounce((newData: VisitData) => {
-      onDataChange(newData);
-    }, 1000),
-    [onDataChange]
-  );
   
   const handleDataChange = (monthIndex: number, field: 'wisnus', value: number) => {
     const newData = [...data];
@@ -150,7 +142,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
         if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
       
       setData(newData.map(d => d.month === monthIndex + 1 ? updatedMonthData : d));
-      debouncedSave(updatedMonthData);
+      setHasChanges(true);
     }
   };
 
@@ -168,8 +160,18 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
         if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
 
         setData(newData.map(d => d.month === monthIndex + 1 ? updatedMonthData : d));
-        debouncedSave(updatedMonthData);
+        setHasChanges(true);
      }
+  }
+
+  const handleManualSave = () => {
+    const changedData = data.filter((d, i) => JSON.stringify(d) !== JSON.stringify(initialData[i]));
+    onBulkDataChange(changedData);
+    setHasChanges(false);
+    toast({
+        title: "Perubahan Disimpan",
+        description: `Data untuk destinasi ${destination.name} telah berhasil diperbarui.`,
+    });
   }
 
   const handleLockChange = (monthIndex: number, locked: boolean) => {
@@ -178,7 +180,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
         const updatedMonthData: VisitData = { ...monthData, locked };
         if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
 
-        onDataChange(updatedMonthData); // Save immediately
+        onLockChange(updatedMonthData); // Save immediately
         toast({
             title: `Data ${locked ? 'Dikunci' : 'Dibuka'}`,
             description: `Data untuk bulan ${monthData.monthName} telah ${locked ? 'dikunci' : 'dibuka'}.`,
@@ -209,6 +211,15 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
       </AccordionTrigger>
       <AccordionContent>
         <div className="p-1">
+            {hasChanges && (
+                <div className="flex items-center justify-end p-2 mb-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-md border border-yellow-200 dark:border-yellow-800/50">
+                    <span className="text-sm text-yellow-800 dark:text-yellow-200 mr-4">Anda memiliki perubahan yang belum disimpan.</span>
+                    <Button size="sm" onClick={handleManualSave}>
+                        <Save className="mr-2 h-4 w-4" />
+                        Simpan Perubahan
+                    </Button>
+                </div>
+            )}
             <Table>
                 <TableHeader>
                     <TableRow className="bg-secondary/50">
@@ -294,6 +305,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
 }
 
 function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { details: WismanDetail[], totalWisman: number, onSave: (details: WismanDetail[]) => void, disabled?: boolean, countries: Country[] }) {
+    const [isOpen, setIsOpen] = useState(false);
     const [wismanDetails, setWismanDetails] = useState(details);
     
     useEffect(() => {
@@ -319,12 +331,16 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
         setWismanDetails(newDetails);
     };
 
-    const handleSave = () => {
+    const handleSaveAndClose = () => {
         onSave(wismanDetails.filter(d => d.country && d.count > 0));
+        setIsOpen(false);
     }
 
     return (
-        <Popover onOpenChange={(open) => !open && handleSave()}>
+        <Popover open={isOpen} onOpenChange={(open) => {
+            if (!open) handleSaveAndClose();
+            setIsOpen(open);
+        }}>
             <PopoverTrigger asChild>
                 <Input
                     type="number"
@@ -365,10 +381,13 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
                             </div>
                         ))}
                     </div>
-                    <Button type="button" variant="outline" size="sm" onClick={addEntry}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Tambah Negara
-                    </Button>
+                     <div className="flex justify-between items-center pt-2">
+                        <Button type="button" variant="outline" size="sm" onClick={addEntry}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Tambah Negara
+                        </Button>
+                        <Button size="sm" onClick={handleSaveAndClose}>Simpan Rincian</Button>
+                    </div>
                 </div>
             </PopoverContent>
         </Popover>
@@ -429,12 +448,39 @@ export default function DataEntryPage() {
     }
   }, [availableYears, selectedYear]);
 
-  const handleDataChange = async (updatedData: VisitData) => {
+  const handleBulkDataChange = async (updatedDataArray: VisitData[]) => {
+    if (!firestore || updatedDataArray.length === 0) return;
+    
+    const batch = writeBatch(firestore);
+    const batchOperations: Record<string, any> = {};
+
+    updatedDataArray.forEach(updatedData => {
+        const visitDocRef = doc(firestore, 'destinations', updatedData.destinationId, 'visits', updatedData.id);
+        const dataToSet: Partial<VisitData> = { ...updatedData };
+        if (!dataToSet.lastUpdatedBy && appUser?.uid) {
+            dataToSet.lastUpdatedBy = appUser.uid;
+        }
+        batch.set(visitDocRef, dataToSet, { merge: true });
+        batchOperations[visitDocRef.path] = dataToSet;
+    });
+
+    batch.commit()
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'destinations/{destId}/visits',
+            operation: 'update',
+            requestResourceData: { batchUpdates: batchOperations },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
+  }
+  
+  const handleLockChange = async (updatedData: VisitData) => {
     if (!firestore) return;
     const visitDocRef = doc(firestore, 'destinations', updatedData.destinationId, 'visits', updatedData.id);
     
-    const dataToSet: Partial<VisitData> = { ...updatedData };
-    if (!dataToSet.lastUpdatedBy && appUser?.uid) {
+    const dataToSet: Partial<VisitData> = { locked: updatedData.locked };
+    if (appUser?.uid) {
         dataToSet.lastUpdatedBy = appUser.uid;
     }
 
@@ -592,15 +638,17 @@ export default function DataEntryPage() {
     return filteredDestinations.map(dest => {
       let destData = allVisitData.filter(d => d.destinationId === dest.id && d.year === selectedYear);
       
-      if (destData.length === 0 || destData.length < 12) {
+      // Ensure all 12 months are present for the selected year
+      if (destData.length < 12) {
           const fullYearData = months.map((monthName, index) => {
               const monthIndex = index + 1;
               const existingData = destData.find(d => d.month === monthIndex);
               if (existingData) return existingData;
 
-              // Default to locked if the period is in the future
               const isPastOrPresent = selectedYear < currentYear || (selectedYear === currentYear && monthIndex <= currentMonth);
-
+              const isLockedForPengelola = !isPastOrPresent;
+              const isLockedForAdmin = true;
+              
               return {
                   id: `${dest.id}-${selectedYear}-${monthIndex}`,
                   destinationId: dest.id,
@@ -611,7 +659,7 @@ export default function DataEntryPage() {
                   wisman: 0,
                   wismanDetails: [],
                   totalVisitors: 0,
-                  locked: appUser?.role === 'admin' ? true : !isPastOrPresent,
+                  locked: appUser?.role === 'admin' ? isLockedForAdmin : isLockedForPengelola,
               };
           });
           return { destination: dest, data: fullYearData.sort((a,b) => a.month - b.month) };
@@ -703,7 +751,8 @@ export default function DataEntryPage() {
                     key={`${destination.id}-${selectedYear}`}
                     destination={destination} 
                     initialData={data}
-                    onDataChange={handleDataChange}
+                    onBulkDataChange={handleBulkDataChange}
+                    onLockChange={handleLockChange}
                     onNewRequest={handleNewRequest as any}
                     colorClass={colorPalette[index % colorPalette.length]}
                   />
