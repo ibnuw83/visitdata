@@ -15,12 +15,12 @@ export async function middleware(request: NextRequest) {
   const isAccessingProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
   const isAccessingAuthRoute = pathname === authRoute;
 
-  // If user is not logged in and tries to access a protected route, redirect to login
+  // Jika pengguna tidak diautentikasi dan mencoba mengakses rute yang dilindungi, alihkan ke halaman login
   if (!isAuthenticated && isAccessingProtectedRoute) {
     return NextResponse.redirect(new URL(authRoute, request.url));
   }
 
-  // If user is logged in and tries to access the login page, redirect to dashboard
+  // Jika pengguna diautentikasi dan mencoba mengakses halaman login, alihkan ke dasbor
   if (isAuthenticated && isAccessingAuthRoute) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
@@ -30,11 +30,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   /*
-   * Match all request paths except for the ones starting with:
-   * - api (API routes)
-   * - _next/static (static files)
-   * - _next/image (image optimization files)
-   * - favicon.ico (favicon file)
+   * Cocokkan semua jalur permintaan kecuali yang dimulai dengan:
+   * - api (rute API)
+   * - _next/static (file statis)
+   * - _next/image (file optimasi gambar)
+   * - favicon.ico (file favicon)
    */
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

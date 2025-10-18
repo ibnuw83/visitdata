@@ -21,17 +21,21 @@ export default function LoginPage() {
     setError(null);
 
     const formData = new FormData(event.currentTarget);
-    const result = await login(formData);
+    
+    try {
+        const result = await login(formData);
 
-    if (result?.success) {
-      router.push('/dashboard');
-      // Tidak perlu set isPending ke false karena akan navigasi
-    } else if (result?.error) {
-      setError(result.error);
-      setIsPending(false);
-    } else {
-       setError("Terjadi kesalahan yang tidak terduga.");
-       setIsPending(false);
+        if (result?.success) {
+            router.push('/dashboard');
+        } else if (result?.error) {
+            setError(result.error);
+        } else {
+            setError("Terjadi kesalahan yang tidak terduga.");
+        }
+    } catch (e) {
+        setError("Gagal terhubung ke server.");
+    } finally {
+        setIsPending(false);
     }
   };
 

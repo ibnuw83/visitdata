@@ -23,5 +23,5 @@ export async function login(formData: FormData): Promise<{ success: boolean; err
 
 export async function logout() {
     await deleteSession();
-    // Redirect will be handled by the middleware
+    // Pengalihan akan ditangani oleh middleware.
 }
