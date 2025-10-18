@@ -38,3 +38,4 @@ export async function verifySession(): Promise<boolean> {
   const sessionCookie = cookies().get('session')?.value;
   return !!sessionCookie;
 }
+

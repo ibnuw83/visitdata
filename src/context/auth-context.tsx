@@ -3,7 +3,8 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, Dispatch, SetStateAction } from 'react';
 import { useRouter } from 'next/navigation';
-import { login as loginAction, logout as logoutAction } from '@/app/auth-actions';
+import { loginAction } from '@/app/auth-actions';
+import { deleteSession } from '@/lib/session';
 import { User } from '@/lib/types';
 import { getUsers } from '@/lib/local-data-service';
 
@@ -40,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const { password: _, ...userToSet } = clientUser;
                 setUser(userToSet); 
               } else {
-                await logoutAction();
+                await deleteSession();
                 setUser(null);
               }
             } else {
@@ -63,13 +64,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await loginAction(formData);
+      const email = formData.get('email') as string;
+      const password = formData.get('password') as string;
 
-      if (result.success && result.user) {
-        setUser(result.user);
-        router.push('/dashboard');
+      if (!email || !password) {
+        setError("Email dan kata sandi harus diisi.");
+        setIsLoading(false);
+        return;
+      }
+      
+      const allUsers = getUsers();
+      const foundUser = allUsers.find(u => u.email === email);
+
+      if (foundUser && foundUser.password === password) {
+        // Validation successful on the client, now create the server session cookie
+        const result = await loginAction(foundUser.uid);
+
+        if (result.success) {
+          const { password: _, ...userToSet } = foundUser;
+          setUser(userToSet);
+          router.push('/dashboard');
+        } else {
+           setError(result.error || 'Gagal membuat sesi server.');
+        }
+
       } else {
-        setError(result.error || 'Terjadi kesalahan yang tidak diketahui.');
+        setError('Email atau kata sandi tidak valid.');
       }
     } catch (e: any) {
       console.error("Login Error:", e);
@@ -80,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await logoutAction();
+    await deleteSession();
     setUser(null);
     router.replace('/login');
   };
