@@ -14,17 +14,21 @@ export function useDoc<T>(
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (ref === null) {
+    // Jangan jalankan apapun kalau referensi belum siap
+    if (!ref) {
       setData(null);
       setLoading(false);
       return;
     }
 
+    let unsubscribed = false;
+
     setLoading(true);
-    
+
     const unsubscribe = onSnapshot(
       ref,
       (doc) => {
+        if (unsubscribed) return;
         if (doc.exists()) {
           setData({ ...doc.data(), id: doc.id } as T);
         } else {
@@ -33,6 +37,7 @@ export function useDoc<T>(
         setLoading(false);
       },
       (err) => {
+        if (unsubscribed) return;
         console.error('useDoc error:', err);
         const permissionError = new FirestorePermissionError({
           path: ref.path,
@@ -44,7 +49,10 @@ export function useDoc<T>(
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+        unsubscribed = true;
+        unsubscribe();
+    };
   }, [ref]);
 
   return { data, loading, error };

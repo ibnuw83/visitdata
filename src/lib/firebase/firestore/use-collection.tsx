@@ -14,21 +14,22 @@ export function useCollection<T>(
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // If the query is null, do nothing and reset state.
-    if (q === null) {
+    // Jangan jalankan apapun kalau query belum siap
+    if (!q) {
       setData([]);
       setLoading(false);
       return;
     }
-    
-    // Set loading to true when a new query is received.
+
+    let unsubscribed = false;
+
     setLoading(true);
-    // Clear previous data
     setData([]);
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        if (unsubscribed) return;
         const result = snapshot.docs.map((doc) => ({
           ...doc.data(),
           id: doc.id,
@@ -38,16 +39,14 @@ export function useCollection<T>(
         setError(null);
       },
       (err: Error) => {
+        if (unsubscribed) return;
         console.error('useCollection error:', err);
-        
-        let errorPath = 'unknown path';
+
+        let errorPath = '(unknown)';
         try {
-           // This is an internal property and might break, so we wrap it in a try-catch
-           // @ts-ignore
-           errorPath = q._query.path.segments.join('/');
-        } catch (e) {
-            console.warn("Could not extract path from Firestore query for error reporting.", e);
-        }
+          // @ts-ignore
+          errorPath = q?._query?.path?.segments?.join('/') ?? '(unknown)';
+        } catch {}
 
         const permissionError = new FirestorePermissionError({
           path: errorPath,
@@ -59,7 +58,10 @@ export function useCollection<T>(
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribed = true;
+      unsubscribe();
+    };
   }, [q]);
 
   return { data, loading, error };
