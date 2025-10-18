@@ -6,19 +6,39 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getCurrentUser } from '@/lib/session';
-import type { User } from '@/lib/types';
+import { useAuth } from '@/context/auth-context';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [name, setName] = useState('');
 
   useEffect(() => {
-    getCurrentUser().then(setUser);
-  }, []);
+    if (user) {
+      setName(user.name);
+    }
+  }, [user]);
 
   const userImage = user ? PlaceHolderImages.find(p => p.id === user.avatar) : null;
+
+  const handleSaveChanges = () => {
+    // In a real app, this would involve API calls to update user profile and password.
+    // For this demo, we'll just show a success toast.
+    toast({
+      title: "Perubahan Disimpan",
+      description: "Pengaturan profil Anda telah berhasil diperbarui (simulasi).",
+    });
+  };
+
+  const handlePhotoChange = () => {
+    toast({
+        title: "Fitur Dalam Pengembangan",
+        description: "Fungsi untuk mengubah foto profil akan segera hadir.",
+    })
+  }
 
   if (!user) {
     return (
@@ -66,13 +86,13 @@ export default function SettingsPage() {
             <div className="flex items-center gap-4">
               <Avatar className="h-24 w-24">
                 <AvatarImage src={userImage?.imageUrl} alt={user.name} data-ai-hint={userImage?.imageHint}/>
-                <AvatarFallback className="text-3xl">{user.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="text-3xl">{name.charAt(0)}</AvatarFallback>
               </Avatar>
-              <Button variant="outline">Ubah Foto</Button>
+              <Button variant="outline" onClick={handlePhotoChange}>Ubah Foto</Button>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="name">Nama</Label>
-              <Input id="name" defaultValue={user.name} />
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
@@ -86,7 +106,7 @@ export default function SettingsPage() {
               <Label htmlFor="new-password">Kata Sandi Baru</Label>
               <Input id="new-password" type="password" />
             </div>
-            <Button>Simpan Perubahan</Button>
+            <Button onClick={handleSaveChanges}>Simpan Perubahan</Button>
         </CardContent>
       </Card>
     </div>

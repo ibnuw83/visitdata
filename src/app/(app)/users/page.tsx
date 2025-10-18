@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getUsers, saveUsers } from '@/lib/local-data-service';
-import type { User } from '@/lib/types';
+import { getUsers, saveUsers, getDestinations } from '@/lib/local-data-service';
+import type { User, Destination } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { MoreHorizontal, FilePenLine, Trash2, PlusCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -36,9 +36,114 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from '@/components/ui/combobox';
+import { Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+
+function MultiSelect({
+  options,
+  selected,
+  onChange,
+  className,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: React.Dispatch<React.SetStateAction<string[]>>;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const handleUnselect = (item: string) => {
+    onChange(selected.filter((i) => i !== item));
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={`w-full justify-between h-auto ${selected.length > 0 ? 'h-auto' : 'h-10'}`}
+        >
+          <div className="flex gap-1 flex-wrap">
+            {selected.length > 0 ? selected.map((item) => (
+              <Badge
+                variant="secondary"
+                key={item}
+                className="mr-1 mb-1"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleUnselect(item);
+                }}
+              >
+                {options.find(opt => opt.value === item)?.label}
+                <span className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                  <XCircle className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                </span>
+              </Badge>
+            )) : "Pilih destinasi..."}
+          </div>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0">
+        <Command>
+          <CommandInput placeholder="Cari destinasi..." />
+          <CommandList>
+            <CommandEmpty>Destinasi tidak ditemukan.</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  onSelect={() => {
+                    onChange(
+                      selected.includes(option.value)
+                        ? selected.filter((item) => item !== option.value)
+                        : [...selected, option.value]
+                    );
+                    setOpen(true);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      selected.includes(option.value) ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+const XCircle = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg>
+)
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
   const { toast } = useToast();
 
   // State for Add User Dialog
@@ -46,20 +151,51 @@ export default function UsersPage() {
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'pengelola'>('pengelola');
+  const [newUserAssignedLocations, setNewUserAssignedLocations] = useState<string[]>([]);
   
+  // State for Edit User Dialog
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editedUserName, setEditedUserName] = useState('');
+  const [editedUserRole, setEditedUserRole] = useState<'admin' | 'pengelola'>('pengelola');
+  const [editedUserAssignedLocations, setEditedUserAssignedLocations] = useState<string[]>([]);
+
   useEffect(() => {
     setUsers(getUsers());
+    setDestinations(getDestinations());
   }, []);
+
+  const destinationOptions = destinations.map(d => ({ value: d.id, label: d.name}));
 
   const getAvatar = (avatarId: string) => {
     return PlaceHolderImages.find(p => p.id === avatarId);
   }
 
-  const handleEditClick = (userName: string) => {
-    toast({
-      title: `Aksi: Edit`,
-      description: `Anda memilih Edit untuk pengguna ${userName}. (Fungsi belum diimplementasikan)`,
-    });
+  const openEditDialog = (user: User) => {
+    setEditingUser(user);
+    setEditedUserName(user.name);
+    setEditedUserRole(user.role);
+    setEditedUserAssignedLocations(user.assignedLocations);
+    setIsEditDialogOpen(true);
+  }
+
+  const handleUpdateUser = () => {
+    if (!editingUser || !editedUserName.trim()) {
+      toast({ variant: "destructive", title: "Nama tidak boleh kosong."});
+      return;
+    }
+
+    const updatedUsers = users.map(u => u.uid === editingUser.uid ? {
+      ...u,
+      name: editedUserName.trim(),
+      role: editedUserRole,
+      assignedLocations: editedUserRole === 'admin' ? [] : editedUserAssignedLocations
+    } : u);
+
+    setUsers(updatedUsers);
+    saveUsers(updatedUsers);
+    setIsEditDialogOpen(false);
+    toast({ title: "Pengguna Diperbarui", description: `Data untuk ${editedUserName} telah diperbarui.`});
   }
 
   const handleDeleteUser = (userId: string) => {
@@ -80,6 +216,7 @@ export default function UsersPage() {
     setNewUserName('');
     setNewUserEmail('');
     setNewUserRole('pengelola');
+    setNewUserAssignedLocations([]);
   };
 
   const handleAddNewUser = () => {
@@ -107,7 +244,7 @@ export default function UsersPage() {
       name: newUserName.trim(),
       email: newUserEmail.trim(),
       role: newUserRole,
-      assignedLocations: [],
+      assignedLocations: newUserRole === 'pengelola' ? newUserAssignedLocations : [],
       status: 'aktif',
       avatar: `user-${(users.length % 3) + 1}` // Cycle through user-1, user-2, user-3
     };
@@ -134,6 +271,11 @@ export default function UsersPage() {
       admin: "secondary",
       pengelola: "outline",
   } as const;
+
+  const getAssignedLocationsNames = (locationIds: string[]) => {
+    if (locationIds.length === 0) return '-';
+    return locationIds.map(id => destinations.find(d => d.id === id)?.name).filter(Boolean).join(', ');
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -203,6 +345,20 @@ export default function UsersPage() {
                         </SelectContent>
                     </Select>
                   </div>
+                  {newUserRole === 'pengelola' && (
+                    <div className="grid grid-cols-4 items-start gap-4">
+                      <Label className="text-right pt-2">
+                        Kelolaan
+                      </Label>
+                      <div className="col-span-3">
+                        <MultiSelect 
+                          options={destinationOptions}
+                          selected={newUserAssignedLocations}
+                          onChange={setNewUserAssignedLocations}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
@@ -218,8 +374,8 @@ export default function UsersPage() {
                 <TableHeader>
                     <TableRow>
                         <TableHead>Pengguna</TableHead>
-                        <TableHead>Email</TableHead>
                         <TableHead>Peran</TableHead>
+                        <TableHead>Lokasi Kelolaan</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
@@ -235,15 +391,20 @@ export default function UsersPage() {
                                   <AvatarImage src={userImage?.imageUrl} alt={user.name} data-ai-hint={userImage?.imageHint}/>
                                   <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
-                                <span>{user.name}</span>
+                                <div>
+                                  <div>{user.name}</div>
+                                  <div className="text-xs text-muted-foreground">{user.email}</div>
+                                </div>
                               </div>
                             </TableCell>
-                            <TableCell className="text-muted-foreground">{user.email}</TableCell>
                             <TableCell>
-                                <Badge variant={roleVariant[user.role]}>{user.role}</Badge>
+                                <Badge variant={roleVariant[user.role]} className="capitalize">{user.role}</Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate">
+                              {user.role === 'admin' ? 'Semua Destinasi' : getAssignedLocationsNames(user.assignedLocations)}
                             </TableCell>
                             <TableCell>
-                                <Badge variant={statusVariant[user.status]}>{user.status}</Badge>
+                                <Badge variant={statusVariant[user.status]} className="capitalize">{user.status}</Badge>
                             </TableCell>
                             <TableCell className="text-right">
                                 <AlertDialog>
@@ -255,7 +416,7 @@ export default function UsersPage() {
                                           </Button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end">
-                                          <DropdownMenuItem onClick={() => handleEditClick(user.name)}>
+                                          <DropdownMenuItem onClick={() => openEditDialog(user)}>
                                               <FilePenLine className="mr-2 h-4 w-4" />
                                               <span>Edit</span>
                                           </DropdownMenuItem>
@@ -288,6 +449,74 @@ export default function UsersPage() {
             </Table>
         </CardContent>
       </Card>
+      
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Edit Pengguna</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-user-name" className="text-right">
+                Nama
+              </Label>
+              <Input
+                id="edit-user-name"
+                value={editedUserName}
+                onChange={(e) => setEditedUserName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-user-email" className="text-right">
+                Email
+              </Label>
+              <Input
+                id="edit-user-email"
+                type="email"
+                value={editingUser?.email || ''}
+                className="col-span-3"
+                disabled
+              />
+            </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-user-role" className="text-right">
+                Peran
+              </Label>
+                <Select value={editedUserRole} onValueChange={(value) => setEditedUserRole(value as 'admin' | 'pengelola')}>
+                  <SelectTrigger id="edit-user-role" className="col-span-3">
+                      <SelectValue placeholder="Pilih Peran" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="pengelola" className="capitalize">Pengelola</SelectItem>
+                      <SelectItem value="admin" className="capitalize">Admin</SelectItem>
+                  </SelectContent>
+              </Select>
+            </div>
+            {editedUserRole === 'pengelola' && (
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right pt-2">
+                  Kelolaan
+                </Label>
+                <div className="col-span-3">
+                  <MultiSelect 
+                    options={destinationOptions}
+                    selected={editedUserAssignedLocations}
+                    onChange={setEditedUserAssignedLocations}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Batal</Button>
+            </DialogClose>
+            <Button onClick={handleUpdateUser}>Simpan Perubahan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

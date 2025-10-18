@@ -12,14 +12,70 @@ export default function ReportsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [visitData, setVisitData] = useState<VisitData[]>([]);
 
+  // Filter state
+  const [selectedDestination, setSelectedDestination] = useState('all');
+  const [selectedYear, setSelectedYear] = useState('all');
+  const [selectedMonth, setSelectedMonth] = useState('all');
+
   useEffect(() => {
     setDestinations(getDestinations());
     setVisitData(getVisitData());
   }, [])
   
 
-  const years = [...new Set(visitData.map(d => d.year))];
+  const years = [...new Set(visitData.map(d => d.year))].sort((a,b) => b - a);
   const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, name: new Date(0, i).toLocaleString('id-ID', { month: 'long' }) }));
+
+  const handleDownload = () => {
+    let filteredData = visitData;
+
+    if (selectedDestination !== 'all') {
+      filteredData = filteredData.filter(d => d.destinationId === selectedDestination);
+    }
+    if (selectedYear !== 'all') {
+      filteredData = filteredData.filter(d => d.year === parseInt(selectedYear));
+    }
+    if (selectedMonth !== 'all') {
+      filteredData = filteredData.filter(d => d.month === parseInt(selectedMonth));
+    }
+
+    const csvHeader = [
+      "ID Kunjungan",
+      "ID Destinasi",
+      "Nama Destinasi",
+      "Tahun",
+      "Bulan",
+      "Wisatawan Domestik",
+      "Wisatawan Asing",
+      "Total Pengunjung"
+    ];
+    
+    const destinationMap = new Map(destinations.map(d => [d.id, d.name]));
+
+    const csvRows = filteredData.map(d => [
+      d.id,
+      d.destinationId,
+      destinationMap.get(d.destinationId) || 'Tidak Dikenal',
+      d.year,
+      d.monthName,
+      d.wisnus,
+      d.wisman,
+      d.totalVisitors
+    ].join(','));
+
+    const csvContent = [csvHeader.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.href) {
+      URL.revokeObjectURL(link.href);
+    }
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.setAttribute('download', 'laporan_kunjungan.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -36,7 +92,7 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Select>
+            <Select value={selectedDestination} onValueChange={setSelectedDestination}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Destinasi" />
               </SelectTrigger>
@@ -47,17 +103,18 @@ export default function ReportsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select>
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Tahun" />
               </SelectTrigger>
               <SelectContent>
+                 <SelectItem value="all">Semua Tahun</SelectItem>
                 {years.map(y => (
                   <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-             <Select>
+             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Bulan" />
               </SelectTrigger>
@@ -68,7 +125,7 @@ export default function ReportsPage() {
                 ))}
               </SelectContent>
             </Select>
-             <Button className="w-full lg:w-auto">
+             <Button className="w-full lg:w-auto" onClick={handleDownload}>
               <Download className="mr-2 h-4 w-4" />
               Unduh Laporan (CSV)
             </Button>

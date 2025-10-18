@@ -47,6 +47,15 @@ export default function DestinationsPage() {
   const [newDestinationLocation, setNewDestinationLocation] = useState('');
   const [newDestinationManagement, setNewDestinationManagement] = useState<'pemerintah' | 'swasta' | ''>('');
 
+  // State for editing destination
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingDestination, setEditingDestination] = useState<Destination | null>(null);
+  const [editedDestinationName, setEditedDestinationName] = useState('');
+  const [editedDestinationCategory, setEditedDestinationCategory] = useState('');
+  const [editedDestinationLocation, setEditedDestinationLocation] = useState('');
+  const [editedDestinationManagement, setEditedDestinationManagement] = useState<'pemerintah' | 'swasta'>('pemerintah');
+
+
   const { toast } = useToast();
   
   useEffect(() => {
@@ -121,10 +130,45 @@ export default function DestinationsPage() {
     });
   };
   
-  const handleEdit = (destinationName: string) => {
-     toast({
-      title: `Aksi: Edit`,
-      description: `Anda memilih Edit untuk destinasi ${destinationName}. (Fungsi belum diimplementasikan)`,
+ const openEditDialog = (destination: Destination) => {
+    setEditingDestination(destination);
+    setEditedDestinationName(destination.name);
+    setEditedDestinationCategory(destination.category);
+    setEditedDestinationLocation(destination.location);
+    setEditedDestinationManagement(destination.managementType);
+    setIsEditDialogOpen(true);
+  }
+
+  const handleUpdateDestination = () => {
+    if (!editedDestinationName.trim() || !editedDestinationCategory.trim() || !editedDestinationLocation.trim() || !editingDestination) {
+      toast({
+        variant: "destructive",
+        title: "Input tidak lengkap",
+        description: "Harap isi semua kolom.",
+      });
+      return;
+    }
+
+    const updatedDestinations = destinations.map(d => 
+      d.id === editingDestination.id 
+        ? { 
+            ...d, 
+            name: editedDestinationName.trim(),
+            category: editedDestinationCategory,
+            location: editedDestinationLocation.trim(),
+            managementType: editedDestinationManagement,
+          } 
+        : d
+    );
+
+    setDestinations(updatedDestinations);
+    saveDestinations(updatedDestinations);
+    setIsEditDialogOpen(false);
+    setEditingDestination(null);
+    
+    toast({
+        title: "Destinasi Diperbarui",
+        description: `Data untuk destinasi "${editedDestinationName}" telah diperbarui.`,
     });
   }
 
@@ -278,7 +322,7 @@ export default function DestinationsPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => handleEdit(dest.name)}>
+                                            <DropdownMenuItem onClick={() => openEditDialog(dest)}>
                                                 <FilePenLine className="mr-2 h-4 w-4" />
                                                 <span>Edit</span>
                                             </DropdownMenuItem>
@@ -318,6 +362,78 @@ export default function DestinationsPage() {
             </Table>
         </CardContent>
       </Card>
+      
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Edit Destinasi</DialogTitle>
+            <DialogDescription>
+              Ubah detail untuk destinasi <span className="font-bold">"{editingDestination?.name}"</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-dest-name" className="text-right">
+                Nama
+              </Label>
+              <Input
+                id="edit-dest-name"
+                value={editedDestinationName}
+                onChange={(e) => setEditedDestinationName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-dest-category" className="text-right">
+                Kategori
+              </Label>
+                <Select value={editedDestinationCategory} onValueChange={setEditedDestinationCategory}>
+                  <SelectTrigger id="edit-dest-category" className="col-span-3">
+                      <SelectValue placeholder="Pilih Kategori" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {categories.map(c => (
+                          <SelectItem key={c.id} value={c.name} className="capitalize">{c.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
+            </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-dest-management" className="text-right">
+                Pengelola
+              </Label>
+                <Select value={editedDestinationManagement} onValueChange={(value) => setEditedDestinationManagement(value as 'pemerintah' | 'swasta')}>
+                  <SelectTrigger id="edit-dest-management" className="col-span-3">
+                      <SelectValue placeholder="Pilih Jenis Pengelola" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="pemerintah" className="capitalize">Pemerintah</SelectItem>
+                      <SelectItem value="swasta" className="capitalize">Swasta</SelectItem>
+                  </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-dest-location" className="text-right">
+                Lokasi
+              </Label>
+              <Input
+                id="edit-dest-location"
+                value={editedDestinationLocation}
+                onChange={(e) => setEditedDestinationLocation(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Batal</Button>
+            </DialogClose>
+            <Button onClick={handleUpdateDestination}>Simpan Perubahan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
