@@ -13,33 +13,10 @@ import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
-import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
-import Header from '@/components/layout/header';
-import SidebarNav from '@/components/layout/sidebar-nav';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { ArrowRight, BarChart, Database, FileText } from 'lucide-react';
-
-const features = [
-  {
-    icon: <Database className="h-8 w-8 text-primary" />,
-    title: 'Manajemen Data Terpusat',
-    description: 'Input, kelola, dan kunci data kunjungan bulanan dari berbagai destinasi dalam satu platform terpadu.',
-  },
-  {
-    icon: <BarChart className="h-8 w-8 text-primary" />,
-    title: 'Dasbor Analitis',
-    description: 'Visualisasikan tren pengunjung, komposisi wisatawan, dan performa destinasi melalui grafik interaktif.',
-  },
-  {
-    icon: <FileText className="h-8 w-8 text-primary" />,
-    title: 'Laporan & Ekspor',
-    description: 'Hasilkan dan unduh laporan data pariwisata dalam format Excel untuk analisis lebih mendalam.',
-  },
-];
-
 
 function DashboardContent() {
     const { user } = useAuth();
@@ -123,7 +100,7 @@ function DashboardContent() {
         <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="font-headline text-3xl font-bold tracking-tight">Dasbor</h1>
+                    <h1 className="font-headline text-3xl font-bold tracking-tight">Dasbor Publik</h1>
                     <p className="text-muted-foreground">Ringkasan data pariwisata untuk tahun {selectedYear}.</p>
                 </div>
                 <div className="w-full sm:w-auto">
@@ -228,40 +205,17 @@ function PublicLandingPage() {
             <p className="max-w-2xl text-lg text-muted-foreground">
               Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.
             </p>
+             <Button asChild size="lg" className="mt-4">
+                <Link href="/login">
+                  Masuk untuk Mengelola Data
+                </Link>
+              </Button>
           </div>
         </section>
         
         {/* Dashboard Section */}
         <section className="container py-8">
             <DashboardContent />
-        </section>
-
-        {/* Features Section */}
-        <section id="features" className="container space-y-6 bg-secondary/50 py-12 dark:bg-secondary/20">
-          <div className="mx-auto flex max-w-4xl flex-col items-center space-y-4 text-center">
-            <h2 className="font-headline text-3xl font-bold md:text-4xl">Fitur Unggulan</h2>
-            <p className="max-w-2xl text-muted-foreground">
-              Platform kami menyediakan semua yang Anda butuhkan untuk mengelola data pariwisata secara efektif.
-            </p>
-          </div>
-          <div className="mx-auto grid justify-center gap-4 sm:grid-cols-2 md:max-w-5xl md:grid-cols-3">
-            {features.map((feature, index) => (
-              <Card key={index} className="bg-background">
-                <CardContent className="flex flex-col items-center gap-4 p-6 text-center">
-                  {feature.icon}
-                  <h3 className="text-xl font-bold">{feature.title}</h3>
-                  <p className="text-muted-foreground">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-           <div className="text-center pt-6">
-              <Button asChild size="lg">
-                <Link href="/login">
-                  Mulai Sekarang <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
         </section>
       </main>
 
@@ -283,8 +237,6 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // This is to handle the case where a logged in user lands on `/`
-    // We want to redirect them to `/dashboard`
     if (user) {
       router.replace('/dashboard');
     }
@@ -299,8 +251,6 @@ export default function HomePage() {
   }
 
   if (user) {
-    // User is logged in, show them the dashboard instead.
-    // Redirect is happening, show a loader
     return <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
             <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
                 <Logo className="h-10 w-10 animate-pulse" />
@@ -308,8 +258,5 @@ export default function HomePage() {
         </div>;
   }
 
-  // No user, show the public landing page with dashboard preview
   return <PublicLandingPage />;
 }
-
-    
