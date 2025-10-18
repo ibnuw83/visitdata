@@ -2,14 +2,13 @@
 // In a real application, you would run a script to populate the database with this data.
 
 import { User, Destination, VisitData, UnlockRequest, Category, Country } from './types';
-import { PlaceHolderImages } from './placeholder-images';
 
 // Raw data to be seeded. In a real app, this might come from CSVs or other sources.
 
-const userImage1 = PlaceHolderImages.find(p => p.id === 'user-1')?.imageUrl || '';
-const userImage2 = PlaceHolderImages.find(p => p.id === 'user-2')?.imageUrl || '';
-const userImage3 = PlaceHolderImages.find(p => p.id === 'user-3')?.imageUrl || '';
-const userImage4 = PlaceHolderImages.find(p => p.id === 'user-4')?.imageUrl || '';
+const userImage1 = "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjA3MzA4MTF8MA&ixlib=rb-4.1.0&q=80&w=1080";
+const userImage2 = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjA3MzA4MTF8MA&ixlib=rb-4.1.0&q=80&w=1080";
+const userImage3 = "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjA3MzA4MTF8MA&ixlib=rb-4.1.0&q=80&w=1080";
+const userImage4 = "https://images.unsplash.com/photo-1600180758890-6b94519a8ba6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjA3MzA4MTF8MA&ixlib=rb-4.1.0&q=80&w=1080";
 
 export const users: User[] = [
   {
@@ -62,7 +61,7 @@ export const destinations: Destination[] = [
     managementType: 'pemerintah',
     location: 'Jatijajar, Ayah, Kebumen',
     status: 'aktif',
-    imageUrl: PlaceHolderImages.find(p => p.id === 'dest-jatijajar')?.imageUrl
+    imageUrl: "https://images.unsplash.com/photo-1649285661224-6b8119912ee6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjYXZlJTIwZW50cmFuY2V8ZW58MHx8fHwxNzYwNzY5ODYwfDA&ixlib=rb-4.1.0&q=80&w=1080"
   },
   {
     id: 'dest-02',
@@ -71,7 +70,7 @@ export const destinations: Destination[] = [
     managementType: 'pemerintah',
     location: 'Suwuk, Puring, Kebumen',
     status: 'aktif',
-    imageUrl: PlaceHolderImages.find(p => p.id === 'dest-suwuk')?.imageUrl
+    imageUrl: "https://images.unsplash.com/photo-1599204723132-cb8790c9be1d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxiZWFjaCUyMGxhbmRzY2FwZXxlbnwwfHx8fDE3NjA3NDY0NTJ8MA&ixlib=rb-4.1.0&q=80&w=1080"
   },
   {
     id: 'dest-03',
@@ -80,7 +79,7 @@ export const destinations: Destination[] = [
     managementType: 'swasta',
     location: 'Gombong, Kebumen',
     status: 'aktif',
-    imageUrl: PlaceHolderImages.find(p => p.id === 'dest-vanderwijck')?.imageUrl
+    imageUrl: "https://images.unsplash.com/photo-1717484140319-d4bb4705777a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxoaXN0b3JpYyUyMGZvcnR8ZW58MHx8fHwxNzYwNzY5ODYwfDA&ixlib=rb-4.1.0&q=80&w=1080"
   },
     {
     id: 'dest-04',
@@ -89,7 +88,7 @@ export const destinations: Destination[] = [
     managementType: 'swasta',
     location: 'Karangduwur, Ayah, Kebumen',
     status: 'nonaktif',
-    imageUrl: PlaceHolderImages.find(p => p.id === 'dest-menganti')?.imageUrl
+    imageUrl: "https://images.unsplash.com/photo-1671524732028-1b43ccb2b3a5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2xpZmYlMjBiZWFjaHxlbnwwfHx8fDE3NjA3Njk4NjB8MA&ixlib=rb-4.1.0&q=80&w=1080"
     },
     {
     id: 'dest-05',
@@ -98,7 +97,7 @@ export const destinations: Destination[] = [
     managementType: 'swasta',
     location: 'Karangsambung, Kebumen',
     status: 'aktif',
-    imageUrl: PlaceHolderImages.find(p => p.id === 'dest-pentulu')?.imageUrl
+    imageUrl: "https://images.unsplash.com/photo-1647577680781-6ed3f3cac7f9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzY2VuaWMlMjBoaWxsfGVufDB8fHx8MTc2MDc2OTg2MHww&ixlib=rb-4.1.0&q=80&w=1080"
     }
 ];
 
@@ -316,3 +315,5 @@ export async function seedData() {
     // 5. Seed Unlock Requests
     console.log("Data seeding complete (placeholder).");
 }
+
+    
