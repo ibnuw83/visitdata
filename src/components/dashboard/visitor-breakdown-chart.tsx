@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { VisitData } from '@/lib/types';
 
@@ -16,6 +16,18 @@ const chartConfig = {
   },
 };
 
+const CustomLabel = (props: any) => {
+  const { x, y, width, value } = props;
+  if (value === 0) return null;
+  const formattedValue = value > 1000 ? `${(value / 1000).toFixed(1)}K` : value;
+
+  return (
+    <text x={x + width / 2} y={y} fill="#666" textAnchor="middle" dy={-6} fontSize={12}>
+      {formattedValue}
+    </text>
+  );
+};
+
 export default function VisitorBreakdownChart({ data }: { data: VisitData[] }) {
     const monthlyData = Array.from({ length: 12 }, (_, i) => {
         const month = i + 1;
@@ -28,7 +40,7 @@ export default function VisitorBreakdownChart({ data }: { data: VisitData[] }) {
 
   return (
     <ChartContainer config={chartConfig} className="h-[250px] w-full">
-      <BarChart data={monthlyData} margin={{ top: 5, right: 0, left: -10, bottom: 0 }}>
+      <BarChart data={monthlyData} margin={{ top: 20, right: 0, left: -10, bottom: 0 }}>
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey="month"
@@ -45,8 +57,12 @@ export default function VisitorBreakdownChart({ data }: { data: VisitData[] }) {
           content={<ChartTooltipContent indicator="dot" />}
         />
         <ChartLegend content={<ChartLegendContent />} />
-        <Bar dataKey="wisnus" fill="var(--color-wisnus)" radius={4} />
-        <Bar dataKey="wisman" fill="var(--color-wisman)" radius={4} />
+        <Bar dataKey="wisnus" fill="var(--color-wisnus)" radius={4}>
+            <LabelList content={<CustomLabel />} />
+        </Bar>
+        <Bar dataKey="wisman" fill="var(--color-wisman)" radius={4}>
+            <LabelList content={<CustomLabel />} />
+        </Bar>
       </BarChart>
     </ChartContainer>
   );

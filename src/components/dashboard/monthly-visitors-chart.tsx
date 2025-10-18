@@ -3,7 +3,7 @@
 
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { VisitData } from "@/lib/types"
-import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Area, AreaChart } from "recharts"
+import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis, Tooltip } from "recharts"
 
 const chartConfig = {
   visitors: {
@@ -11,6 +11,15 @@ const chartConfig = {
     color: "hsl(var(--primary))",
   },
 }
+
+const CustomLabel = (props: any) => {
+  const { x, y, stroke, value } = props;
+  if (value === 0) return null;
+  const formattedValue = value > 1000 ? `${(value / 1000).toFixed(1)}K` : value;
+
+  return <text x={x} y={y} dy={-8} fill={stroke} fontSize={12} textAnchor="middle">{formattedValue}</text>;
+};
+
 
 export default function MonthlyVisitorsChart({ data }: { data: VisitData[] }) {
     const monthlyTotals = Array.from({ length: 12 }, (_, i) => {
@@ -22,7 +31,7 @@ export default function MonthlyVisitorsChart({ data }: { data: VisitData[] }) {
 
   return (
     <ChartContainer config={chartConfig} className="h-[250px] w-full">
-      <AreaChart data={monthlyTotals} margin={{ top: 5, right: 20, left: -10, bottom: 0 }}>
+      <AreaChart data={monthlyTotals} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey="month"
@@ -50,9 +59,11 @@ export default function MonthlyVisitorsChart({ data }: { data: VisitData[] }) {
           fill="url(#fillTotal)"
           stroke="var(--color-visitors)"
           strokeWidth={2}
-          dot={false}
+          dot={true}
           name="Total Pengunjung"
-        />
+        >
+          <LabelList content={<CustomLabel />} />
+        </Area>
       </AreaChart>
     </ChartContainer>
   )
