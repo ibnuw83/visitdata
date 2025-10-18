@@ -34,7 +34,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup } from 'firebase/firestore';
+import { Combobox } from '@/components/ui/combobox';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -143,9 +144,9 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
             
             const currentYear = new Date().getFullYear();
             const currentMonth = new Date().getMonth() + 1;
-            const isFuture = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
+            const isFutureOrLocked = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
 
-            return initialData.find(d => d.month === monthIndex) || {
+            return {
                 id: `${destination.id}-${selectedYear}-${monthIndex}`,
                 destinationId: destination.id,
                 year: selectedYear,
@@ -155,7 +156,7 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
                 wisman: 0,
                 wismanDetails: [],
                 totalVisitors: 0,
-                locked: appUser?.role === 'admin' ? true : isFuture,
+                locked: appUser?.role === 'admin' ? true : isFutureOrLocked,
             };
         });
       setData(fullYearData.sort((a,b) => a.month - b.month));
@@ -163,8 +164,7 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
         setData(initialData);
     }
      setHasChanges(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchedVisitData, visitsLoading, isAccordionOpen, selectedYear, destination.id, appUser?.role]);
+  }, [isAccordionOpen, visitsLoading, fetchedVisitData, selectedYear, destination.id, appUser?.role]);
   
   
   const handleDataChange = (monthIndex: number, field: 'wisnus', value: number) => {
@@ -235,7 +235,7 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
   }, [data]);
 
   return (
-    <AccordionItem value={destination.id} onFocus={() => setIsAccordionOpen(true)} onBlur={() => setIsAccordionOpen(false)}>
+    <AccordionItem value={destination.id}>
       <AccordionTrigger className="hover:no-underline" onClick={() => setIsAccordionOpen(prev => !prev)}>
         <div className="flex w-full items-center justify-between pr-4">
           <span className={cn("font-semibold", colorClass)}>{destination.name} - {initialData[0]?.year || 'N/A'}</span>
@@ -343,18 +343,24 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
 
 function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { details: WismanDetail[], totalWisman: number, onSave: (details: WismanDetail[]) => void, disabled?: boolean, countries: Country[] }) {
     const [isOpen, setIsOpen] = useState(false);
-    const [wismanDetails, setWismanDetails] = useState(details);
-    
+    const [wismanDetails, setWismanDetails] = useState<WismanDetail[]>([]);
+
+    const countryOptions = useMemo(() => {
+        return countries.map(c => ({ value: c.name, label: c.name }));
+    }, [countries]);
+
     useEffect(() => {
-        setWismanDetails(details);
-    }, [details]);
+        if (isOpen) {
+            setWismanDetails(details);
+        }
+    }, [isOpen, details]);
 
     const handleDetailChange = (index: number, field: keyof WismanDetail, value: string | number) => {
         const newDetails = [...wismanDetails];
-        if (field === 'count') {
-            newDetails[index][field] = Number(value);
-        } else {
+        if (field === 'country') {
             newDetails[index][field] = String(value);
+        } else {
+            newDetails[index][field] = Number(value);
         }
         setWismanDetails(newDetails);
     };
@@ -364,8 +370,7 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
     };
 
     const removeEntry = (index: number) => {
-        const newDetails = wismanDetails.filter((_, i) => i !== index);
-        setWismanDetails(newDetails);
+        setWismanDetails(wismanDetails.filter((_, i) => i !== index));
     };
 
     const handleSaveAndClose = () => {
@@ -374,19 +379,14 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
     }
 
     return (
-        <Popover open={isOpen} onOpenChange={(open) => {
-            if (!open) handleSaveAndClose();
-            setIsOpen(open);
-        }}>
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
             <PopoverTrigger asChild>
-                <Input
-                    type="number"
-                    readOnly
-                    value={totalWisman}
-                    className="h-8 w-24 cursor-pointer border-0 shadow-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:bg-transparent disabled:opacity-70"
-                    placeholder="Input Rincian"
-                    disabled={disabled}
-                />
+                <Button 
+                  variant="ghost" 
+                  className="h-8 w-24 cursor-pointer border-0 shadow-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:bg-transparent disabled:opacity-70 justify-start"
+                  disabled={disabled}>
+                   {totalWisman > 0 ? totalWisman.toLocaleString() : 'Input'}
+                </Button>
             </PopoverTrigger>
             <PopoverContent onOpenAutoFocus={(e) => e.preventDefault()} className="w-96">
                 <div className="grid gap-4">
@@ -399,16 +399,16 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
                     <div className="grid gap-2 max-h-60 overflow-y-auto pr-3">
                         {wismanDetails.map((detail, index) => (
                            <div key={index} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-                                <Input
-                                    placeholder="Nama Negara"
+                                <Combobox 
+                                    options={countryOptions}
                                     value={detail.country}
-                                    className="h-9"
-                                    onChange={(e) => handleDetailChange(index, 'country', e.target.value)}
+                                    onChange={(value) => handleDetailChange(index, 'country', value)}
+                                    placeholder="Pilih negara..."
                                 />
                                 <Input
                                     type="number"
                                     placeholder="Jumlah"
-                                    value={detail.count || 0}
+                                    value={detail.count || ''}
                                     className="h-9 w-24"
                                     onChange={(e) => handleDetailChange(index, 'count', e.target.value)}
                                 />
@@ -660,7 +660,7 @@ export default function DataEntryPage() {
             const monthIndex = index + 1;
             const currentYear = new Date().getFullYear();
             const currentMonth = new Date().getMonth() + 1;
-            const isFuture = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
+            const isFutureOrLocked = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
 
             return {
                 id: `${dest.id}-${selectedYear}-${monthIndex}`,
@@ -672,7 +672,7 @@ export default function DataEntryPage() {
                 wisman: 0,
                 wismanDetails: [],
                 totalVisitors: 0,
-                locked: appUser?.role === 'admin' ? true : isFuture,
+                locked: appUser?.role === 'admin' ? true : isFutureOrLocked,
             };
         });
         return { destination: dest, data: placeholderData.sort((a,b) => a.month - b.month) };
@@ -779,5 +779,3 @@ export default function DataEntryPage() {
     </div>
   );
 }
-
-    
