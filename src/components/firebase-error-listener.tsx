@@ -4,17 +4,16 @@
 import { useEffect } from 'react';
 import { errorEmitter } from '@/lib/firebase/error-emitter';
 import { FirestorePermissionError } from '@/lib/firebase/errors';
+import { useToast } from '@/hooks/use-toast';
 
 
 export function FirebaseErrorListener() {
+  const { toast } = useToast();
+
   useEffect(() => {
     const handlePermissionError = (error: FirestorePermissionError) => {
       // This is where you would handle the permission error.
-      // For example, you could show a toast notification, or
-      // redirect the user to a login page.
-      //
-      // For this example, we'll just log the error to the console
-      // in a more readable format.
+      // For this example, we'll show a toast notification.
       console.error(
         'Firestore Permission Error:',
         JSON.stringify(
@@ -27,13 +26,11 @@ export function FirebaseErrorListener() {
         )
       );
 
-      // In a real app, you might want to show a toast notification.
-      // import { toast } from '@/hooks/use-toast';
-      // toast({
-      //   variant: 'destructive',
-      //   title: 'Permission Denied',
-      //   description: `You don't have permission to perform this action.`,
-      // });
+      toast({
+        variant: 'destructive',
+        title: 'Izin Ditolak',
+        description: `Anda tidak memiliki izin untuk melakukan tindakan pada '${error.context.path}'. Periksa aturan keamanan Firestore Anda.`,
+      });
     };
 
     errorEmitter.on('permission-error', handlePermissionError);
@@ -41,7 +38,7 @@ export function FirebaseErrorListener() {
     return () => {
       errorEmitter.off('permission-error', handlePermissionError);
     };
-  }, []);
+  }, [toast]);
 
   return null;
 }
