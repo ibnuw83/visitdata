@@ -14,6 +14,7 @@ import { SidebarTrigger } from "../ui/sidebar";
 import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
+import { ThemeToggle } from "./theme-toggle";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -36,7 +37,8 @@ export default function Header() {
       <div className="md:hidden">
         <SidebarTrigger />
       </div>
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
