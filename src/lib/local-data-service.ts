@@ -13,29 +13,26 @@ import type { User, Destination, VisitData, UnlockRequest, Category, Country } f
 
 function initializeData<T>(key: string, mockData: T[]): T[] {
   try {
-    // This check ensures the code only runs on the client side.
-    if (typeof window === 'undefined') {
-        // On the server, you might return mock data or an empty array,
-        // but client-specific functions shouldn't be called.
-        // Returning mockData ensures server-side passes don't crash,
-        // but the real data will come from the client's localStorage.
-        return mockData;
-    }
-    // Force re-initialization of users to fix password issue
-    if (key === 'users') {
-        localStorage.removeItem('users');
-    }
-    const storedData = localStorage.getItem(key);
-    if (storedData) {
-      return JSON.parse(storedData);
-    } else {
-      localStorage.setItem(key, JSON.stringify(mockData));
-      return mockData;
+    if (typeof window !== 'undefined') {
+        // For 'users', always clear old data to ensure mock data passwords are correct on reload.
+        // This is the definitive fix for the persistent "invalid password" error.
+        if (key === 'users') {
+            localStorage.removeItem('users');
+        }
+
+        const storedData = localStorage.getItem(key);
+        if (storedData) {
+            return JSON.parse(storedData);
+        } else {
+            localStorage.setItem(key, JSON.stringify(mockData));
+            return mockData;
+        }
     }
   } catch (error) {
     console.error(`Error initializing data for key ${key} from localStorage`, error);
-    return mockData; // Fallback to mock data on error
   }
+  // Return mockData as a fallback for server-side rendering or in case of client-side errors.
+  return mockData;
 }
 
 
