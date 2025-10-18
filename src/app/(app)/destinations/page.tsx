@@ -34,7 +34,18 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from '@/lib/utils';
 
+const colorPalette = [
+    "text-blue-600",
+    "text-green-600",
+    "text-orange-500",
+    "text-purple-600",
+    "text-red-600",
+    "text-yellow-600",
+    "text-pink-600",
+    "text-indigo-600",
+];
 
 export default function DestinationsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -291,11 +302,11 @@ export default function DestinationsPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {destinations.map(dest => (
+                    {destinations.map((dest, index) => (
                         <TableRow key={dest.id}>
                             <TableCell className="font-medium">
                                <div className="flex items-center gap-3">
-                                <Landmark className="h-4 w-4 text-muted-foreground" />
+                                <Landmark className={cn("h-4 w-4", colorPalette[index % colorPalette.length])} />
                                 <span>{dest.name}</span>
                                </div>
                             </TableCell>
