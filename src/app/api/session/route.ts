@@ -49,3 +49,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, message: 'Terjadi kesalahan pada server' }, { status: 500 });
   }
 }
+
