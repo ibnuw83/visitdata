@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/context/auth-context';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -33,7 +32,6 @@ export default function LoginPage() {
   const auth = useFirebaseAuth();
   const router = useRouter();
   const [appTitle, setAppTitle] = useState('VisitData Hub');
-  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -46,18 +44,14 @@ export default function LoginPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
-    setError(null);
     const formData = new FormData(event.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // On success, the onAuthStateChanged listener will handle the user state
-      // and the layout effect will handle the redirect.
     } catch (e: any) {
       console.error("Login Error:", e);
-      // Emit a structured error for the global listener
       const authError = new AuthError(e.code, e.message);
       errorEmitter.emit('auth-error', authError);
     } finally {
@@ -82,11 +76,6 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="grid gap-4">
-             {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -122,5 +111,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

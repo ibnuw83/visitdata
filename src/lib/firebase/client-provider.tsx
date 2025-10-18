@@ -1,17 +1,52 @@
-
 'use client';
 
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useMemo, useEffect } from 'react';
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { firebaseConfig } from './config';
-import { FirebaseSystemListener } from './system';
+import { useToast } from '@/hooks/use-toast';
+import { errorEmitter } from './error-emitter';
+import { handleFirestoreError } from './listeners/firestore-error-handler';
+import { handleAuthError } from './listeners/auth-error-handler';
+import { handleGenericError } from './listeners/generic-error-handler';
+import {
+  FirestorePermissionError,
+  FirestoreGenericError,
+  AuthError,
+  NetworkError,
+} from './errors';
 
-/**
- * Context untuk menyediakan instance Firebase di sisi client.
- * Pastikan provider ini dibungkus di level tertinggi (RootLayout atau Providers.tsx).
- */
+
+function FirebaseSystemListener() {
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const onPermissionError = (error: FirestorePermissionError) => handleFirestoreError(toast, error);
+    const onGenericFirestoreError = (error: FirestoreGenericError) => handleFirestoreError(toast, error);
+    const onAuthError = (error: AuthError) => handleAuthError(toast, error);
+    const onNetworkError = (error: NetworkError) => handleGenericError(toast, error);
+
+    errorEmitter.on('permission-error', onPermissionError);
+    errorEmitter.on('firestore-error', onGenericFirestoreError);
+    errorEmitter.on('auth-error', onAuthError);
+    errorEmitter.on('network-error', onNetworkError);
+
+    const handleOffline = () => errorEmitter.emit('network-error', new NetworkError());
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      errorEmitter.off('permission-error', onPermissionError);
+      errorEmitter.off('firestore-error', onGenericFirestoreError);
+      errorEmitter.off('auth-error', onAuthError);
+      errorEmitter.off('network-error', onNetworkError);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [toast]);
+
+  return null;
+}
+
 
 const FirebaseAppContext = createContext<FirebaseApp | null>(null);
 const FirestoreContext = createContext<Firestore | null>(null);
@@ -19,7 +54,6 @@ const AuthContext = createContext<Auth | null>(null);
 
 export function FirebaseClientProvider({ children }: { children: React.ReactNode }) {
   const { app, auth, firestore } = useMemo(() => {
-    // Cegah re-inisialisasi Firebase berkali-kali (penting di Next.js!)
     const existingApp = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
     const authInstance = getAuth(existingApp);
     const firestoreInstance = getFirestore(existingApp);
@@ -37,8 +71,6 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
     </FirebaseAppContext.Provider>
   );
 }
-
-/* -------------------------- HOOKS -------------------------- */
 
 export const useFirebaseApp = (): FirebaseApp => {
   const ctx = useContext(FirebaseAppContext);
