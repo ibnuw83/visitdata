@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup, QuerySnapshot, DocumentData } from 'firebase/firestore';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -407,8 +407,10 @@ export default function DataEntryPage() {
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
 
   const visitsQuery = useMemo(() => {
-    return firestore ? collectionGroup(firestore, 'visits') : null;
+    if (!firestore) return null;
+    return collectionGroup(firestore, 'visits');
   }, [firestore]);
+
   const { data: allVisitData } = useCollection<VisitData>(visitsQuery);
   
   const availableYears = useMemo(() => {
@@ -522,14 +524,25 @@ export default function DataEntryPage() {
     
     const batch = writeBatch(firestore);
     const pathsToDelete: string[] = [];
-    for (const dest of destinations) {
-        const visitsRef = collection(firestore, 'destinations', dest.id, 'visits');
-        const q = query(visitsRef, where('year', '==', selectedYear));
-        const snapshot = await getDocs(q);
-        snapshot.docs.forEach(d => {
-            batch.delete(d.ref);
-            pathsToDelete.push(d.ref.path);
+
+    try {
+        for (const dest of destinations) {
+            const visitsRef = collection(firestore, 'destinations', dest.id, 'visits');
+            const q = query(visitsRef, where('year', '==', selectedYear));
+            const snapshot = await getDocs(q);
+            snapshot.docs.forEach(d => {
+                batch.delete(d.ref);
+                pathsToDelete.push(d.ref.path);
+            });
+        }
+    } catch (serverError) {
+        const permissionError = new FirestorePermissionError({
+            path: `destinations/{destId}/visits`,
+            operation: 'list', // The failing operation is the getDocs query
+            requestResourceData: { year: selectedYear }
         });
+        errorEmitter.emit('permission-error', permissionError);
+        return; // Stop execution
     }
     
     batch.commit()
@@ -671,3 +684,5 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+    
