@@ -32,6 +32,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, getDoc, collectionGroup } from 'firebase/firestore';
 
@@ -773,5 +774,3 @@ export default function DataEntryPage() {
     </div>
   );
 }
-
-    
