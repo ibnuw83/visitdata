@@ -47,6 +47,8 @@ export function useCollection<T>(
         setLoading(false);
       },
       (err: Error) => {
+        if (unsubscribed) return;
+
         let errorPath = '(unknown)';
         try {
           // @ts-ignore
@@ -59,10 +61,8 @@ export function useCollection<T>(
         });
         errorEmitter.emit('permission-error', permissionError);
 
-        if (!unsubscribed) {
-          setError(err);
-          setLoading(false);
-        }
+        setError(err);
+        setLoading(false);
       }
     );
 

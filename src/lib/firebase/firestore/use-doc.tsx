@@ -17,6 +17,7 @@ export function useDoc<T>(
     if (!ref) {
       setData(null);
       setLoading(false);
+      setError(null);
       return;
     }
 
@@ -32,16 +33,16 @@ export function useDoc<T>(
         setLoading(false);
       },
       (err: Error) => {
+        if (unsubscribed) return;
+        
         const permissionError = new FirestorePermissionError({
           path: ref.path,
           operation: 'get',
         });
         errorEmitter.emit('permission-error', permissionError);
 
-        if (!unsubscribed) {
-          setError(err);
-          setLoading(false);
-        }
+        setError(err);
+        setLoading(false);
       }
     );
 

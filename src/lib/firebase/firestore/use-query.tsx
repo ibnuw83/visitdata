@@ -17,6 +17,7 @@ export function useQuery<T>(
     if (!q) {
       setData([]);
       setLoading(false);
+      setError(null);
       return;
     }
 
@@ -35,19 +36,19 @@ export function useQuery<T>(
         }
       })
       .catch((err) => {
-        let errorPath = '(unknown)';
-        try {
-          // @ts-ignore
-          errorPath = q?._query?.path?.segments?.join('/') ?? '(unknown)';
-        } catch {}
-
-        const permissionError = new FirestorePermissionError({
-          path: errorPath,
-          operation: 'list',
-        });
-        errorEmitter.emit('permission-error', permissionError);
         if (isMounted) {
-            setError(err);
+          let errorPath = '(unknown)';
+          try {
+            // @ts-ignore
+            errorPath = q?._query?.path?.segments?.join('/') ?? '(unknown)';
+          } catch {}
+
+          const permissionError = new FirestorePermissionError({
+            path: errorPath,
+            operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          setError(err);
         }
       })
       .finally(() => {
