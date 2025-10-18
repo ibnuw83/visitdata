@@ -186,11 +186,6 @@ function PublicLandingPage() {
             <Logo className="h-8 w-8" />
             <span className="font-headline text-lg font-bold">{appTitle}</span>
           </Link>
-          <nav className="flex items-center gap-4">
-              <Button asChild>
-                <Link href="/login">Masuk</Link>
-              </Button>
-          </nav>
         </div>
       </header>
 
