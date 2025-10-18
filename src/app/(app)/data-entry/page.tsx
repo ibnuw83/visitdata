@@ -21,7 +21,7 @@ import debounce from 'lodash.debounce';
 import { Combobox } from '@/components/ui/combobox';
 import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -411,7 +411,7 @@ export default function DataEntryPage() {
     return collectionGroup(firestore, 'visits');
   }, [firestore]);
 
-  const { data: allVisitData } = useCollection<VisitData>(visitsQuery);
+  const { data: allVisitData, setData: setAllVisitData } = useCollection<VisitData>(visitsQuery);
   
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -433,12 +433,17 @@ export default function DataEntryPage() {
     if (!firestore) return;
     const visitDocRef = doc(firestore, 'destinations', updatedData.destinationId, 'visits', updatedData.id);
     
-    setDoc(visitDocRef, updatedData, { merge: true })
+    const dataToSet = { ...updatedData };
+    if (!dataToSet.lastUpdatedBy) {
+        delete dataToSet.lastUpdatedBy;
+    }
+
+    setDoc(visitDocRef, dataToSet, { merge: true })
         .catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({
                 path: visitDocRef.path,
                 operation: 'update',
-                requestResourceData: updatedData,
+                requestResourceData: dataToSet,
             });
             errorEmitter.emit('permission-error', permissionError);
         });
@@ -467,7 +472,7 @@ export default function DataEntryPage() {
     const newYear = (parseInt(availableYears[0]) || new Date().getFullYear()) + 1;
     if (!availableYears.includes(newYear.toString()) && firestore && destinations) {
       const batch = writeBatch(firestore);
-      const batchData: Record<string, VisitData> = {};
+      const newVisitEntries: VisitData[] = [];
       destinations.forEach(dest => {
         months.forEach((monthName, index) => {
           const monthIndex = index + 1;
@@ -483,12 +488,13 @@ export default function DataEntryPage() {
               locked: true,
           };
           batch.set(visitDocRef, newVisitData);
-          batchData[visitDocRef.path] = newVisitData;
+          newVisitEntries.push(newVisitData);
         });
       });
       
       batch.commit()
         .then(() => {
+            setAllVisitData(prevData => [...prevData, ...newVisitEntries]);
             setSelectedYear(newYear);
             toast({
                 title: "Tahun Ditambahkan",
@@ -502,7 +508,7 @@ export default function DataEntryPage() {
                 requestResourceData: {
                     year: newYear,
                     destinations: destinations.map(d => d.id),
-                    batchOperations: batchData
+                    batchOperations: newVisitEntries
                 },
             });
             errorEmitter.emit('permission-error', permissionError);

@@ -1,14 +1,21 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import { onSnapshot, Query } from 'firebase/firestore';
 import { errorEmitter } from '@/lib/firebase/error-emitter';
 import { FirestorePermissionError } from '@/lib/firebase/errors';
 
+type UseCollectionReturn<T> = {
+  data: T[];
+  loading: boolean;
+  error: Error | null;
+  setData: Dispatch<SetStateAction<T[]>>;
+};
+
 export function useCollection<T>(
   q: Query | null
-): { data: T[]; loading: boolean; error: Error | null } {
+): UseCollectionReturn<T> {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -65,5 +72,5 @@ export function useCollection<T>(
     };
   }, [q]);
 
-  return { data, loading, error };
+  return { data, loading, error, setData };
 }
