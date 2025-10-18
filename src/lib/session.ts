@@ -3,11 +3,6 @@
 import 'server-only';
 
 import { cookies } from 'next/headers';
-import { User } from './types';
-// This file runs on the server, so it can't access localStorage.
-// The AuthProvider on the client is responsible for getting the *latest* data.
-import { users as mockUsers } from './mock-data';
-
 
 export async function createSession(uid: string) {
   const oneWeek = 7 * 24 * 60 * 60 * 1000;
