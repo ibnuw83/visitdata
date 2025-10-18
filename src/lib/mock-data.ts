@@ -91,7 +91,7 @@ export const destinations: Destination[] = [
     name: 'Bukit Pentulu Indah',
     category: 'buatan',
     managementType: 'swasta',
-    manager: 'pengelola-02',
+    manager: 'pengelola-03',
     location: 'Karangsambung, Kebumen',
     status: 'aktif',
     }
