@@ -45,7 +45,7 @@ export default function ReportsPage() {
     if (selectedMonth !== 'all') {
       data = data.filter(d => d.month === parseInt(selectedMonth));
     }
-    return data.sort((a,b) => b.year - a.year || b.month - a.month);
+    return data.sort((a,b) => b.year - a.year || a.month - b.month);
   }, [visitData, selectedDestination, selectedYear, selectedMonth]);
 
 
