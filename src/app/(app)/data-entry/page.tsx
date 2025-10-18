@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Accordion,
   AccordionContent,
@@ -17,7 +17,7 @@ import { Destination, VisitData, WismanDetail, Country, UnlockRequest } from "@/
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PlusCircle, Trash2, Lock, Unlock, KeyRound, Save } from 'lucide-react';
-import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError, useMemoFirebase, useQuery as useFirestoreQuery } from '@/firebase';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -115,7 +115,7 @@ const colorPalette = [
     "text-indigo-600",
 ];
 
-function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLockChange, onNewRequest, colorClass }: { destination: Destination, initialData: VisitData[], onBulkDataChange: (updatedData: VisitData[]) => void, onLockChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void, colorClass: string }) {
+function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLockChange, onNewRequest, colorClass, selectedYear }: { destination: Destination, initialData: VisitData[], onBulkDataChange: (updatedData: VisitData[]) => void, onLockChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void, colorClass: string, selectedYear: number }) {
   const [data, setData] = useState<VisitData[]>(initialData);
   const [hasChanges, setHasChanges] = useState(false);
   const { toast } = useToast();
@@ -123,11 +123,44 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
   const firestore = useFirestore();
   const countriesQuery = useMemo(() => firestore ? collection(firestore, 'countries') : null, [firestore]);
   const { data: countries } = useCollection<Country>(countriesQuery);
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
+
+  // Lazy load data only when the accordion is opened
+  const destinationVisitsQuery = useMemoFirebase(() => {
+    if (!isAccordionOpen || !firestore) return null;
+    return query(collection(firestore, 'destinations', destination.id, 'visits'), where('year', '==', selectedYear));
+  }, [isAccordionOpen, firestore, destination.id, selectedYear]);
+
+  const { data: fetchedVisitData, loading: visitsLoading } = useCollection<VisitData>(destinationVisitsQuery);
 
   useEffect(() => {
-    setData(initialData);
-    setHasChanges(false);
-  }, [initialData]);
+    if (isAccordionOpen && !visitsLoading && fetchedVisitData) {
+        const fullYearData = months.map((monthName, index) => {
+            const monthIndex = index + 1;
+            const existingData = fetchedVisitData.find(d => d.month === monthIndex);
+            if (existingData) return existingData;
+            
+            // This is placeholder data for months without entries in Firestore
+            return initialData.find(d => d.month === monthIndex) || {
+                id: `${destination.id}-${selectedYear}-${monthIndex}`,
+                destinationId: destination.id,
+                year: selectedYear,
+                month: monthIndex,
+                monthName: monthName,
+                wisnus: 0,
+                wisman: 0,
+                wismanDetails: [],
+                totalVisitors: 0,
+                locked: appUser?.role === 'admin' ? true : new Date(selectedYear, monthIndex, 1) > new Date(),
+            };
+        });
+      setData(fullYearData.sort((a,b) => a.month - b.month));
+    } else {
+        setData(initialData);
+    }
+     setHasChanges(false);
+  }, [initialData, fetchedVisitData, visitsLoading, isAccordionOpen, selectedYear, destination.id, appUser?.role]);
+  
   
   const handleDataChange = (monthIndex: number, field: 'wisnus', value: number) => {
     const newData = [...data];
@@ -165,8 +198,7 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
   }
 
   const handleManualSave = () => {
-    const changedData = data.filter((d, i) => JSON.stringify(d) !== JSON.stringify(initialData[i]));
-    onBulkDataChange(changedData);
+    onBulkDataChange(data); // Save all data for the year
     setHasChanges(false);
     toast({
         title: "Perubahan Disimpan",
@@ -190,16 +222,16 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
 
   const yearlyTotals = useMemo(() => {
     return data.reduce((acc, curr) => {
-        acc.wisnus += curr.wisnus;
-        acc.wisman += curr.wisman;
-        acc.totalVisitors += curr.totalVisitors;
+        acc.wisnus += curr.wisnus || 0;
+        acc.wisman += curr.wisman || 0;
+        acc.totalVisitors += curr.totalVisitors || 0;
         return acc;
     }, { wisnus: 0, wisman: 0, totalVisitors: 0});
   }, [data]);
 
   return (
-    <AccordionItem value={destination.id}>
-      <AccordionTrigger className="hover:no-underline">
+    <AccordionItem value={destination.id} onFocus={() => setIsAccordionOpen(true)} onBlur={() => setIsAccordionOpen(false)}>
+      <AccordionTrigger className="hover:no-underline" onClick={() => setIsAccordionOpen(prev => !prev)}>
         <div className="flex w-full items-center justify-between pr-4">
           <span className={cn("font-semibold", colorClass)}>{destination.name} - {initialData[0]?.year || 'N/A'}</span>
           <div className="flex items-center gap-4 text-sm font-normal">
@@ -371,7 +403,7 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
                                 <Input
                                     type="number"
                                     placeholder="Jumlah"
-                                    value={detail.count}
+                                    value={detail.count || 0}
                                     className="h-9 w-24"
                                     onChange={(e) => handleDetailChange(index, 'count', e.target.value)}
                                 />
@@ -424,23 +456,15 @@ export default function DataEntryPage() {
 
   
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
-
-  const visitsQuery = useMemo(() => {
-    if (!firestore) return null;
-    return collectionGroup(firestore, 'visits');
-  }, [firestore]);
-
-  const { data: allVisitData, setData: setAllVisitData } = useCollection<VisitData>(visitsQuery);
+  const { data: allVisitData, setData: setAllVisitData } = useCollection<VisitData>(null); // Initially null
   
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
-    if (!allVisitData) return [currentYear.toString()];
-    const yearsFromData = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
-    if (!yearsFromData.includes(currentYear)) {
-      yearsFromData.unshift(currentYear);
-    }
-    return yearsFromData.map(String);
-  }, [allVisitData]);
+    // Since we don't fetch all data upfront, we manage years manually.
+    // For simplicity, let's show the last 5 years plus the next year.
+    const years = Array.from({length: 7}, (_, i) => currentYear + 1 - i);
+    return years.map(String);
+  }, []);
 
   useEffect(() => {
     if (!availableYears.includes(selectedYear.toString())) {
@@ -545,7 +569,7 @@ export default function DataEntryPage() {
   
     batch.commit()
       .then(() => {
-        setAllVisitData(prevData => [...(prevData || []), ...newVisitEntries]);
+        // We don't need to update global state anymore
         setSelectedYear(newYear);
         toast({
           title: "Tahun Ditambahkan",
@@ -603,7 +627,6 @@ export default function DataEntryPage() {
     
     batch.commit()
       .then(() => {
-        setAllVisitData(prevData => (prevData || []).filter(d => d.year !== selectedYear));
         const newYear = availableYears.find(y => y !== selectedYear.toString()) || new Date().getFullYear().toString();
         setSelectedYear(parseInt(newYear));
         toast({
@@ -625,49 +648,34 @@ export default function DataEntryPage() {
   }
 
   const dataByDestination = useMemo(() => {
-    if (!destinations || !allVisitData) return [];
+    if (!destinations) return [];
     
     const filteredDestinations = selectedDestinationFilter === 'all'
       ? destinations
       : destinations.filter(d => d.id === selectedDestinationFilter);
 
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // 1-12
-
     return filteredDestinations.map(dest => {
-      let destData = allVisitData.filter(d => d.destinationId === dest.id && d.year === selectedYear);
-      
-      // Ensure all 12 months are present for the selected year
-      if (destData.length < 12) {
-          const fullYearData = months.map((monthName, index) => {
-              const monthIndex = index + 1;
-              const existingData = destData.find(d => d.month === monthIndex);
-              if (existingData) return existingData;
-
-              const isPastOrPresent = selectedYear < currentYear || (selectedYear === currentYear && monthIndex <= currentMonth);
-              const isLockedForPengelola = !isPastOrPresent;
-              const isLockedForAdmin = true;
-              
-              return {
-                  id: `${dest.id}-${selectedYear}-${monthIndex}`,
-                  destinationId: dest.id,
-                  year: selectedYear,
-                  month: monthIndex,
-                  monthName: monthName,
-                  wisnus: 0,
-                  wisman: 0,
-                  wismanDetails: [],
-                  totalVisitors: 0,
-                  locked: appUser?.role === 'admin' ? isLockedForAdmin : isLockedForPengelola,
-              };
-          });
-          return { destination: dest, data: fullYearData.sort((a,b) => a.month - b.month) };
-      }
-      
-      return { destination: dest, data: destData.sort((a,b) => a.month - b.month) };
+        // Create placeholder data for all 12 months.
+        // The actual data will be lazy-loaded inside DestinationDataEntry.
+        const placeholderData = months.map((monthName, index) => {
+            const monthIndex = index + 1;
+            const isFuture = new Date(selectedYear, monthIndex, 1) > new Date();
+            return {
+                id: `${dest.id}-${selectedYear}-${monthIndex}`,
+                destinationId: dest.id,
+                year: selectedYear,
+                month: monthIndex,
+                monthName: monthName,
+                wisnus: 0,
+                wisman: 0,
+                wismanDetails: [],
+                totalVisitors: 0,
+                locked: appUser?.role === 'admin' ? true : isFuture,
+            };
+        });
+        return { destination: dest, data: placeholderData.sort((a,b) => a.month - b.month) };
     });
-  }, [destinations, allVisitData, selectedYear, selectedDestinationFilter, appUser?.role]);
+  }, [destinations, selectedYear, selectedDestinationFilter, appUser?.role]);
 
   if (!appUser) {
     return null; // or a loading skeleton
@@ -755,6 +763,7 @@ export default function DataEntryPage() {
                     onLockChange={handleLockChange}
                     onNewRequest={handleNewRequest as any}
                     colorClass={colorPalette[index % colorPalette.length]}
+                    selectedYear={selectedYear}
                   />
               ))}
             </Accordion>
@@ -768,3 +777,5 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+    
