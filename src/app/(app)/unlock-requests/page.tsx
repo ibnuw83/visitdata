@@ -22,7 +22,7 @@ export default function UnlockRequestsPage() {
     return query(collection(firestore, 'unlock-requests'));
   }, [firestore, appUser]);
   
-  const { data: unlockRequests } = useCollection<UnlockRequest>(requestsQuery);
+  const { data: unlockRequests, setData: setUnlockRequests } = useCollection<UnlockRequest>(requestsQuery);
   const { toast } = useToast();
   
   const statusVariant: { [key in UnlockRequest['status']]: "secondary" | "default" | "destructive" } = {
@@ -58,6 +58,13 @@ export default function UnlockRequestsPage() {
 
     batch.commit()
       .then(() => {
+        // Optimistically update UI
+        setUnlockRequests(prevRequests => 
+          prevRequests.map(req => 
+            req.id === requestId ? { ...req, status: newStatus, processedBy: appUser.uid } : req
+          )
+        );
+
         toast({
           title: `Permintaan ${newStatus === 'approved' ? 'Disetujui' : 'Ditolak'}`,
           description: `Status permintaan telah diperbarui.`,

@@ -33,7 +33,7 @@ export function useCollection<T>(
 
     setLoading(true);
     setError(null);
-    setData([]);
+    
 
     const unsubscribe = onSnapshot(
       q,

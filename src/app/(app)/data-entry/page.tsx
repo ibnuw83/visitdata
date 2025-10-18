@@ -142,13 +142,13 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
     const newData = [...data];
     const monthData = newData.find(d => d.month === monthIndex + 1);
 
-    if (monthData && appUser?.uid) {
-      const updatedMonthData: VisitData = {
-        ...monthData,
-        [field]: value,
-        totalVisitors: value + monthData.wisman,
-        lastUpdatedBy: appUser.uid,
-      };
+    if (monthData) {
+        const updatedMonthData: VisitData = {
+            ...monthData,
+            [field]: value,
+            totalVisitors: value + monthData.wisman,
+        };
+        if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
       
       setData(newData.map(d => d.month === monthIndex + 1 ? updatedMonthData : d));
       debouncedSave(updatedMonthData);
@@ -158,15 +158,16 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
   const handleWismanDetailsChange = (monthIndex: number, wismanDetails: WismanDetail[]) => {
      const newData = [...data];
      const monthData = newData.find(d => d.month === monthIndex + 1);
-     if (monthData && appUser?.uid) {
+     if (monthData) {
         const wisman = wismanDetails.reduce((sum, detail) => sum + (detail.count || 0), 0);
         const updatedMonthData: VisitData = {
           ...monthData,
           wismanDetails,
           wisman,
           totalVisitors: monthData.wisnus + wisman,
-          lastUpdatedBy: appUser.uid,
         };
+        if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
+
         setData(newData.map(d => d.month === monthIndex + 1 ? updatedMonthData : d));
         debouncedSave(updatedMonthData);
      }
@@ -174,8 +175,10 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
 
   const handleLockChange = (monthIndex: number, locked: boolean) => {
     const monthData = data.find(d => d.month === monthIndex + 1);
-    if (monthData && appUser?.uid) {
-        const updatedMonthData: VisitData = { ...monthData, locked, lastUpdatedBy: appUser.uid };
+    if (monthData) {
+        const updatedMonthData: VisitData = { ...monthData, locked };
+        if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
+
         onDataChange(updatedMonthData); // Save immediately
         toast({
             title: `Data ${locked ? 'Dikunci' : 'Dibuka'}`,
@@ -553,14 +556,13 @@ export default function DataEntryPage() {
     
     batch.commit()
       .then(() => {
+        setAllVisitData(prevData => prevData.filter(d => d.year !== selectedYear));
+        const newYear = availableYears.find(y => y !== selectedYear.toString()) || new Date().getFullYear().toString();
+        setSelectedYear(parseInt(newYear));
         toast({
             title: "Tahun Dihapus",
             description: `Semua data untuk tahun ${selectedYear} telah dihapus.`,
         });
-        if (availableYears.length > 1) {
-            const newYear = availableYears.find(y => y !== selectedYear.toString()) || new Date().getFullYear().toString();
-            setSelectedYear(parseInt(newYear));
-        }
       })
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -648,7 +650,7 @@ export default function DataEntryPage() {
                         </Button>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="icon">
+                                <Button variant="destructive" size="icon" disabled={availableYears.length <= 1}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </AlertDialogTrigger>
@@ -690,5 +692,3 @@ export default function DataEntryPage() {
     </div>
   );
 }
-
-    
