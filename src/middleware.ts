@@ -1,36 +1,12 @@
+
 'use server';
 
 import { NextResponse, type NextRequest } from 'next/server';
-// import { verifySession } from '@/lib/session';
-
-// const protectedRoutes = ['/dashboard', '/categories', '/destinations', '/data-entry', '/reports', '/unlock-requests', '/users', '/settings'];
-// const publicRoute = '/';
 
 export async function middleware(request: NextRequest) {
   // The client-side AuthProvider is now the single source of truth for auth.
   // The middleware is disabled to prevent conflicts.
   return NextResponse.next();
-
-  /*
-  const { pathname } = request.nextUrl;
-  
-  const isAuthenticated = await verifySession();
-
-  const isAccessingProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
-  const isAccessingPublicRoute = pathname === publicRoute;
-
-  // If user is not authenticated and is trying to access a protected route, redirect to login page.
-  if (!isAuthenticated && isAccessingProtectedRoute) {
-    return NextResponse.redirect(new URL(publicRoute, request.url));
-  }
-
-  // If user is authenticated and is trying to access the login page, redirect to dashboard.
-  if (isAuthenticated && isAccessingPublicRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-  
-  return NextResponse.next();
-  */
 }
 
 export const config = {

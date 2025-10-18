@@ -74,7 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       const allUsers = getUsers();
+      console.log('All users:', allUsers); // Debug log
       const foundUser = allUsers.find(u => u.email === email);
+      
+      if (foundUser) {
+        console.log('User found:', foundUser.email); // Debug log
+        console.log('Password match?', password === foundUser.password); // Debug log
+      }
+
 
       if (foundUser && foundUser.password === password) {
         // Validation successful on the client, now create the server session cookie
