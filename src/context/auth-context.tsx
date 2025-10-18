@@ -10,6 +10,9 @@ import { users as seedUsers, destinations as seedDestinations, categories as see
 import { User as AppUser, Destination, Category, Country, VisitData } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -45,107 +48,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const seedInitialData = async () => {
-        if (!firestore || !firebaseApp) return;
+        if (!firestore || !firebaseApp || !isInitializing) return;
 
         try {
-            const adminUserSeed = seedUsers.find(u => u.role === 'admin');
-            if (!adminUserSeed) {
-                console.error("Data seed admin tidak ditemukan.");
-                return;
-            }
+            const usersCollectionRef = collection(firestore, 'users');
+            const q = query(usersCollectionRef, limit(1));
+            const snapshot = await getDocs(q);
 
-            const adminUserDocRef = doc(firestore, 'users', adminUserSeed.uid);
-            const adminUserDoc = await getDoc(adminUserDocRef);
-
-            if (!adminUserDoc.exists()) {
+            if (snapshot.empty) {
                 console.log("Memulai proses seeding data awal...");
                 toast({ title: "Setup Awal", description: "Mengisi database dengan data contoh. Ini mungkin butuh beberapa saat..." });
 
-                // 1. Seed Admin User
                 const authInstance = getAuth(firebaseApp);
-                try {
-                    const userCredential = await createUserWithEmailAndPassword(authInstance, adminUserSeed.email, adminUserSeed.password as string);
-                    const newAuthUser = userCredential.user;
-                    
-                    const newUserDoc: AppUser = {
-                        uid: newAuthUser.uid, // Gunakan UID dari Auth
-                        name: adminUserSeed.name,
-                        email: adminUserSeed.email,
-                        role: adminUserSeed.role,
-                        assignedLocations: adminUserSeed.assignedLocations,
-                        status: adminUserSeed.status,
-                        avatarUrl: adminUserSeed.avatarUrl,
-                    };
-                    // Buat dokumen user dengan UID dari Auth
-                    await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserDoc);
-                    console.log("Pengguna admin berhasil dibuat di Auth dan Firestore.");
-
-                } catch (e: any) {
-                    if (e.code === 'auth/email-already-in-use') {
-                        console.log(`Pengguna admin ${adminUserSeed.email} sudah ada di Auth. Hanya membuat data Firestore.`);
-                        // Jika sudah ada di Auth, tetap buat di Firestore dengan UID yang sudah ada
-                         await setDoc(adminUserDocRef, {
-                            uid: adminUserSeed.uid,
-                            name: adminUserSeed.name,
-                            email: adminUserSeed.email,
-                            role: adminUserSeed.role,
-                            assignedLocations: adminUserSeed.assignedLocations,
-                            status: adminUserSeed.status,
-                            avatarUrl: adminUserSeed.avatarUrl,
-                        });
-                    } else {
-                        throw e; // Lemparkan galat lain
+                const userCreationPromises = seedUsers.map(async (userData, index) => {
+                    try {
+                        const userCredential = await createUserWithEmailAndPassword(authInstance, userData.email, userData.password as string);
+                        const newAuthUser = userCredential.user;
+                        const newUserDoc: AppUser = {
+                            ...userData,
+                            uid: newAuthUser.uid, 
+                            avatarUrl: userData.avatarUrl || PlaceHolderImages[index % PlaceHolderImages.length].imageUrl,
+                        };
+                        delete (newUserDoc as any).password;
+                        await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserDoc);
+                    } catch (e: any) {
+                        if (e.code === 'auth/email-already-in-use') {
+                            console.log(`Pengguna ${userData.email} sudah ada di Auth. Hanya memastikan data Firestore ada.`);
+                            const userDocRef = doc(firestore, 'users', userData.uid);
+                             if (!(await getDoc(userDocRef)).exists()) {
+                                const docData = {...userData};
+                                delete (docData as any).password;
+                                await setDoc(userDocRef, docData);
+                             }
+                        } else {
+                            throw e;
+                        }
                     }
+                });
+
+                await Promise.all(userCreationPromises);
+                console.log("Seeding pengguna selesai.");
+
+                const mainBatch = writeBatch(firestore);
+                seedDestinations.forEach((d: Destination) => mainBatch.set(doc(firestore, 'destinations', d.id), d));
+                seedCategories.forEach((c: Category) => mainBatch.set(doc(firestore, 'categories', c.id), c));
+                seedCountries.forEach((c: Country) => mainBatch.set(doc(firestore, 'countries', c.code), c));
+                console.log("Mempersiapkan batch untuk destinasi, kategori, dan negara...");
+                try {
+                    await mainBatch.commit();
+                    console.log("Seeding destinasi, kategori, dan negara berhasil.");
+                } catch(batchError: any) {
+                    errorEmitter.emit('permission-error', new FirestorePermissionError({
+                        path: '/ (batch operation)',
+                        operation: 'create',
+                        requestResourceData: {
+                            destinations: seedDestinations.length,
+                            categories: seedCategories.length,
+                            countries: seedCountries.length,
+                        }
+                    }, batchError.message));
+                    throw batchError;
                 }
-                
-                // 2. Seed data lainnya (destinations, categories, etc.)
-                const batch = writeBatch(firestore);
 
-                seedDestinations.forEach((d: Destination) => batch.set(doc(firestore, 'destinations', d.id), d));
-                seedCategories.forEach((c: Category) => batch.set(doc(firestore, 'categories', c.id), c));
-                seedCountries.forEach((c: Country) => batch.set(doc(firestore, 'countries', c.code), c));
-                
-                console.log("Seeding destinasi, kategori, dan negara...");
-                await batch.commit();
-
-                // 3. Seed Visit Data (dalam batch terpisah)
                 const visitBatch = writeBatch(firestore);
                 seedVisitData.forEach((vd: VisitData) => {
                     const singleVisitDocRef = doc(firestore, 'destinations', vd.destinationId, 'visits', vd.id);
                     visitBatch.set(singleVisitDocRef, vd);
                 });
-                console.log("Seeding data kunjungan...");
-                await visitBatch.commit();
-                
-                // 4. Seed Pengguna Lain (Pengelola)
-                 const managerUsers = seedUsers.filter(u => u.role === 'pengelola');
-                 for (const managerData of managerUsers) {
-                    try {
-                        const userCredential = await createUserWithEmailAndPassword(authInstance, managerData.email, managerData.password as string);
-                        const newAuthUser = userCredential.user;
-                        const newUserDoc: AppUser = {
-                            uid: newAuthUser.uid,
-                            name: managerData.name,
-                            email: managerData.email,
-                            role: managerData.role,
-                            assignedLocations: managerData.assignedLocations,
-                            status: managerData.status,
-                            avatarUrl: managerData.avatarUrl
-                        };
-                        await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserDoc);
-                    } catch(e: any) {
-                        if (e.code !== 'auth/email-already-in-use') {
-                            console.warn(`Gagal membuat pengguna pengelola ${managerData.email}:`, e.message);
-                        } else {
-                             console.log(`Pengguna pengelola ${managerData.email} sudah ada.`);
-                             // Pastikan data Firestore ada jika auth sudah ada
-                             const managerDocRef = doc(firestore, 'users', managerData.uid);
-                             if (!(await getDoc(managerDocRef)).exists()) {
-                                await setDoc(managerDocRef, {...managerData, uid: managerData.uid});
-                             }
-                        }
-                    }
-                 }
+                console.log("Mempersiapkan batch untuk data kunjungan...");
+                try {
+                    await visitBatch.commit();
+                    console.log("Seeding data kunjungan berhasil.");
+                } catch(batchError: any) {
+                     errorEmitter.emit('permission-error', new FirestorePermissionError({
+                        path: '/destinations/{destId}/visits (batch operation)',
+                        operation: 'create',
+                        requestResourceData: { visits: seedVisitData.length }
+                    }, batchError.message));
+                    throw batchError;
+                }
                 
 
                 toast({
@@ -158,11 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         } catch(e: any) {
             console.error("Galat kritis saat proses seeding data:", e);
-            toast({
-                variant: 'destructive',
-                title: 'Gagal Melakukan Seeding',
-                description: e.message || 'Terjadi kesalahan tidak terduga saat inisialisasi data.'
-            });
+            if (!(e instanceof FirestorePermissionError)) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Gagal Melakukan Seeding',
+                    description: e.message || 'Terjadi kesalahan tidak terduga saat inisialisasi data.'
+                });
+            }
         } finally {
             setIsInitializing(false); 
         }
@@ -170,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (firestore && firebaseApp && isInitializing) {
         seedInitialData();
-    } else if (!firestore || !firebaseApp) {
+    } else if (!isInitializing && (!firestore || !firebaseApp)) {
         setIsInitializing(false);
     }
   }, [firestore, firebaseApp, toast, isInitializing]);
@@ -184,8 +167,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting the user state.
-      // Redirect will happen in the page/layout after user state is updated.
     } catch (e: any) {
       console.error("Login Error:", e);
       if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password') {
