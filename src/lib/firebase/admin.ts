@@ -1,5 +1,5 @@
 
-import { getApps, initializeApp, cert, applicationDefault } from "firebase-admin/app";
+import { getApps, initializeApp, applicationDefault } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
 // This setup is robust for both local development and production.

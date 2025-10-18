@@ -3,12 +3,9 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser, getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { useAuth as useFirebaseAuth, useFirebaseApp, useFirestore } from '@/firebase/client-provider';
-import { doc, getDoc } from 'firebase/firestore';
-import { users as seedUsers } from '@/lib/seed';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { useAuth as useFirebaseAuth } from '@/firebase/client-provider';
 import { useToast } from '@/hooks/use-toast';
-
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -23,8 +20,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useFirebaseAuth();
-  const firestore = useFirestore();
-  const firebaseApp = useFirebaseApp();
   const { toast } = useToast();
   
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -44,27 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const seedInitialData = async () => {
-        if (!firestore || !firebaseApp) return;
-
         try {
-            // Kita hanya perlu memeriksa apakah pengguna admin sudah ada di Auth
-            // untuk memicu pembuatan pengguna jika diperlukan.
-            const authInstance = getAuth(firebaseApp);
-            
-            // Buat pengguna admin jika belum ada.
-            try {
-                await createUserWithEmailAndPassword(authInstance, seedUsers[0].email, seedUsers[0].password as string);
-                console.log("Pengguna Auth Admin dibuat.");
-            } catch (e: any) {
-                if (e.code !== 'auth/email-already-in-use') {
-                   throw e;
-                }
-                // Jika sudah ada, tidak masalah, kita lanjutkan.
-                console.log("Pengguna Auth Admin sudah ada.");
-            }
-            
-            // Sekarang, panggil API route untuk melakukan seeding data di server.
-            // Ini akan memeriksa keberadaan data di Firestore dan melakukan seeding jika perlu.
             console.log("Memicu proses seeding data di server...");
             const response = await fetch('/api/seed', { method: 'POST' });
             const result = await response.json();
@@ -76,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log("Respon dari server seeder:", result.message);
             
         } catch(e: any) {
-            console.error("Galat kritis saat proses inisialisasi:", e);
+            console.error("Galat saat proses inisialisasi:", e);
             toast({
                 variant: 'destructive',
                 title: 'Gagal Inisialisasi Data',
@@ -88,7 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     seedInitialData();
-    // Kita hanya ingin menjalankan ini sekali, jadi dependensi array dikosongkan.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { users as seedUsers, destinations, categories, countries, visitData } from "@/lib/seed";
@@ -14,7 +15,7 @@ export async function POST() {
     console.log("Memulai proses seeding data awal via API route...");
     const batch = adminDb.batch();
 
-    // Seed users (tanpa password) - Auth harus dibuat terpisah jika diperlukan
+    // Seed users (tanpa password)
     seedUsers.forEach((u) => {
       const { password, ...userDoc } = u;
       batch.set(adminDb.doc(`users/${userDoc.uid}`), userDoc);
