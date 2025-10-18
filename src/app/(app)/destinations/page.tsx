@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getDestinations, saveDestinations } from "@/lib/local-data-service";
-import type { Destination } from '@/lib/types';
+import { getDestinations, saveDestinations, getCategories } from "@/lib/local-data-service";
+import type { Destination, Category } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { Landmark, MoreHorizontal, FilePenLine, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Landmark, MoreHorizontal, FilePenLine, Trash2, ToggleLeft, ToggleRight, PlusCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -21,14 +21,75 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 export default function DestinationsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  
+  // State for new destination form
+  const [newDestinationName, setNewDestinationName] = useState('');
+  const [newDestinationCategory, setNewDestinationCategory] = useState('');
+  const [newDestinationLocation, setNewDestinationLocation] = useState('');
+
   const { toast } = useToast();
   
   useEffect(() => {
     setDestinations(getDestinations());
+    setCategories(getCategories());
   }, []);
+
+  const resetAddForm = () => {
+    setNewDestinationName('');
+    setNewDestinationCategory('');
+    setNewDestinationLocation('');
+  }
+
+  const handleAddNewDestination = () => {
+    if (!newDestinationName.trim() || !newDestinationCategory.trim() || !newDestinationLocation.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Input tidak lengkap",
+        description: "Harap isi semua kolom untuk menambahkan destinasi baru.",
+      });
+      return;
+    }
+
+    const newDestination: Destination = {
+      id: `dest-${Date.now()}`,
+      name: newDestinationName.trim(),
+      category: newDestinationCategory,
+      location: newDestinationLocation.trim(),
+      status: 'aktif',
+      manager: 'pengelola-01', // Default manager for new destination
+    };
+
+    const updatedDestinations = [...destinations, newDestination];
+    setDestinations(updatedDestinations);
+    saveDestinations(updatedDestinations);
+
+    toast({
+      title: "Destinasi Ditambahkan",
+      description: `Destinasi "${newDestination.name}" berhasil dibuat.`,
+    });
+    
+    setIsAddDialogOpen(false);
+    resetAddForm();
+  };
 
   const handleToggleStatus = (destinationId: string) => {
     const updatedDestinations = destinations.map(dest => {
@@ -78,9 +139,74 @@ export default function DestinationsPage() {
         </p>
       </div>
       <Card>
-        <CardHeader>
-            <CardTitle>Daftar Destinasi</CardTitle>
-            <CardDescription>Berikut adalah semua destinasi yang terdaftar dalam sistem.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div className="space-y-1.5">
+              <CardTitle>Daftar Destinasi</CardTitle>
+              <CardDescription>Berikut adalah semua destinasi yang terdaftar dalam sistem.</CardDescription>
+            </div>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                    <PlusCircle className="mr-2" />
+                    Tambah Destinasi
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[480px]">
+                <DialogHeader>
+                  <DialogTitle>Tambah Destinasi Baru</DialogTitle>
+                  <DialogDescription>
+                    Isi detail di bawah ini untuk membuat destinasi baru.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="dest-name" className="text-right">
+                      Nama
+                    </Label>
+                    <Input
+                      id="dest-name"
+                      value={newDestinationName}
+                      onChange={(e) => setNewDestinationName(e.target.value)}
+                      className="col-span-3"
+                      placeholder="Contoh: Pantai Indah"
+                    />
+                  </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="dest-category" className="text-right">
+                      Kategori
+                    </Label>
+                     <Select value={newDestinationCategory} onValueChange={setNewDestinationCategory}>
+                        <SelectTrigger id="dest-category" className="col-span-3">
+                            <SelectValue placeholder="Pilih Kategori" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {categories.map(c => (
+                                <SelectItem key={c.id} value={c.name} className="capitalize">{c.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="dest-location" className="text-right">
+                      Lokasi
+                    </Label>
+                    <Input
+                      id="dest-location"
+                      value={newDestinationLocation}
+                      onChange={(e) => setNewDestinationLocation(e.target.value)}
+                      className="col-span-3"
+                      placeholder="Contoh: Nama Desa, Kecamatan, Kabupaten"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline" onClick={resetAddForm}>Batal</Button>
+                  </DialogClose>
+                  <Button onClick={handleAddNewDestination}>Simpan</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
         </CardHeader>
         <CardContent>
              <Table>
