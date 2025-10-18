@@ -54,15 +54,18 @@ export default function AppLayout({
   const { user, isLoading } = useAuth();
   
   useEffect(() => {
+    // If loading is finished and there's still no user, redirect to login.
     if (!isLoading && !user) {
       redirect('/');
     }
   }, [user, isLoading]);
 
+  // While loading or if there's no user (before redirect happens), show a skeleton.
   if (isLoading || !user) {
     return <AppLayoutSkeleton />;
   }
   
+  // If loading is done and user exists, render the full app layout.
   return (
     <SidebarProvider>
       <Sidebar>
