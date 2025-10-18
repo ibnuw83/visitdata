@@ -34,7 +34,10 @@ import {
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editedCategoryName, setEditedCategoryName] = useState('');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -57,7 +60,7 @@ export default function CategoriesPage() {
     setCategories(updatedCategories);
     saveCategories(updatedCategories);
     setNewCategoryName('');
-    setIsDialogOpen(false);
+    setIsAddDialogOpen(false);
     toast({
         title: "Kategori Ditambahkan",
         description: `Kategori "${newCategory.name}" berhasil dibuat.`,
@@ -65,8 +68,8 @@ export default function CategoriesPage() {
   }
 
   const handleDeleteCategory = (categoryId: string) => {
-    const updatedCategories = categories.filter(c => c.id !== categoryId);
     const categoryName = categories.find(c => c.id === categoryId)?.name;
+    const updatedCategories = categories.filter(c => c.id !== categoryId);
     setCategories(updatedCategories);
     saveCategories(updatedCategories);
     toast({
@@ -75,10 +78,33 @@ export default function CategoriesPage() {
     });
   }
 
-  const handleEditCategory = (categoryName: string) => {
+  const openEditDialog = (category: Category) => {
+    setEditingCategory(category);
+    setEditedCategoryName(category.name);
+    setIsEditDialogOpen(true);
+  }
+
+  const handleUpdateCategory = () => {
+    if (!editedCategoryName.trim() || !editingCategory) {
+        toast({
+            variant: "destructive",
+            title: "Nama kategori tidak boleh kosong.",
+        });
+        return;
+    }
+
+    const updatedCategories = categories.map(c => 
+        c.id === editingCategory.id ? { ...c, name: editedCategoryName.trim().toLowerCase() } : c
+    );
+
+    setCategories(updatedCategories);
+    saveCategories(updatedCategories);
+    setIsEditDialogOpen(false);
+    setEditingCategory(null);
+    
     toast({
-      title: `Aksi: Edit`,
-      description: `Anda memilih Edit untuk kategori ${categoryName}. (Fungsi belum diimplementasikan)`,
+        title: "Kategori Diperbarui",
+        description: `Kategori "${editingCategory.name}" telah diubah menjadi "${editedCategoryName}".`,
     });
   }
 
@@ -96,7 +122,7 @@ export default function CategoriesPage() {
                 <CardTitle>Daftar Kategori</CardTitle>
                 <CardDescription>Tambah, edit, atau hapus kategori wisata.</CardDescription>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
                     <PlusCircle className="mr-2" />
@@ -142,7 +168,7 @@ export default function CategoriesPage() {
                            <span className="capitalize">{category.name}</span>
                         </div>
                         <div className="flex items-center">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleEditCategory(category.name)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => openEditDialog(category)}>
                                 <FilePenLine className="h-4 w-4" />
                             </Button>
                             <AlertDialog>
@@ -170,6 +196,37 @@ export default function CategoriesPage() {
             </div>
         </CardContent>
       </Card>
+
+      {/* Edit Category Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Kategori</DialogTitle>
+            <DialogDescription>
+              Ubah nama untuk kategori <span className="font-bold capitalize">"{editingCategory?.name}"</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-name" className="text-right">
+                Nama
+              </Label>
+              <Input
+                id="edit-name"
+                value={editedCategoryName}
+                onChange={(e) => setEditedCategoryName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Batal</Button>
+            </DialogClose>
+            <Button onClick={handleUpdateCategory}>Simpan Perubahan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
