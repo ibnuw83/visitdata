@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
 import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree, Lightbulb } from 'lucide-react';
 import { User } from '@/lib/types';
+import { useAuth } from '@/context/auth-context';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard, roles: ['admin', 'pengelola'] },
@@ -29,8 +30,13 @@ const bottomMenuItems = [
     { href: '/settings', label: 'Pengaturan', icon: Settings, roles: ['admin', 'pengelola'] },
 ]
 
-export default function SidebarNav({ user }: { user: User }) {
+export default function SidebarNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  if (!user) {
+    return null;
+  }
 
   const isUserInRole = (roles: string[]) => roles.includes(user.role);
 

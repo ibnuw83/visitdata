@@ -1,4 +1,5 @@
-import { getCurrentUser } from "@/lib/session"
+'use client';
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -10,14 +11,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { logout } from "@/app/auth-actions";
 import { SidebarTrigger } from "../ui/sidebar";
 import { User } from "@/lib/types";
 import { LogOut } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/context/auth-context";
 
-export default function Header({ user }: { user: User }) {
+export default function Header() {
+  const { user, logout } = useAuth();
+
+  if (!user) {
+    return null;
+  }
+
   const userImage = PlaceHolderImages.find(p => p.id === user.avatar);
+
+  const handleLogout = async () => {
+    await logout();
+  }
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
@@ -45,14 +56,12 @@ export default function Header({ user }: { user: User }) {
               <Link href="/settings">Pengaturan</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <form action={logout}>
-              <DropdownMenuItem asChild>
-                <button type="submit" className="w-full">
+            <DropdownMenuItem asChild>
+                <button onClick={handleLogout} className="w-full">
                   <LogOut className="mr-2 h-4 w-4" />
                   Keluar
                 </button>
               </DropdownMenuItem>
-            </form>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

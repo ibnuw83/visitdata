@@ -1,29 +1,41 @@
 'use client';
 
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
-import { login } from '@/app/auth-actions';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useAuth } from '@/context/auth-context';
+import { useEffect } from 'react';
 
 function SubmitButton() {
-  const { pending } = useFormStatus();
+  const { isLoading } = useAuth();
 
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? 'Memeriksa...' : 'Masuk'}
+    <Button type="submit" className="w-full" disabled={isLoading}>
+      {isLoading ? 'Memeriksa...' : 'Masuk'}
     </Button>
   );
 }
 
 export default function LoginPage() {
-  // Ganti useFormState (usang) menjadi useActionState
-  const [state, formAction] = useActionState(login, null);
+  const { login, error, user } = useAuth();
+  const router = useRouter();
 
+  useEffect(() => {
+    if (user) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    await login(formData);
+  };
+  
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
@@ -36,10 +48,10 @@ export default function LoginPage() {
           <CardDescription>Masukkan kredensial Anda untuk mengakses dasbor.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction} className="grid gap-4">
-             {state?.error && (
+          <form onSubmit={handleSubmit} className="grid gap-4">
+             {error && (
               <Alert variant="destructive">
-                <AlertDescription>{state.error}</AlertDescription>
+                <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
             <div className="grid gap-2">
