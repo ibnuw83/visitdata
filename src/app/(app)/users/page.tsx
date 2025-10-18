@@ -56,6 +56,8 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { users as seedUsers } from '@/lib/seed';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 function MultiSelect({
   options,
@@ -188,18 +190,25 @@ export default function UsersPage() {
     }
     
     const userRef = doc(firestore, 'users', editingUser.uid);
-    try {
-      await updateDoc(userRef, {
+    const updatedData = {
         name: editedUserName.trim(),
         role: editedUserRole,
         assignedLocations: editedUserRole === 'admin' ? [] : editedUserAssignedLocations
+    };
+
+    updateDoc(userRef, updatedData)
+      .then(() => {
+        setIsEditDialogOpen(false);
+        toast({ title: "Pengguna Diperbarui", description: `Data untuk ${editedUserName} telah diperbarui.`});
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: `users/${editingUser.uid}`,
+          operation: 'update',
+          requestResourceData: updatedData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-      setIsEditDialogOpen(false);
-      toast({ title: "Pengguna Diperbarui", description: `Data untuk ${editedUserName} telah diperbarui.`});
-    } catch(e) {
-        console.error("Error updating user: ", e);
-        toast({ variant: "destructive", title: "Gagal memperbarui", description: "Terjadi kesalahan saat memperbarui pengguna."});
-    }
   }
 
   const handleDeleteUser = async (userId: string) => {
@@ -208,19 +217,21 @@ export default function UsersPage() {
     if (!userToDelete) return;
 
     const userRef = doc(firestore, 'users', userId);
-    try {
-      await deleteDoc(userRef);
-      // Note: Deleting the auth user is a separate, more complex operation
-      // and is not handled here to prevent accidental user lockouts.
-      // The user will no longer be able to log in to the app, but their auth record remains.
-      toast({
-        title: "Pengguna Dihapus",
-        description: `Pengguna "${userToDelete.name}" telah berhasil dihapus.`,
+    
+    deleteDoc(userRef)
+      .then(() => {
+        toast({
+          title: "Pengguna Dihapus",
+          description: `Pengguna "${userToDelete.name}" telah berhasil dihapus.`,
+        });
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: `users/${userId}`,
+          operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-    } catch (e) {
-      console.error("Error deleting user: ", e);
-      toast({ variant: "destructive", title: "Gagal menghapus", description: "Terjadi kesalahan saat menghapus pengguna."});
-    }
   }
   
   const resetAddForm = () => {
@@ -242,7 +253,6 @@ export default function UsersPage() {
     }
     if (!firestore || !firebaseApp || !users) return;
     
-    // Check for duplicate email in Firestore
     if (users.some(user => user.email === newUserEmail.trim())) {
       toast({
         variant: "destructive",
@@ -253,12 +263,10 @@ export default function UsersPage() {
     }
 
     try {
-      // Create user in Firebase Auth
       const auth = getAuth(firebaseApp);
       const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail.trim(), newUserPassword.trim());
       const newAuthUser = userCredential.user;
 
-      // Create user profile in Firestore
       const newUserDoc: AppUser = {
         uid: newAuthUser.uid,
         name: newUserName.trim(),
@@ -269,17 +277,26 @@ export default function UsersPage() {
         avatarUrl: PlaceHolderImages[(users.length || 0) % PlaceHolderImages.length].imageUrl
       };
       
-      await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserDoc);
+      const userDocRef = doc(firestore, 'users', newAuthUser.uid);
+      setDoc(userDocRef, newUserDoc)
+        .then(() => {
+          toast({
+            title: "Pengguna Ditambahkan",
+            description: `Pengguna "${newUserDoc.name}" berhasil dibuat.`,
+          });
+          setIsAddDialogOpen(false);
+          resetAddForm();
+        })
+        .catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+            path: `users/${newAuthUser.uid}`,
+            operation: 'create',
+            requestResourceData: newUserDoc,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
 
-      toast({
-        title: "Pengguna Ditambahkan",
-        description: `Pengguna "${newUserDoc.name}" berhasil dibuat.`,
-      });
-
-      setIsAddDialogOpen(false);
-      resetAddForm();
     } catch (e: any) {
-        console.error("Error creating user:", e);
         let errorMessage = "Terjadi kesalahan saat membuat pengguna.";
         if (e.code === 'auth/email-already-in-use') {
             errorMessage = "Email yang Anda masukkan sudah terdaftar.";
@@ -566,5 +583,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    

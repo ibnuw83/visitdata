@@ -35,6 +35,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useFirestore } from '@/firebase/client-provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const colorPalette = [
     "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800/50",
@@ -68,33 +70,46 @@ export default function CategoriesPage() {
         return;
     }
     const categoryName = newCategoryName.trim().toLowerCase();
-    try {
-        await addDoc(collection(firestore, 'categories'), { name: categoryName });
-        setNewCategoryName('');
-        setIsAddDialogOpen(false);
-        toast({
-            title: "Kategori Ditambahkan",
-            description: `Kategori "${categoryName}" berhasil dibuat.`,
+    const newCategoryData = { name: categoryName };
+
+    addDoc(collection(firestore, 'categories'), newCategoryData)
+        .then(() => {
+            setNewCategoryName('');
+            setIsAddDialogOpen(false);
+            toast({
+                title: "Kategori Ditambahkan",
+                description: `Kategori "${categoryName}" berhasil dibuat.`,
+            });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `categories`,
+                operation: 'create',
+                requestResourceData: newCategoryData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
-    } catch (e) {
-        console.error("Error adding category:", e);
-        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat menambahkan kategori."});
-    }
   }
 
   const handleDeleteCategory = async (categoryId: string) => {
     if (!firestore || !categories) return;
     const categoryName = categories.find(c => c.id === categoryId)?.name;
-    try {
-        await deleteDoc(doc(firestore, 'categories', categoryId));
-        toast({
-            title: "Kategori Dihapus",
-            description: `Kategori "${categoryName}" telah dihapus.`,
+    const docRef = doc(firestore, 'categories', categoryId);
+
+    deleteDoc(docRef)
+        .then(() => {
+            toast({
+                title: "Kategori Dihapus",
+                description: `Kategori "${categoryName}" telah dihapus.`,
+            });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `categories/${categoryId}`,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
-    } catch (e) {
-        console.error("Error deleting category:", e);
-        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat menghapus kategori."});
-    }
   }
 
   const openEditDialog = (category: Category) => {
@@ -113,18 +128,25 @@ export default function CategoriesPage() {
     }
     const categoryRef = doc(firestore, 'categories', editingCategory.id);
     const newName = editedCategoryName.trim().toLowerCase();
-    try {
-        await updateDoc(categoryRef, { name: newName });
-        setIsEditDialogOpen(false);
-        setEditingCategory(null);
-        toast({
-            title: "Kategori Diperbarui",
-            description: `Kategori "${editingCategory.name}" telah diubah menjadi "${newName}".`,
+    const updatedData = { name: newName };
+
+    updateDoc(categoryRef, updatedData)
+        .then(() => {
+            setIsEditDialogOpen(false);
+            setEditingCategory(null);
+            toast({
+                title: "Kategori Diperbarui",
+                description: `Kategori "${editingCategory.name}" telah diubah menjadi "${newName}".`,
+            });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `categories/${editingCategory.id}`,
+                operation: 'update',
+                requestResourceData: updatedData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
-    } catch (e) {
-        console.error("Error updating category:", e);
-        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat memperbarui kategori."});
-    }
   }
   
   if(loading) {

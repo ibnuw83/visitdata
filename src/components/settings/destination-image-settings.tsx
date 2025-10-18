@@ -13,6 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useFirestore } from '@/firebase/client-provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, doc, writeBatch } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function DestinationImageSettings() {
     const { toast } = useToast();
@@ -44,22 +46,32 @@ export default function DestinationImageSettings() {
     const handleSaveChanges = async () => {
         if (!firestore || !destinations) return;
         const batch = writeBatch(firestore);
+        const updates: Record<string, any> = {};
+
         destinations.forEach(dest => {
             if(imageMap[dest.id] !== (dest.imageUrl || '')) {
                 const destRef = doc(firestore, 'destinations', dest.id);
-                batch.update(destRef, { imageUrl: imageMap[dest.id] || '' });
+                const updateData = { imageUrl: imageMap[dest.id] || '' };
+                batch.update(destRef, updateData);
+                updates[dest.id] = updateData;
             }
         });
-        try {
-            await batch.commit();
-            toast({
-                title: "Pengaturan Gambar Disimpan",
-                description: "URL gambar untuk destinasi unggulan telah diperbarui.",
+        
+        batch.commit()
+            .then(() => {
+                toast({
+                    title: "Pengaturan Gambar Disimpan",
+                    description: "URL gambar untuk destinasi unggulan telah diperbarui.",
+                });
+            })
+            .catch(async (serverError) => {
+                 const permissionError = new FirestorePermissionError({
+                    path: 'destinations', // Path is general as it's a batch
+                    operation: 'update',
+                    requestResourceData: updates,
+                });
+                errorEmitter.emit('permission-error', permissionError);
             });
-        } catch(e) {
-            console.error("Error saving image URLs:", e);
-            toast({ variant: 'destructive', title: 'Gagal', description: 'Gagal menyimpan perubahan.'});
-        }
     }
 
     if(loading) {

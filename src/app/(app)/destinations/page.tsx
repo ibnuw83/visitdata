@@ -39,6 +39,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase/client-provider';
 import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const colorPalette = [
     "text-blue-600",
@@ -63,7 +65,7 @@ export default function DestinationsPage() {
   
   const [newDestinationName, setNewDestinationName] = useState('');
   const [newDestinationCategory, setNewDestinationCategory] = useState('');
-  const [newDestinationLocation, setNewDestinationLocation] useState('');
+  const [newDestinationLocation, setNewDestinationLocation] = useState('');
   const [newDestinationManagement, setNewDestinationManagement] = useState<'pemerintah' | 'swasta' | ''>('');
   const [newDestinationImageUrl, setNewDestinationImageUrl] = useState('');
 
@@ -94,29 +96,36 @@ export default function DestinationsPage() {
       });
       return;
     }
+    
+    const newDestinationData = {
+        name: newDestinationName,
+        category: newDestinationCategory,
+        location: newDestinationLocation,
+        managementType: newDestinationManagement,
+        imageUrl: newDestinationImageUrl,
+        status: 'aktif'
+    };
 
-    try {
-        const docRef = await addDoc(collection(firestore, 'destinations'), {
-            name: newDestinationName,
-            category: newDestinationCategory,
-            location: newDestinationLocation,
-            managementType: newDestinationManagement,
-            imageUrl: newDestinationImageUrl,
-            status: 'aktif'
-        });
-        await updateDoc(docRef, { id: docRef.id });
+    const docRef = doc(collection(firestore, 'destinations'));
+    const finalData = { ...newDestinationData, id: docRef.id };
 
-        toast({
-          title: "Destinasi Ditambahkan",
-          description: `Destinasi "${newDestinationName}" berhasil dibuat.`,
+    setDoc(docRef, finalData)
+        .then(() => {
+            toast({
+              title: "Destinasi Ditambahkan",
+              description: `Destinasi "${newDestinationName}" berhasil dibuat.`,
+            });
+            setIsAddDialogOpen(false);
+            resetAddForm();
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `destinations/${docRef.id}`,
+                operation: 'create',
+                requestResourceData: finalData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
-        
-        setIsAddDialogOpen(false);
-        resetAddForm();
-    } catch(e) {
-        console.error("Error adding destination:", e);
-        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat menambahkan destinasi."});
-    }
   };
 
   const handleToggleStatus = async (destinationId: string) => {
@@ -125,32 +134,45 @@ export default function DestinationsPage() {
     if (!dest) return;
     const newStatus = dest.status === 'aktif' ? 'nonaktif' : 'aktif';
     
-    try {
-        const destRef = doc(firestore, 'destinations', destinationId);
-        await updateDoc(destRef, { status: newStatus });
-        toast({
-          title: "Status Diperbarui",
-          description: `Status destinasi "${dest.name}" sekarang ${newStatus}.`,
+    const destRef = doc(firestore, 'destinations', destinationId);
+    const updatedData = { status: newStatus };
+
+    updateDoc(destRef, updatedData)
+        .then(() => {
+            toast({
+              title: "Status Diperbarui",
+              description: `Status destinasi "${dest.name}" sekarang ${newStatus}.`,
+            });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `destinations/${destinationId}`,
+                operation: 'update',
+                requestResourceData: updatedData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
-    } catch(e) {
-        console.error("Error toggling status:", e);
-        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat mengubah status."});
-    }
   };
 
   const handleDelete = async (destinationId: string) => {
     if (!firestore || !destinations) return;
     const destinationName = destinations.find(d => d.id === destinationId)?.name;
-    try {
-        await deleteDoc(doc(firestore, 'destinations', destinationId));
-        toast({
-          title: "Destinasi Dihapus",
-          description: `Destinasi "${destinationName}" telah dihapus.`,
+    const destRef = doc(firestore, 'destinations', destinationId);
+
+    deleteDoc(destRef)
+        .then(() => {
+            toast({
+              title: "Destinasi Dihapus",
+              description: `Destinasi "${destinationName}" telah dihapus.`,
+            });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `destinations/${destinationId}`,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
-    } catch(e) {
-        console.error("Error deleting destination:", e);
-        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat menghapus destinasi."});
-    }
   };
   
  const openEditDialog = (destination: Destination) => {
@@ -173,25 +195,32 @@ export default function DestinationsPage() {
       return;
     }
 
-    try {
-        const destRef = doc(firestore, 'destinations', editingDestination.id);
-        await updateDoc(destRef, {
-            name: editedDestinationName,
-            category: editedDestinationCategory,
-            location: editedDestinationLocation,
-            managementType: editedDestinationManagement,
-            imageUrl: editedDestinationImageUrl,
+    const destRef = doc(firestore, 'destinations', editingDestination.id);
+    const updatedData = {
+        name: editedDestinationName,
+        category: editedDestinationCategory,
+        location: editedDestinationLocation,
+        managementType: editedDestinationManagement,
+        imageUrl: editedDestinationImageUrl,
+    };
+    
+    updateDoc(destRef, updatedData)
+        .then(() => {
+            setIsEditDialogOpen(false);
+            setEditingDestination(null);
+            toast({
+                title: "Destinasi Diperbarui",
+                description: `Data untuk destinasi "${editedDestinationName}" telah diperbarui.`,
+            });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `destinations/${editingDestination.id}`,
+                operation: 'update',
+                requestResourceData: updatedData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
-        setIsEditDialogOpen(false);
-        setEditingDestination(null);
-        toast({
-            title: "Destinasi Diperbarui",
-            description: `Data untuk destinasi "${editedDestinationName}" telah diperbarui.`,
-        });
-    } catch(e) {
-        console.error("Error updating destination:", e);
-        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat memperbarui destinasi."});
-    }
   }
 
   const statusVariant: { [key in 'aktif' | 'nonaktif']: "default" | "destructive" } = {

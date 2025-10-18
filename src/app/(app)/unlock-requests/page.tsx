@@ -14,7 +14,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/firebase/auth/use-user';
 import { useFirestore } from '@/firebase/client-provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function UnlockRequestsPage() {
   const { appUser } = useUser();
@@ -32,34 +34,39 @@ export default function UnlockRequestsPage() {
   const handleAction = async (requestId: string, newStatus: 'approved' | 'rejected') => {
     if (!appUser || !firestore || !unlockRequests) return;
 
-    const requestRef = doc(firestore, 'unlock-requests', requestId);
     const targetRequest = unlockRequests.find(req => req.id === requestId);
     if (!targetRequest) return;
     
-    try {
-      await updateDoc(requestRef, {
+    const batch = writeBatch(firestore);
+
+    const requestRef = doc(firestore, 'unlock-requests', requestId);
+    const requestUpdateData = {
         status: newStatus,
         processedBy: appUser.uid,
-      });
+    };
+    batch.update(requestRef, requestUpdateData);
 
-      if (newStatus === 'approved') {
-        const visitDataId = `visit-${targetRequest.destinationId}-${targetRequest.year}-${targetRequest.month}`;
+    if (newStatus === 'approved') {
+        const visitDataId = `${targetRequest.destinationId}-${targetRequest.year}-${targetRequest.month}`;
         const visitDocRef = doc(firestore, 'destinations', targetRequest.destinationId, 'visits', visitDataId);
-        await updateDoc(visitDocRef, { locked: false });
-      }
-
-      toast({
-        title: `Permintaan ${newStatus === 'approved' ? 'Disetujui' : 'Ditolak'}`,
-        description: `Status permintaan telah diperbarui.`,
-      });
-    } catch (error) {
-      console.error("Error updating request: ", error);
-      toast({
-        variant: "destructive",
-        title: "Gagal memperbarui",
-        description: "Terjadi kesalahan saat memproses permintaan.",
-      });
+        batch.update(visitDocRef, { locked: false });
     }
+
+    batch.commit()
+      .then(() => {
+        toast({
+          title: `Permintaan ${newStatus === 'approved' ? 'Disetujui' : 'Ditolak'}`,
+          description: `Status permintaan telah diperbarui.`,
+        });
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: `unlock-requests/${requestId}`, // Or a more generic path if the batch fails
+          operation: 'update',
+          requestResourceData: { requestUpdate: requestUpdateData, visitDataUpdate: { locked: false } },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   }
 
   const sortedRequests = useMemo(() => {

@@ -39,6 +39,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -419,30 +421,41 @@ export default function DataEntryPage() {
   const handleDataChange = async (updatedData: VisitData) => {
     if (!firestore) return;
     const visitDocRef = doc(firestore, 'destinations', updatedData.destinationId, 'visits', updatedData.id);
-    try {
-        await setDoc(visitDocRef, updatedData, { merge: true });
-        toast({
-            title: "Data Disimpan Otomatis",
-            description: `Perubahan untuk destinasi telah disimpan.`,
+    
+    setDoc(visitDocRef, updatedData, { merge: true })
+        .then(() => {
+            toast({
+                title: "Data Disimpan Otomatis",
+                description: `Perubahan untuk destinasi telah disimpan.`,
+            });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: visitDocRef.path,
+                operation: 'update',
+                requestResourceData: updatedData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
-    } catch(e) {
-        console.error("Error saving data:", e);
-        toast({ variant: 'destructive', title: 'Gagal Menyimpan'});
-    }
   }
 
   const handleNewRequest = async (newRequest: Omit<UnlockRequest, 'id' | 'timestamp'>) => {
     if (!firestore) return;
-    try {
-        const requestsCollection = collection(firestore, 'unlock-requests');
-        await addDoc(requestsCollection, {
-            ...newRequest,
-            timestamp: serverTimestamp()
-        });
-    } catch(e) {
-        console.error("Error creating unlock request:", e);
-        toast({ variant: 'destructive', title: 'Gagal Mengirim Permintaan'});
-    }
+    const requestsCollection = collection(firestore, 'unlock-requests');
+    const requestData = {
+        ...newRequest,
+        timestamp: serverTimestamp()
+    };
+    
+    addDoc(requestsCollection, requestData)
+      .catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+              path: 'unlock-requests',
+              operation: 'create',
+              requestResourceData: requestData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+      });
   }
   
   const handleAddYear = async () => {

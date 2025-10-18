@@ -19,6 +19,8 @@ import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { AppSettings } from '@/lib/types';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 function AppSettingsCard() {
     const { toast } = useToast();
@@ -45,23 +47,29 @@ function AppSettingsCard() {
     const handleSaveAppSettings = async () => {
         if (!firestore) return;
         const newSettings = { appTitle, logoUrl, footerText, heroTitle, heroSubtitle };
-        try {
-            await setDoc(doc(firestore, 'settings', 'app'), newSettings, { merge: true });
-            // Also update localStorage for immediate UI changes in Logo component
-            if (logoUrl) {
-                localStorage.setItem('logoUrl', logoUrl);
-            } else {
-                localStorage.removeItem('logoUrl');
-            }
-             window.dispatchEvent(new Event('storage')); // Notify other components of storage change
-            toast({
-                title: "Pengaturan Aplikasi Disimpan",
-                description: "Pengaturan tampilan aplikasi telah diperbarui.",
+        const docRef = doc(firestore, 'settings', 'app');
+
+        setDoc(docRef, newSettings, { merge: true })
+            .then(() => {
+                if (logoUrl) {
+                    localStorage.setItem('logoUrl', logoUrl);
+                } else {
+                    localStorage.removeItem('logoUrl');
+                }
+                window.dispatchEvent(new Event('storage'));
+                toast({
+                    title: "Pengaturan Aplikasi Disimpan",
+                    description: "Pengaturan tampilan aplikasi telah diperbarui.",
+                });
+            })
+            .catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: 'settings/app',
+                    operation: 'update',
+                    requestResourceData: newSettings,
+                });
+                errorEmitter.emit('permission-error', permissionError);
             });
-        } catch (e) {
-            console.error("Error saving app settings:", e);
-            toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat menyimpan pengaturan aplikasi." });
-        }
     }
     
     const handleBackupData = () => {
@@ -201,16 +209,23 @@ export default function SettingsPage() {
   const handleSaveChanges = async () => {
     if (!appUser || !firestore) return;
     const userRef = doc(firestore, 'users', appUser.uid);
-    try {
-        await updateDoc(userRef, { name });
-        toast({
-          title: "Nama Disimpan",
-          description: "Nama profil Anda telah berhasil diperbarui.",
+    const updatedData = { name };
+
+    updateDoc(userRef, updatedData)
+        .then(() => {
+            toast({
+              title: "Nama Disimpan",
+              description: "Nama profil Anda telah berhasil diperbarui.",
+            });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `users/${appUser.uid}`,
+                operation: 'update',
+                requestResourceData: updatedData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
-    } catch(e) {
-        console.error("Error updating profile:", e);
-        toast({ variant: 'destructive', title: 'Gagal', description: 'Gagal menyimpan nama.'});
-    }
   };
 
   const handlePasswordChange = async () => {
@@ -252,16 +267,23 @@ export default function SettingsPage() {
   const handlePhotoChange = async (newUrl: string) => {
     if (!appUser || !firestore) return;
     const userRef = doc(firestore, 'users', appUser.uid);
-    try {
-        await updateDoc(userRef, { avatarUrl: newUrl });
-        toast({
-            title: "Foto Profil Diperbarui",
-            description: "Foto profil Anda telah berhasil diubah.",
+    const updatedData = { avatarUrl: newUrl };
+
+    updateDoc(userRef, updatedData)
+        .then(() => {
+            toast({
+                title: "Foto Profil Diperbarui",
+                description: "Foto profil Anda telah berhasil diubah.",
+            })
         })
-    } catch(e) {
-        console.error("Error updating avatar:", e);
-        toast({ variant: 'destructive', title: 'Gagal', description: 'Gagal mengubah foto profil.'});
-    }
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `users/${appUser.uid}`,
+                operation: 'update',
+                requestResourceData: updatedData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
   }
   
   const roleVariant = {
