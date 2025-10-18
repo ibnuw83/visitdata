@@ -384,11 +384,10 @@ export default function DataEntryPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [clientSelectedYear, setClientSelectedYear] = useState<number>(selectedYear);
-
+  
   useEffect(() => {
     // This runs only on the client
-    setClientSelectedYear(new Date().getFullYear());
+    setSelectedYear(new Date().getFullYear());
   }, []);
 
   const destinationsQuery = useMemo(() => {
@@ -423,13 +422,14 @@ export default function DataEntryPage() {
   const { toast } = useToast();
 
   const availableYears = useMemo(() => {
+    const clientSelectedYear = new Date().getFullYear();
     if (!allVisitData) return [clientSelectedYear];
     const yearsFromData = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
     if (!yearsFromData.includes(clientSelectedYear)) {
       yearsFromData.unshift(clientSelectedYear);
     }
     return yearsFromData;
-  }, [allVisitData, clientSelectedYear]);
+  }, [allVisitData]);
 
   const handleDataChange = async (updatedData: VisitData) => {
     if (!firestore) return;
@@ -472,7 +472,7 @@ export default function DataEntryPage() {
   }
   
   const handleAddYear = async () => {
-    const newYear = (availableYears[0] || clientSelectedYear) + 1;
+    const newYear = (availableYears[0] || new Date().getFullYear()) + 1;
     if (!availableYears.includes(newYear) && firestore && destinations) {
       const batch = writeBatch(firestore);
       const batchData: Record<string, VisitData> = {};

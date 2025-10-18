@@ -21,10 +21,11 @@ export default function ReportsPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-
+  
   useEffect(() => {
-    // This runs only on the client
-    setCurrentYear(new Date().getFullYear());
+    const year = new Date().getFullYear();
+    setCurrentYear(year);
+    setSelectedYear(year.toString());
   }, []);
 
   const destinationsQuery = useMemo(() => {
@@ -157,7 +158,7 @@ export default function ReportsPage() {
             const ws = XLSX.utils.aoa_to_sheet(dataToExport);
 
             // Sanitize sheet name
-            const safeSheetName = destName.replace(/[:\\/?*[\]]/g, '').substring(0, 31);
+            const safeSheetName = destName.replace(/[:\\/?*[\\]]/g, '').substring(0, 31);
             XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
         }
     }
@@ -170,10 +171,6 @@ export default function ReportsPage() {
         description: "File laporan Excel Anda telah berhasil diunduh.",
     })
   }
-
-  useEffect(() => {
-    setSelectedYear(currentYear.toString());
-  }, [currentYear]);
 
   if (!appUser || !destinations || !visitData) {
     return null; // or a loading skeleton

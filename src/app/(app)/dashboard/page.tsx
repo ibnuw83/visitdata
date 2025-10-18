@@ -53,6 +53,12 @@ export default function DashboardPage() {
     const [selectedYear, setSelectedYear] = useState(currentYear.toString());
 
     useEffect(() => {
+        const year = new Date().getFullYear();
+        setCurrentYear(year);
+        setSelectedYear(year.toString());
+    }, []);
+
+    useEffect(() => {
         setLoading(destinationsLoading || visitsLoading);
     }, [destinationsLoading, visitsLoading]);
 
@@ -98,10 +104,6 @@ export default function DashboardPage() {
         }
         return 'Dasbor';
     }, [appUser, destinations]);
-    
-    useEffect(() => {
-        setSelectedYear(currentYear.toString());
-    }, [currentYear]);
 
     if (loading) {
         return (
