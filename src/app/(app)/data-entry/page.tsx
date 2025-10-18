@@ -18,9 +18,9 @@ import { Destination, VisitData, WismanDetail, Country, UnlockRequest } from "@/
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PlusCircle, Trash2, Lock, Unlock, KeyRound, Save } from 'lucide-react';
-import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError, useMemoFirebase, useQuery as useFirestoreQuery } from '@/firebase';
+import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError, useMemoFirebase } from '@/firebase';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -141,7 +141,10 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
             const existingData = fetchedVisitData.find(d => d.month === monthIndex);
             if (existingData) return existingData;
             
-            const isFutureOrCurrent = new Date(selectedYear, monthIndex - 1) >= new Date(new Date().getFullYear(), new Date().getMonth());
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth() + 1;
+            const isFuture = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
+
             return initialData.find(d => d.month === monthIndex) || {
                 id: `${destination.id}-${selectedYear}-${monthIndex}`,
                 destinationId: destination.id,
@@ -152,7 +155,7 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
                 wisman: 0,
                 wismanDetails: [],
                 totalVisitors: 0,
-                locked: appUser?.role === 'admin' ? true : isFutureOrCurrent,
+                locked: appUser?.role === 'admin' ? true : isFuture,
             };
         });
       setData(fullYearData.sort((a,b) => a.month - b.month));
@@ -655,7 +658,10 @@ export default function DataEntryPage() {
     return filteredDestinations.map(dest => {
         const placeholderData = months.map((monthName, index) => {
             const monthIndex = index + 1;
-            const isFutureOrCurrent = new Date(selectedYear, monthIndex - 1) >= new Date(new Date().getFullYear(), new Date().getMonth());
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth() + 1;
+            const isFuture = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
+
             return {
                 id: `${dest.id}-${selectedYear}-${monthIndex}`,
                 destinationId: dest.id,
@@ -666,7 +672,7 @@ export default function DataEntryPage() {
                 wisman: 0,
                 wismanDetails: [],
                 totalVisitors: 0,
-                locked: appUser?.role === 'admin' ? true : isFutureOrCurrent,
+                locked: appUser?.role === 'admin' ? true : isFuture,
             };
         });
         return { destination: dest, data: placeholderData.sort((a,b) => a.month - b.month) };
