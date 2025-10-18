@@ -14,6 +14,7 @@ export const useDoc = <T>(ref: DocumentReference<T> | null) => {
   useEffect(() => {
     if (!ref) {
       setLoading(false);
+      setData(null);
       return;
     }
     const unsubscribe = onSnapshot(
@@ -28,8 +29,16 @@ export const useDoc = <T>(ref: DocumentReference<T> | null) => {
       },
       (err) => {
         console.error("useDoc error:", err);
+        
+        let path = 'unknown path';
+        try {
+          path = ref.path;
+        } catch (e) {
+          // Ignore if path cannot be retrieved
+        }
+
         const permissionError = new FirestorePermissionError({
-            path: ref.path,
+            path: path,
             operation: 'get',
         });
         errorEmitter.emit('permission-error', permissionError);

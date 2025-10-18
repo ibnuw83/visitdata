@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { onSnapshot, Query, DocumentData, collection, query, where, getDocs, QuerySnapshot } from 'firebase/firestore';
+import { onSnapshot, Query, DocumentData, collection, query, where, getDocs, QuerySnapshot, CollectionReference } from 'firebase/firestore';
 import { useFirestore } from '../client-provider';
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
@@ -48,6 +48,7 @@ export function useCollection<T>(
   useEffect(() => {
     if (!queryObj) {
       setLoading(false);
+      setData([]);
       return;
     }
 
@@ -63,8 +64,20 @@ export function useCollection<T>(
       },
       (err: Error) => {
         console.error("useCollection error:", err);
+        
+        let path = 'unknown path';
+        try {
+          if ('path' in queryObj) {
+            path = (queryObj as CollectionReference).path;
+          } else if ('_query' in queryObj && (queryObj as any)._query.path) {
+            path = (queryObj as any)._query.path.segments.join('/');
+          }
+        } catch (e) {
+          // Ignore errors while trying to get the path
+        }
+        
         const permissionError = new FirestorePermissionError({
-            path: (queryObj as any)._path?.toString() || 'unknown',
+            path: path,
             operation: 'list',
         });
         errorEmitter.emit('permission-error', permissionError);
