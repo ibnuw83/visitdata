@@ -50,9 +50,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useFirestore, useFirebaseApp } from '@/firebase/client-provider';
+import { useFirestore } from '@/firebase/client-provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -145,7 +145,6 @@ function MultiSelect({
 }
 
 export default function UsersPage() {
-  const firebaseApp = useFirebaseApp();
   const firestore = useFirestore();
   const usersQuery = useMemo(() => firestore ? collection(firestore, 'users') : null, [firestore]);
   const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
