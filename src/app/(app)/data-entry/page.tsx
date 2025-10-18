@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
@@ -175,12 +174,6 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onLockCh
     fetchData();
   }, [isAccordionOpen, firestore, appUser, destination.id, selectedYear, pendingChanges]);
   
-  useEffect(() => {
-    // This effect ensures the local state `data` is updated if the parent's `pendingChanges` change,
-    // for example, after a save operation clears them.
-    setData(initialData);
-  }, [initialData]);
-
   const handleLocalDataChange = (monthIndex: number, field: 'wisnus', value: number) => {
     const newData = [...data];
     const monthData = newData.find(d => d.month === monthIndex + 1);
@@ -225,14 +218,20 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onLockCh
   }
 
   const yearlyTotals = useMemo(() => {
-    return data.reduce((acc, curr) => {
-        const item = pendingChanges[curr.id] || curr;
-        acc.wisnus += item.wisnus || 0;
-        acc.wisman += item.wisman || 0;
-        acc.totalVisitors += item.totalVisitors || 0;
+    const currentData = months.map((_, index) => {
+        const monthIndex = index + 1;
+        const id = `${destination.id}-${selectedYear}-${monthIndex}`;
+        return pendingChanges[id] || data.find(d => d.month === monthIndex);
+    });
+
+    return currentData.reduce((acc, curr) => {
+        if (!curr) return acc;
+        acc.wisnus += curr.wisnus || 0;
+        acc.wisman += curr.wisman || 0;
+        acc.totalVisitors += curr.totalVisitors || 0;
         return acc;
     }, { wisnus: 0, wisman: 0, totalVisitors: 0});
-  }, [data, pendingChanges]);
+  }, [data, pendingChanges, destination.id, selectedYear]);
 
   return (
     <AccordionItem value={destination.id}>
@@ -438,25 +437,18 @@ export default function DataEntryPage() {
   const [pendingChanges, setPendingChanges] = useState<Record<string, VisitData>>({});
   const hasUnsavedChanges = Object.keys(pendingChanges).length > 0;
 
-  const destinationsQuery = useMemo(() => {
+  const destinationsQuery = useMemoFirebase(() => {
     if (!firestore || !appUser) return null;
 
-    let constraints = [where('status', '==', 'aktif')];
-    
-    if (appUser.role === 'admin') {
-      return query(collection(firestore, 'destinations'), ...constraints);
-    }
+    let q = query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
     
     if (appUser.role === 'pengelola' && appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-      constraints.push(where('id', 'in', appUser.assignedLocations));
-      return query(collection(firestore, 'destinations'), ...constraints);
-    }
-    
-    if (appUser.role === 'pengelola') {
-        return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
+      q = query(q, where('id', 'in', appUser.assignedLocations));
+    } else if (appUser.role === 'pengelola') {
+        q = query(q, where('id', 'in', ['non-existent-id']));
     }
 
-    return null;
+    return q;
   }, [firestore, appUser]);
 
   

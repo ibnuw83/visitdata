@@ -15,16 +15,23 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, collectionGroup, doc } from "firebase/firestore";
+import { collection, collectionGroup, doc, query, where } from "firebase/firestore";
 
 function DashboardContent() {
     const firestore = useFirestore();
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
 
-    const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
-    const visitsQuery = useMemo(() => firestore ? collectionGroup(firestore, 'visits') : null, [firestore]);
-
+    const destinationsQuery = useMemo(() => firestore ? query(collection(firestore, 'destinations'), where('status', '==', 'aktif')) : null, [firestore]);
+    
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
+    
+    const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
+
+    const visitsQuery = useMemo(() => {
+        if (!firestore || destinationIds.length === 0) return null;
+        return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
+    }, [firestore, destinationIds]);
+
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
     
     const loading = destinationsLoading || visitsLoading;
@@ -107,7 +114,7 @@ function DashboardContent() {
                 <StatCard title="Total Pengunjung" value={totalVisitors.toLocaleString()} icon={<Users />} className="bg-blue-600 text-white" />
                 <StatCard title="Wisatawan Nusantara" value={totalWisnus.toLocaleString()} icon={<Globe />} className="bg-green-600 text-white" />
                 <StatCard title="Wisatawan Mancanegara" value={totalWisman.toLocaleString()} icon={<Plane />} className="bg-orange-500 text-white" />
-                <StatCard title="Total Destinasi Aktif" value={destinations?.filter(d => d.status === 'aktif').length.toString() || '0'} icon={<Landmark />} className="bg-purple-600 text-white"/>
+                <StatCard title="Total Destinasi Aktif" value={destinations?.length.toString() || '0'} icon={<Landmark />} className="bg-purple-600 text-white"/>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-5">

@@ -23,59 +23,38 @@ export default function DashboardPage() {
     const destinationsQuery = useMemo(() => {
         if (!firestore || !appUser) return null;
 
-        if (appUser.role === 'admin') {
-            return collection(firestore, 'destinations');
-        }
+        let q = query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
 
         if (appUser.role === 'pengelola' && appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-            return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
+            q = query(q, where('id', 'in', appUser.assignedLocations));
+        } else if (appUser.role === 'pengelola') {
+            q = query(q, where('id', 'in', ['non-existent-id']));
         }
-
-        // For 'pengelola' with no assigned locations, we query an impossible condition
-        // to return an empty set, preventing security rule errors.
-        if (appUser.role === 'pengelola') {
-            return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
-        }
-
-        return null;
+        return q;
     }, [firestore, appUser]);
 
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     
+    const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
+
     const visitsQuery = useMemo(() => {
-        return firestore ? collectionGroup(firestore, 'visits') : null;
-    }, [firestore]);
+        if (!firestore || destinationIds.length === 0) return null;
+        return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
+    }, [firestore, destinationIds]);
     
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
 
-    const loading = !appUser || destinationsLoading || visitsLoading;
+    const loading = destinationsLoading || visitsLoading;
 
-    const userVisitData = useMemo(() => {
-        if (!allVisitData || !appUser || !destinations) return [];
-
-        const allowedDestinationIds = new Set(destinations.map(d => d.id));
-
-        if (appUser.role === 'admin') {
-            return allVisitData.filter(visit => allowedDestinationIds.has(visit.destinationId));
-        }
-        
-        const assigned = appUser.assignedLocations || [];
-        const assignedSet = new Set(assigned);
-        
-        return allVisitData.filter(visit => 
-            allowedDestinationIds.has(visit.destinationId) && assignedSet.has(visit.destinationId)
-        );
-    }, [allVisitData, appUser, destinations]);
-    
     const currentYear = new Date().getFullYear();
     const availableYears = useMemo(() => {
-        if (!userVisitData) return [currentYear];
-        const allYears = [...new Set(userVisitData.map(d => d.year))].sort((a, b) => b - a);
-        if (!allYears.includes(currentYear)) {
-            allYears.unshift(currentYear);
+        if (!allVisitData) return [currentYear.toString()];
+        const allYears = [...new Set(allVisitData.map(d => d.year.toString()))].sort((a, b) => parseInt(b) - parseInt(a));
+        if (!allYears.includes(currentYear.toString())) {
+            allYears.unshift(currentYear.toString());
         }
-        return allYears.map(String);
-    }, [userVisitData, currentYear]);
+        return allYears;
+    }, [allVisitData, currentYear]);
 
     useEffect(() => {
         if (!availableYears.includes(selectedYear)) {
@@ -84,9 +63,9 @@ export default function DashboardPage() {
     }, [availableYears, selectedYear, currentYear]);
 
     const yearlyData = useMemo(() => {
-        if (!userVisitData) return [];
-        return userVisitData.filter(d => d.year === parseInt(selectedYear));
-    }, [userVisitData, selectedYear]);
+        if (!allVisitData) return [];
+        return allVisitData.filter(d => d.year === parseInt(selectedYear));
+    }, [allVisitData, selectedYear]);
     
     const totalVisitors = useMemo(() => yearlyData.reduce((sum, item) => sum + item.totalVisitors, 0), [yearlyData]);
     const totalWisnus = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisnus, 0), [yearlyData]);
@@ -154,7 +133,7 @@ export default function DashboardPage() {
                 <StatCard title="Total Pengunjung" value={totalVisitors.toLocaleString()} icon={<Users />} className="bg-blue-600 text-white" />
                 <StatCard title="Wisatawan Nusantara" value={totalWisnus.toLocaleString()} icon={<Globe />} className="bg-green-600 text-white" />
                 <StatCard title="Wisatawan Mancanegara" value={totalWisman.toLocaleString()} icon={<Plane />} className="bg-orange-500 text-white" />
-                <StatCard title="Total Destinasi Aktif" value={(destinations || []).filter(d => d.status === 'aktif').length.toString()} icon={<Landmark />} className="bg-purple-600 text-white"/>
+                <StatCard title="Total Destinasi Aktif" value={(destinations || []).length.toString()} icon={<Landmark />} className="bg-purple-600 text-white"/>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-5">

@@ -26,41 +26,37 @@ export default function ReportsPage() {
 
   const destinationsQuery = useMemo(() => {
     if (!firestore || !appUser) return null;
-    
-    if (appUser.role === 'admin') {
-        return collection(firestore, 'destinations');
-    }
+
+    let q = query(collection(firestore, 'destinations'));
     
     if (appUser.role === 'pengelola' && appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-        return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
+        q = query(q, where('id', 'in', appUser.assignedLocations));
+    } else if (appUser.role === 'pengelola') {
+        q = query(q, where('id', 'in', ['non-existent-id']));
     }
-
-    if (appUser.role === 'pengelola') {
-        return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
-    }
-
-    return null;
+    return q;
   }, [firestore, appUser]);
 
-  const visitsQuery = useMemo(() => {
-      if (!firestore) return null;
-      // This query can be broad for admins, but will be filtered down for 'pengelola'
-      return collectionGroup(firestore, 'visits');
-  }, [firestore]);
-
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
-  const { data: allVisitData } = useCollection<VisitData>(visitsQuery); // Fetch all data first
+  const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
+
+  const visitsQuery = useMemo(() => {
+      if (!firestore || destinationIds.length === 0) return null;
+      return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
+  }, [firestore, destinationIds]);
+
+  const { data: allVisitData } = useCollection<VisitData>(visitsQuery);
 
 
   const { toast } = useToast();
 
   const years = useMemo(() => {
     if (!allVisitData) return [currentYear.toString()];
-    const allYears = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
-    if (!allYears.includes(currentYear)) {
-        allYears.unshift(currentYear);
+    const allYears = [...new Set(allVisitData.map(d => d.year.toString()))].sort((a,b) => parseInt(b) - parseInt(a));
+    if (!allYears.includes(currentYear.toString())) {
+        allYears.unshift(currentYear.toString());
     }
-    return allYears.map(String);
+    return allYears;
   },[allVisitData, currentYear]);
 
   useEffect(() => {
@@ -75,9 +71,7 @@ export default function ReportsPage() {
   const filteredData = useMemo(() => {
     if (!allVisitData || !destinations || !appUser) return [];
 
-    // Filter visitData based on user's assigned locations first.
-    const allowedDestinationIds = new Set(destinations.map(d => d.id));
-    let data = allVisitData.filter(d => allowedDestinationIds.has(d.destinationId));
+    let data = allVisitData;
 
     // Apply UI filters
     if (selectedDestination !== 'all') {
@@ -92,9 +86,12 @@ export default function ReportsPage() {
     
     return data.sort((a, b) => {
         if (a.year !== b.year) return b.year - a.year;
-        return a.month - b.month;
+        if (a.month !== b.month) return a.month - b.month;
+        const nameA = destinationMap.get(a.destinationId) || '';
+        const nameB = destinationMap.get(b.destinationId) || '';
+        return nameA.localeCompare(nameB);
     });
-  }, [allVisitData, destinations, appUser, selectedDestination, selectedYear, selectedMonth]);
+  }, [allVisitData, destinations, appUser, selectedDestination, selectedYear, selectedMonth, destinationMap]);
 
 
   const handleDownload = () => {
@@ -188,12 +185,12 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Select value={selectedDestination} onValueChange={setSelectedDestination} disabled={appUser.role === 'pengelola' && (destinations || []).length === 1}>
+            <Select value={selectedDestination} onValueChange={setSelectedDestination}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Destinasi" />
               </SelectTrigger>
               <SelectContent>
-                {appUser.role === 'admin' && <SelectItem value="all">Semua Destinasi</SelectItem>}
+                <SelectItem value="all">Semua Destinasi</SelectItem>
                 {(destinations || []).map(d => (
                   <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                 ))}
