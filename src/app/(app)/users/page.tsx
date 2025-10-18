@@ -53,7 +53,6 @@ import {
 import { useFirestore, useFirebaseApp } from '@/firebase/client-provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -241,68 +240,11 @@ export default function UsersPage() {
   };
 
   const handleAddNewUser = async () => {
-    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Input tidak lengkap",
-        description: "Harap isi nama, email, dan kata sandi pengguna.",
-      });
-      return;
-    }
-    if (!firestore || !firebaseApp || !users) return;
-    
-    if (users.some(user => user.email === newUserEmail.trim())) {
-      toast({
-        variant: "destructive",
-        title: "Email sudah ada",
-        description: "Email yang Anda masukkan sudah terdaftar.",
-      });
-      return;
-    }
-
-    try {
-      const auth = getAuth(firebaseApp);
-      const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail.trim(), newUserPassword.trim());
-      const newAuthUser = userCredential.user;
-
-      const newUserDoc: AppUser = {
-        uid: newAuthUser.uid,
-        name: newUserName.trim(),
-        email: newUserEmail.trim(),
-        role: newUserRole,
-        assignedLocations: newUserRole === 'pengelola' ? newUserAssignedLocations : [],
-        status: 'aktif',
-        avatarUrl: 'https://i.pravatar.cc/150'
-      };
-      
-      const userDocRef = doc(firestore, 'users', newAuthUser.uid);
-      setDoc(userDocRef, newUserDoc)
-        .then(() => {
-          toast({
-            title: "Pengguna Ditambahkan",
-            description: `Pengguna "${newUserDoc.name}" berhasil dibuat.`,
-          });
-          setIsAddDialogOpen(false);
-          resetAddForm();
-        })
-        .catch(async (serverError) => {
-          const permissionError = new FirestorePermissionError({
-            path: `users/${newAuthUser.uid}`,
-            operation: 'create',
-            requestResourceData: newUserDoc,
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
-
-    } catch (e: any) {
-        let errorMessage = "Terjadi kesalahan saat membuat pengguna.";
-        if (e.code === 'auth/email-already-in-use') {
-            errorMessage = "Email yang Anda masukkan sudah terdaftar.";
-        } else if (e.code === 'auth/weak-password') {
-            errorMessage = "Kata sandi terlalu lemah. Minimal 6 karakter.";
-        }
-        toast({ variant: "destructive", title: "Gagal Menambahkan", description: errorMessage });
-    }
+    toast({
+      variant: "destructive",
+      title: "Fungsi Dinonaktifkan",
+      description: "Penambahan pengguna baru untuk sementara dinonaktifkan.",
+    });
   };
 
   const statusVariant = {
@@ -545,7 +487,7 @@ export default function UsersPage() {
               <Label htmlFor="edit-user-role" className="text-right">
                 Peran
               </Label>
-                <Select value={editedUserRole} onValueChange={(value) => setEditedUserRole(value as 'admin' | 'pengelola')}>
+                <Select value={editedUserRole} onValuechange={(value) => setEditedUserRole(value as 'admin' | 'pengelola')}>
                   <SelectTrigger id="edit-user-role" className="col-span-3">
                       <SelectValue placeholder="Pilih Peran" />
                   </SelectTrigger>
@@ -581,5 +523,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    

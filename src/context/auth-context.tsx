@@ -32,23 +32,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setIsLoading(false);
+      setIsInitializing(false); // Set initializing to false after first auth check
     });
 
     return () => unsubscribe();
   }, [auth]);
-
-  useEffect(() => {
-    const seedInitialData = async () => {
-        // This fetch call triggers the server-side seeding logic.
-        // We are removing the complex try-catch block that was causing build issues.
-        await fetch('/api/seed', { method: 'POST' });
-        setIsInitializing(false); 
-    };
-
-    seedInitialData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
 
   const login = async (formData: FormData) => {
     setIsLoading(true);
