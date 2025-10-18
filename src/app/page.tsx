@@ -14,27 +14,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore, useCollection, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, collectionGroup, doc, query, where } from "firebase/firestore";
 
 function DashboardContent() {
     const firestore = useFirestore();
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
 
-    const destinationsQuery = useMemo(() => firestore ? query(collection(firestore, 'destinations'), where('status', '==', 'aktif')) : null, [firestore]);
+    const destinationsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
+    }, [firestore]);
     
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     
     const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
 
-    const visitsQuery = useMemo(() => {
+    const visitsQuery = useMemoFirebase(() => {
         if (!firestore || destinationIds.length === 0) return null;
         return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
     }, [firestore, destinationIds]);
 
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
     
-    const loading = destinationsLoading || visitsLoading;
+    const loading = destinationsLoading || (destinationIds.length > 0 && visitsLoading);
 
     const currentYear = useMemo(() => new Date().getFullYear(), []);
     
