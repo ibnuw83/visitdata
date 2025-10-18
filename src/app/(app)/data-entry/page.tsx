@@ -371,16 +371,16 @@ export default function DataEntryPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
-    // This now runs only on client
+    if (!user) return;
+    
     const allDestinations = getDestinations();
-    if (user?.role === 'pengelola') {
-        // Filter destinations for 'pengelola'
+    if (user.role === 'pengelola') {
         const assignedDestinations = allDestinations.filter(d => user.assignedLocations.includes(d.id));
         setDestinations(assignedDestinations);
     } else {
-        // 'admin' sees all destinations
         setDestinations(allDestinations);
     }
+
     const visitData = getVisitData();
     setAllVisitData(visitData);
     setUnlockRequests(getUnlockRequests());
