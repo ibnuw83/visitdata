@@ -486,7 +486,7 @@ export default function UsersPage() {
               <Label htmlFor="edit-user-role" className="text-right">
                 Peran
               </Label>
-                <Select value={editedUserRole} onValuechange={(value) => setEditedUserRole(value as 'admin' | 'pengelola')}>
+                <Select value={editedUserRole} onValueChange={(value) => setEditedUserRole(value as 'admin' | 'pengelola')}>
                   <SelectTrigger id="edit-user-role" className="col-span-3">
                       <SelectValue placeholder="Pilih Peran" />
                   </SelectTrigger>
