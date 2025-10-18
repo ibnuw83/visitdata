@@ -1,7 +1,7 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
-import { useRouter } from 'next/navigation';
+import { useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
 import { login } from '@/app/auth-actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useEffect } from 'react';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -22,14 +21,7 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [state, formAction] = useFormState(login, null);
-
-   useEffect(() => {
-    if (state?.success) {
-      router.push('/dashboard');
-    }
-  }, [state, router]);
+  const [state, formAction] = useActionState(login, { error: null });
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
