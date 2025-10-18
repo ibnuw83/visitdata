@@ -3,10 +3,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getDestinations, getVisitData } from "@/lib/local-data-service";
 import { Destination, VisitData } from "@/lib/types";
-import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Download, VenetianMask } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ReportsPage() {
@@ -28,20 +29,25 @@ export default function ReportsPage() {
 
   const years = [...new Set(visitData.map(d => d.year))].sort((a,b) => b - a);
   const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, name: new Date(0, i).toLocaleString('id-ID', { month: 'long' }) }));
+  
+  const destinationMap = useMemo(() => new Map(destinations.map(d => [d.id, d.name])), [destinations]);
 
-  const handleDownload = () => {
-    let filteredData = visitData;
-
+  const filteredData = useMemo(() => {
+    let data = visitData;
     if (selectedDestination !== 'all') {
-      filteredData = filteredData.filter(d => d.destinationId === selectedDestination);
+      data = data.filter(d => d.destinationId === selectedDestination);
     }
     if (selectedYear !== 'all') {
-      filteredData = filteredData.filter(d => d.year === parseInt(selectedYear));
+      data = data.filter(d => d.year === parseInt(selectedYear));
     }
     if (selectedMonth !== 'all') {
-      filteredData = filteredData.filter(d => d.month === parseInt(selectedMonth));
+      data = data.filter(d => d.month === parseInt(selectedMonth));
     }
-    
+    return data.sort((a,b) => b.year - a.year || b.month - a.month);
+  }, [visitData, selectedDestination, selectedYear, selectedMonth]);
+
+
+  const handleDownload = () => {
     if (filteredData.length === 0) {
         toast({
             variant: "destructive",
@@ -62,8 +68,6 @@ export default function ReportsPage() {
       "Total Pengunjung"
     ];
     
-    const destinationMap = new Map(destinations.map(d => [d.id, d.name]));
-
     const csvRows = filteredData.map(d => [
       d.id,
       d.destinationId,
@@ -81,7 +85,8 @@ export default function ReportsPage() {
     
     const url = URL.createObjectURL(blob);
     link.href = url;
-    link.setAttribute('download', 'laporan_kunjungan.csv');
+    const date = new Date().toISOString().split('T')[0];
+    link.setAttribute('download', `laporan-kunjungan-${date}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -104,7 +109,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
             <CardTitle>Generator Laporan</CardTitle>
-            <CardDescription>Pilih parameter di bawah ini untuk membuat dan mengunduh laporan.</CardDescription>
+            <CardDescription>Pilih parameter di bawah ini untuk memfilter data dan mengunduh laporan.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -146,6 +151,45 @@ export default function ReportsPage() {
               Unduh Laporan (CSV)
             </Button>
           </div>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Hasil Filter</CardTitle>
+          <CardDescription>Menampilkan {filteredData.length} dari total {visitData.length} data kunjungan.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nama Destinasi</TableHead>
+                <TableHead>Periode</TableHead>
+                <TableHead className="text-right">Wis. Domestik</TableHead>
+                <TableHead className="text-right">Wis. Asing</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredData.length > 0 ? (
+                filteredData.map(d => (
+                  <TableRow key={d.id}>
+                    <TableCell className="font-medium">{destinationMap.get(d.destinationId) || 'Tidak Dikenal'}</TableCell>
+                    <TableCell>{d.monthName} {d.year}</TableCell>
+                    <TableCell className="text-right">{d.wisnus.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{d.wisman.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-semibold">{d.totalVisitors.toLocaleString()}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    Tidak ada data untuk ditampilkan. Silakan ubah kriteria filter Anda.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>
