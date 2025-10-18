@@ -3,10 +3,9 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect, Dispatch, SetStateAction } from 'react';
 import { useRouter } from 'next/navigation';
-import { loginAction } from '@/app/auth-actions';
-import { deleteSession } from '@/lib/session';
-import { User } from '@/lib/types';
+import { loginAction, logoutAction } from '@/app/auth-actions';
 import { getUsers } from '@/lib/local-data-service';
+import type { User } from '@/lib/types';
 
 interface AuthContextType {
   user: User | null;
@@ -29,25 +28,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const checkSession = async () => {
       setIsLoading(true);
       try {
+        // Check if a session cookie exists on the server
         const res = await fetch('/api/session', { cache: 'no-store' });
         
         if (res.ok) {
             const serverSession = await res.json();
             if (serverSession && serverSession.uid) {
+              // If server session exists, find the full user data in client-side localStorage
               const allClientUsers = getUsers();
               const clientUser = allClientUsers.find(u => u.uid === serverSession.uid);
               
               if (clientUser) {
+                // Set user state, excluding password
                 const { password: _, ...userToSet } = clientUser;
                 setUser(userToSet); 
               } else {
-                await deleteSession();
+                // If user not found in client data, something is wrong, so log out.
+                await logoutAction();
                 setUser(null);
               }
             } else {
               setUser(null);
             }
         } else {
+            // No session found on server
             setUser(null);
         }
       } catch (e) {
@@ -68,28 +72,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const password = formData.get('password') as string;
 
       if (!email || !password) {
-        setError("Email dan kata sandi harus diisi.");
-        setIsLoading(false);
-        return;
+        throw new Error("Email dan kata sandi harus diisi.");
       }
       
+      // 1. Validate against client-side data from localStorage
       const allUsers = getUsers();
       const foundUser = allUsers.find(u => u.email === email && u.password === password);
       
-      if (foundUser) {
-        const result = await loginAction(foundUser.uid);
-
-        if (result.success) {
-          const { password: _, ...userToSet } = foundUser;
-          setUser(userToSet);
-          router.push('/dashboard');
-        } else {
-           setError(result.error || 'Gagal membuat sesi server.');
-        }
-
-      } else {
-        setError('Email atau kata sandi tidak valid.');
+      if (!foundUser) {
+        throw new Error('Email atau kata sandi tidak valid.');
       }
+      
+      // 2. If valid, call server action to create a session cookie
+      const result = await loginAction(foundUser.uid);
+
+      if (result.success) {
+        // 3. Set user state in the client
+        const { password: _, ...userToSet } = foundUser;
+        setUser(userToSet);
+        router.push('/dashboard');
+      } else {
+        throw new Error(result.error || 'Gagal membuat sesi server.');
+      }
+
     } catch (e: any) {
       console.error("Login Error:", e);
       setError(e.message || 'Terjadi kesalahan saat login.');
@@ -99,8 +104,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await deleteSession();
+    // Call server action to delete the session cookie
+    await logoutAction();
+    // Clear user state on the client
     setUser(null);
+    // Redirect to login page
     router.replace('/login');
   };
 

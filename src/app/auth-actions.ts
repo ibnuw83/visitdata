@@ -1,10 +1,8 @@
 
 'use server';
 
-import { createSession } from '@/lib/session';
+import { createSession, deleteSession as deleteSessionCookie } from '@/lib/session';
 
-// This server action is now only responsible for creating the session cookie.
-// The validation happens on the client side in AuthContext.
 export async function loginAction(uid: string): Promise<{ success: boolean; error?: string }> {
   try {
     await createSession(uid);
@@ -13,4 +11,9 @@ export async function loginAction(uid: string): Promise<{ success: boolean; erro
     console.error("Login server action error:", e);
     return { success: false, error: e.message || 'Terjadi kesalahan saat membuat sesi.' };
   }
+}
+
+export async function logoutAction(): Promise<{ success: boolean }> {
+  await deleteSessionCookie();
+  return { success: true };
 }
