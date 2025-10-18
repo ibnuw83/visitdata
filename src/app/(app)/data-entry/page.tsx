@@ -497,7 +497,11 @@ export default function DataEntryPage() {
             const permissionError = new FirestorePermissionError({
                 path: 'destinations/{destId}/visits',
                 operation: 'create',
-                requestResourceData: batchData
+                requestResourceData: {
+                    year: newYear,
+                    destinations: destinations.map(d => d.id),
+                    batchOperations: batchData
+                },
             });
             errorEmitter.emit('permission-error', permissionError);
         });
@@ -543,7 +547,10 @@ export default function DataEntryPage() {
         const permissionError = new FirestorePermissionError({
             path: `destinations/{destId}/visits`,
             operation: 'delete',
-            requestResourceData: { year: selectedYear, paths: pathsToDelete }
+            requestResourceData: { 
+                year: selectedYear,
+                pathsToDelete
+            }
         });
         errorEmitter.emit('permission-error', permissionError);
       });

@@ -38,6 +38,7 @@ export default function UnlockRequestsPage() {
     if (!targetRequest) return;
     
     const batch = writeBatch(firestore);
+    const batchOperations: Record<string, any> = {};
 
     const requestRef = doc(firestore, 'unlock-requests', requestId);
     const requestUpdateData = {
@@ -45,13 +46,14 @@ export default function UnlockRequestsPage() {
         processedBy: appUser.uid,
     };
     batch.update(requestRef, requestUpdateData);
+    batchOperations[requestRef.path] = requestUpdateData;
 
-    let visitDataUpdate: {locked: boolean} | null = null;
     if (newStatus === 'approved') {
         const visitDataId = `${targetRequest.destinationId}-${targetRequest.year}-${targetRequest.month}`;
         const visitDocRef = doc(firestore, 'destinations', targetRequest.destinationId, 'visits', visitDataId);
-        visitDataUpdate = { locked: false };
+        const visitDataUpdate = { locked: false };
         batch.update(visitDocRef, visitDataUpdate);
+        batchOperations[visitDocRef.path] = visitDataUpdate;
     }
 
     batch.commit()
@@ -63,9 +65,9 @@ export default function UnlockRequestsPage() {
       })
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
-          path: `unlock-requests/${requestId}`, // Or a more generic path if the batch fails
+          path: `unlock-requests/${requestId} and related visit data`,
           operation: 'update',
-          requestResourceData: { requestUpdate: requestUpdateData, visitDataUpdate },
+          requestResourceData: batchOperations,
         });
         errorEmitter.emit('permission-error', permissionError);
       });

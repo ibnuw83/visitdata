@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,8 +16,8 @@ export function useCollection<T>(
   useEffect(() => {
     // Jangan jalankan kalau query belum siap
     if (!q) {
+      setLoading(false);
       setData([]);
-      setLoading(false); // Set loading to false if query is not ready
       setError(null);
       return;
     }

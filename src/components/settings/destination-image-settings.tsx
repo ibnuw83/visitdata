@@ -67,9 +67,9 @@ export default function DestinationImageSettings() {
             })
             .catch(async (serverError) => {
                  const permissionError = new FirestorePermissionError({
-                    path: 'destinations', // Path is general as it's a batch
+                    path: 'destinations/{destId}',
                     operation: 'update',
-                    requestResourceData: updates,
+                    requestResourceData: { batchUpdates: updates },
                 });
                 errorEmitter.emit('permission-error', permissionError);
             });
