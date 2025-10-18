@@ -5,8 +5,8 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser, getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuth as useFirebaseAuth, useFirebaseApp, useFirestore } from '@/firebase/client-provider';
-import { getDocs, collection, setDoc, doc } from 'firebase/firestore';
-import { users as seedUsers } from '@/lib/seed';
+import { getDocs, collection, setDoc, doc, writeBatch, query, limit } from 'firebase/firestore';
+import { users as seedUsers, destinations as seedDestinations, categories as seedCategories, visitData as seedVisitData, countries as seedCountries } from '@/lib/seed';
 import { User as AppUser } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
@@ -42,56 +42,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [auth]);
 
   useEffect(() => {
-    const seedInitialUsers = async () => {
+    const seedInitialData = async () => {
         if (!firestore || !firebaseApp) return;
 
-        // Check if the users collection is empty
+        let seeded = false;
+
+        // --- Seed Users ---
         const usersCollection = collection(firestore, 'users');
-        const snapshot = await getDocs(usersCollection);
-        if (!snapshot.empty) {
-            return;
-        }
+        const usersSnapshot = await getDocs(query(usersCollection, limit(1)));
+        if (usersSnapshot.empty) {
+            console.log("Seeding initial users...");
+            seeded = true;
+            const auth = getAuth(firebaseApp);
+            for (const userData of seedUsers) {
+                try {
+                    if (!userData.email || !userData.password) continue;
+                    const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+                    const newAuthUser = userCredential.user;
 
-        console.log("Seeding initial users...");
-        const auth = getAuth(firebaseApp);
-
-        for (const userData of seedUsers) {
-            try {
-                if (!userData.email || !userData.password) continue;
-                
-                // 1. Create user in Firebase Auth
-                const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
-                const newAuthUser = userCredential.user;
-
-                // 2. Create user profile in Firestore
-                const newUserDoc: AppUser = {
-                    uid: newAuthUser.uid,
-                    name: userData.name,
-                    email: userData.email,
-                    role: userData.role,
-                    assignedLocations: userData.assignedLocations || [],
-                    status: userData.status,
-                    avatarUrl: userData.avatarUrl || PlaceHolderImages[0].imageUrl
-                };
-                
-                await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserDoc);
-                 console.log(`Successfully seeded user: ${userData.name}`);
-            } catch (e: any) {
-                if (e.code === 'auth/email-already-in-use') {
-                    console.warn(`User ${userData.email} already exists in Auth. Checking Firestore...`);
-                } else {
-                    console.error("Error seeding user:", userData.email, e);
+                    const newUserDoc: AppUser = {
+                        uid: newAuthUser.uid,
+                        name: userData.name,
+                        email: userData.email,
+                        role: userData.role,
+                        assignedLocations: userData.assignedLocations || [],
+                        status: userData.status,
+                        avatarUrl: userData.avatarUrl || PlaceHolderImages[0].imageUrl
+                    };
+                    await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserDoc);
+                } catch (e: any) {
+                    if (e.code !== 'auth/email-already-in-use') {
+                        console.error("Error seeding user:", userData.email, e);
+                    }
                 }
             }
         }
-        toast({
-            title: "Pengguna Awal Dibuat",
-            description: "Pengguna default (admin & pengelola) telah ditambahkan ke sistem."
-        });
+
+        // --- Seed Destinations, Categories, Countries ---
+        const destinationsCollection = collection(firestore, 'destinations');
+        const destSnapshot = await getDocs(query(destinationsCollection, limit(1)));
+        if (destSnapshot.empty) {
+            console.log("Seeding destinations, categories, countries...");
+            seeded = true;
+            const batch = writeBatch(firestore);
+            seedDestinations.forEach(d => batch.set(doc(firestore, 'destinations', d.id), d));
+            seedCategories.forEach(c => batch.set(doc(firestore, 'categories', c.id), c));
+            seedCountries.forEach(c => batch.set(doc(firestore, 'countries', c.code), c));
+            await batch.commit();
+        }
+        
+        // --- Seed Visit Data ---
+        const visitsCollectionGroup = collection(firestore, 'destinations/dest-01/visits');
+        const visitsSnapshot = await getDocs(query(visitsCollectionGroup, limit(1)));
+        if(visitsSnapshot.empty) {
+            console.log("Seeding visit data...");
+            seeded = true;
+            const batch = writeBatch(firestore);
+            seedVisitData.forEach(vd => {
+                const visitDocRef = doc(firestore, 'destinations', vd.destinationId, 'visits', vd.id);
+                batch.set(visitDocRef, vd);
+            });
+            await batch.commit();
+        }
+
+        if (seeded) {
+            toast({
+                title: "Data Awal Dimuat",
+                description: "Database telah diisi dengan data contoh untuk memulai."
+            });
+        }
     };
 
     if (firestore && firebaseApp) {
-        seedInitialUsers();
+        seedInitialData();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firestore, firebaseApp]);
@@ -138,5 +161,3 @@ export function useAuth() {
   }
   return context;
 }
-
-    
