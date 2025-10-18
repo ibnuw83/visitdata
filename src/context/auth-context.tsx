@@ -4,7 +4,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect, Dispatch, SetStateAction } from 'react';
 import { useRouter } from 'next/navigation';
 import { loginAction, logoutAction } from '@/app/auth-actions';
-import { getUsers } from '@/lib/local-data-service';
+import { getUsers, resetAndSeedData } from '@/lib/local-data-service';
 import type { User } from '@/lib/types';
 
 interface AuthContextType {
@@ -18,6 +18,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// A flag to ensure seeding only happens once per application lifecycle.
+let hasSeeded = false;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,6 +28,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    // This effect runs only once when the provider mounts.
+    if (!hasSeeded) {
+      resetAndSeedData();
+      hasSeeded = true;
+    }
+    
     const checkSession = async () => {
       setIsLoading(true);
       try {
@@ -70,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Email dan kata sandi harus diisi.");
       }
       
-      // 1. Validate credentials on the client side against localStorage data
+      // 1. Validate credentials on the client side against fresh data
       const allUsers = getUsers();
       const foundUser = allUsers.find(u => u.email === email && u.password === password);
 

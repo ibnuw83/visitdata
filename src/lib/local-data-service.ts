@@ -11,30 +11,23 @@ import {
 } from './mock-data';
 import type { User, Destination, VisitData, UnlockRequest, Category, Country } from './types';
 
-function initializeData<T>(key: string, mockData: T[]): T[] {
+function getData<T>(key: string, mockData: T[]): T[] {
   try {
     if (typeof window !== 'undefined') {
-        // For 'users', always clear old data to ensure mock data passwords are correct on reload.
-        // This is the definitive fix for the persistent "invalid password" error.
-        if (key === 'users') {
-            localStorage.removeItem('users');
-        }
-
-        const storedData = localStorage.getItem(key);
-        if (storedData) {
-            return JSON.parse(storedData);
-        } else {
-            localStorage.setItem(key, JSON.stringify(mockData));
-            return mockData;
-        }
+      const storedData = localStorage.getItem(key);
+      if (storedData) {
+        return JSON.parse(storedData);
+      }
+      // If no data in localStorage, seed it with mock data
+      localStorage.setItem(key, JSON.stringify(mockData));
+      return mockData;
     }
   } catch (error) {
-    console.error(`Error initializing data for key ${key} from localStorage`, error);
+    console.error(`Error getting data for key ${key} from localStorage`, error);
   }
-  // Return mockData as a fallback for server-side rendering or in case of client-side errors.
+  // Fallback for SSR or errors
   return mockData;
 }
-
 
 function saveData<T>(key: string, data: T[]): void {
   try {
@@ -45,11 +38,32 @@ function saveData<T>(key: string, data: T[]): void {
   }
 }
 
+// --- Data Reset Function ---
+export function resetAndSeedData(): void {
+    if (typeof window === 'undefined') return;
+    // Clear all existing data
+    localStorage.removeItem('users');
+    localStorage.removeItem('destinations');
+    localStorage.removeItem('visitData');
+    localStorage.removeItem('unlockRequests');
+    localStorage.removeItem('categories');
+    localStorage.removeItem('countries');
+    
+    // Reseed with fresh mock data
+    saveData('users', mockUsers);
+    saveData('destinations', mockDestinations);
+    saveData('visitData', mockVisitData);
+    saveData('unlockRequests', mockUnlockRequests);
+    saveData('categories', mockCategories);
+    saveData('countries', mockCountries);
+    console.log('Local storage has been reset and seeded with fresh mock data.');
+}
+
 
 // --- Data Access Functions ---
 
 export function getUsers(): User[] {
-  return initializeData('users', mockUsers);
+  return getData('users', mockUsers);
 }
 
 export function saveUsers(users: User[]): void {
@@ -57,7 +71,7 @@ export function saveUsers(users: User[]): void {
 }
 
 export function getDestinations(): Destination[] {
-  return initializeData('destinations', mockDestinations);
+  return getData('destinations', mockDestinations);
 }
 
 export function saveDestinations(destinations: Destination[]): void {
@@ -65,7 +79,7 @@ export function saveDestinations(destinations: Destination[]): void {
 }
 
 export function getVisitData(): VisitData[] {
-    return initializeData('visitData', mockVisitData);
+    return getData('visitData', mockVisitData);
 }
 
 export function saveVisitData(data: VisitData[]): void {
@@ -73,16 +87,15 @@ export function saveVisitData(data: VisitData[]): void {
 }
 
 export function getUnlockRequests(): UnlockRequest[] {
-    return initializeData('unlockRequests', mockUnlockRequests);
+    return getData('unlockRequests', mockUnlockRequests);
 }
 
 export function saveUnlockRequests(requests: UnlockRequest[]): void {
     saveData('unlockRequests', requests);
 }
 
-
 export function getCategories(): Category[] {
-  return initializeData('categories', mockCategories);
+  return getData('categories', mockCategories);
 }
 
 export function saveCategories(categories: Category[]): void {
@@ -90,7 +103,7 @@ export function saveCategories(categories: Category[]): void {
 }
 
 export function getCountries(): Country[] {
-  return initializeData('countries', mockCountries);
+  return getData('countries', mockCountries);
 }
 
 // --- Combined Functions ---
