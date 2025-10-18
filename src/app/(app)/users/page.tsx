@@ -391,7 +391,7 @@ export default function UsersPage() {
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">
                                   <AvatarImage src={user.avatarUrl} alt={user.name}/>
-                                  <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                  <AvatarFallback>{user.name ? user.name.charAt(0) : ''}</AvatarFallback>
                                 </Avatar>
                                 <div>
                                   <div>{user.name}</div>

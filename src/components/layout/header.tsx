@@ -57,7 +57,7 @@ export default function Header() {
             >
               <Avatar>
                 <AvatarImage src={appUser.avatarUrl} alt={appUser.name} />
-                <AvatarFallback>{appUser.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{appUser.name ? appUser.name.charAt(0) : ''}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>

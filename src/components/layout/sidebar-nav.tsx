@@ -65,7 +65,7 @@ export default function SidebarNav() {
     return null;
   }
 
-  const isUserInRole = (roles: string[]) => roles.includes(appUser.role);
+  const isUserInRole = (roles: string[]) => appUser.role && roles.includes(appUser.role);
   
   const accessibleMenuItems = menuItems.filter(item => isUserInRole(item.roles));
 
