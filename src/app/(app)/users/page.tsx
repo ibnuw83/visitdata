@@ -79,24 +79,28 @@ function MultiSelect({
           className={`w-full justify-between h-auto ${selected.length > 0 ? 'h-auto' : 'h-10'}`}
         >
           <div className="flex gap-1 flex-wrap">
-            {selected.length > 0 ? selected.map((item) => (
-              <Badge
-                variant="secondary"
-                key={item}
-                className="mr-1 mb-1"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleUnselect(item);
-                }}
-              >
-                {options.find(opt => opt.value === item)?.label}
-                <span className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                  <XCircle className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                </span>
-              </Badge>
-            )) : "Pilih destinasi..."}
+            {selected.length > 0 ? selected.map((item) => {
+                const label = options.find(opt => opt.value === item)?.label;
+                if (!label) return null;
+                return (
+                  <Badge
+                    variant="secondary"
+                    key={item}
+                    className="mr-1 mb-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleUnselect(item);
+                    }}
+                  >
+                    {label}
+                    <span className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                      <XCircle className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                    </span>
+                  </Badge>
+                )
+            }) : "Pilih destinasi..."}
           </div>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -244,7 +248,7 @@ export default function UsersPage() {
       role: newUserRole,
       assignedLocations: newUserRole === 'pengelola' ? newUserAssignedLocations : [],
       status: 'aktif',
-      avatarUrl: PlaceHolderImages[users.length % 3].imageUrl // Cycle through placeholder images
+      avatarUrl: PlaceHolderImages[users.length % PlaceHolderImages.length].imageUrl
     };
 
     const updatedUsers = [...users, newUser];
