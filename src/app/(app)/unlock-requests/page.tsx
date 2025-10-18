@@ -12,15 +12,16 @@ import { MoreHorizontal, CheckCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/firebase/auth/use-user';
-import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase/client-provider';
+import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, doc, updateDoc } from 'firebase/firestore';
 
 export default function UnlockRequestsPage() {
   const { appUser } = useUser();
-  const { data: unlockRequests } = useCollection<UnlockRequest>('unlock-requests');
-  const { toast } = useToast();
   const firestore = useFirestore();
+  const requestsQuery = useMemo(() => firestore ? collection(firestore, 'unlock-requests') : null, [firestore]);
+  const { data: unlockRequests } = useCollection<UnlockRequest>(requestsQuery);
+  const { toast } = useToast();
   
   const statusVariant: { [key in UnlockRequest['status']]: "secondary" | "default" | "destructive" } = {
       pending: "secondary",

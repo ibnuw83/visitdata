@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Destination, Category } from '@/lib/types';
@@ -52,15 +52,18 @@ const colorPalette = [
 ];
 
 export default function DestinationsPage() {
-  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>('destinations');
-  const { data: categories, loading: categoriesLoading } = useCollection<Category>('categories');
+  const firestore = useFirestore();
+  const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
+  const categoriesQuery = useMemo(() => firestore ? collection(firestore, 'categories') : null, [firestore]);
+  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
+  const { data: categories, loading: categoriesLoading } = useCollection<Category>(categoriesQuery);
   const loading = destinationsLoading || categoriesLoading;
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
   const [newDestinationName, setNewDestinationName] = useState('');
   const [newDestinationCategory, setNewDestinationCategory] = useState('');
-  const [newDestinationLocation, setNewDestinationLocation] = useState('');
+  const [newDestinationLocation, setNewDestinationLocation] useState('');
   const [newDestinationManagement, setNewDestinationManagement] = useState<'pemerintah' | 'swasta' | ''>('');
   const [newDestinationImageUrl, setNewDestinationImageUrl] = useState('');
 
@@ -73,7 +76,6 @@ export default function DestinationsPage() {
   const [editedDestinationImageUrl, setEditedDestinationImageUrl] = useState('');
 
   const { toast } = useToast();
-  const firestore = useFirestore();
 
   const resetAddForm = () => {
     setNewDestinationName('');

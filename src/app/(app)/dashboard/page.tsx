@@ -12,31 +12,36 @@ import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUser } from '@/firebase/auth/use-user';
+import { useFirestore } from '@/firebase/client-provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query, where, collectionGroup, QueryConstraint } from 'firebase/firestore';
+import { collection, query, where, collectionGroup } from 'firebase/firestore';
 
 export default function DashboardPage() {
     const { appUser } = useUser();
+    const firestore = useFirestore();
 
-    const [destinationsPath, setDestinationsPath] = useState<string | null>(null);
-    const [destinationsConstraints, setDestinationsConstraints] = useState<QueryConstraint[]>([]);
+    const destinationsQuery = useMemo(() => {
+        if (!firestore || !appUser) return null;
 
-    useEffect(() => {
-        if (!appUser) return;
-        
-        setDestinationsPath('destinations');
         if (appUser.role === 'admin') {
-            setDestinationsConstraints([]);
-        } else if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-            setDestinationsConstraints([where('id', 'in', appUser.assignedLocations)]);
-        } else {
-            // Pengelola with no locations assigned, so no query
-            setDestinationsPath(null);
+            return collection(firestore, 'destinations');
         }
-    }, [appUser]);
 
-    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsPath, destinationsConstraints);
-    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>('visits', [], { group: true });
+        if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+            return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
+        }
+
+        return null;
+    }, [firestore, appUser]);
+
+    const allVisitsQuery = useMemo(() => {
+        if (!firestore) return null;
+        return collectionGroup(firestore, 'visits');
+    }, [firestore]);
+
+
+    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
+    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(allVisitsQuery);
 
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());

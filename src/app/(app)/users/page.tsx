@@ -51,8 +51,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore, useFirebaseApp } from '@/firebase/client-provider';
+import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 
@@ -146,11 +146,14 @@ function MultiSelect({
 
 export default function UsersPage() {
   const firebaseApp = useFirebaseApp();
-  const { data: users, loading: usersLoading } = useCollection<AppUser>('users');
-  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>('destinations');
+  const firestore = useFirestore();
+  const usersQuery = useMemo(() => firestore ? collection(firestore, 'users') : null, [firestore]);
+  const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
+
+  const { data: users, loading: usersLoading } = useCollection<AppUser>(usersQuery);
+  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
 
   const { toast } = useToast();
-  const firestore = useFirestore();
 
   // State for Add User Dialog
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);

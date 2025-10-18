@@ -20,6 +20,7 @@ import { PlusCircle, Trash2, Lock, Unlock, KeyRound } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import { Combobox } from '@/components/ui/combobox';
 import { useUser } from '@/firebase/auth/use-user';
+import { useFirestore } from '@/firebase/client-provider';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,7 +38,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup, QueryConstraint } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup } from 'firebase/firestore';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -123,6 +124,9 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
   const [data, setData] = useState<VisitData[]>(initialData);
   const { toast } = useToast();
   const { appUser } = useUser();
+  const firestore = useFirestore();
+  const countriesQuery = useMemo(() => firestore ? collection(firestore, 'countries') : null, [firestore]);
+  const { data: countries } = useCollection<Country>(countriesQuery);
 
   useEffect(() => {
     setData(initialData);
@@ -240,6 +244,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
                                         totalWisman={monthData.wisman || 0}
                                         onSave={(newDetails) => handleWismanDetailsChange(index, newDetails)}
                                         disabled={isLocked}
+                                        countries={countries || []}
                                     />
                                 </TableCell>
                                 <TableCell className="text-right font-medium">{monthData.totalVisitors.toLocaleString() || 0}</TableCell>
@@ -288,9 +293,8 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
   );
 }
 
-function WismanPopover({ details, totalWisman, onSave, disabled }: { details: WismanDetail[], totalWisman: number, onSave: (details: WismanDetail[]) => void, disabled?: boolean }) {
+function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { details: WismanDetail[], totalWisman: number, onSave: (details: WismanDetail[]) => void, disabled?: boolean, countries: Country[] }) {
     const [wismanDetails, setWismanDetails] = useState(details);
-    const { data: countries } = useCollection<Country>('countries');
     
     useEffect(() => {
         setWismanDetails(details);
@@ -378,31 +382,26 @@ export default function DataEntryPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
 
-  const [destinationsPath, setDestinationsPath] = useState<string | null>(null);
-  const [destinationsConstraints, setDestinationsConstraints] = useState<QueryConstraint[]>([]);
-
-  useEffect(() => {
-    if (!appUser || !firestore) return;
-    
-    const path = 'destinations';
-    let constraints: QueryConstraint[] = [where('status', '==', 'aktif')];
-    
+  const destinationsQuery = useMemo(() => {
+    if (!firestore || !appUser) return null;
+    let constraints = [where('status', '==', 'aktif')];
     if (appUser.role === 'admin') {
-      // no extra constraints
-    } else if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-      constraints.push(where('id', 'in', appUser.assignedLocations));
-    } else {
-      // Pengelola with no locations, so no query
-      setDestinationsPath(null);
-      return;
+      return query(collection(firestore, 'destinations'), ...constraints);
     }
-    
-    setDestinationsPath(path);
-    setDestinationsConstraints(constraints);
-  }, [appUser, firestore]);
+    if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+      constraints.push(where('id', 'in', appUser.assignedLocations));
+      return query(collection(firestore, 'destinations'), ...constraints);
+    }
+    return null;
+  }, [firestore, appUser]);
+
+  const allVisitsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return collectionGroup(firestore, 'visits');
+  }, [firestore]);
   
-  const { data: destinations } = useCollection<Destination>(destinationsPath, destinationsConstraints);
-  const { data: allVisitData } = useCollection<VisitData>('visits', [], { group: true });
+  const { data: destinations } = useCollection<Destination>(destinationsQuery);
+  const { data: allVisitData } = useCollection<VisitData>(allVisitsQuery);
   
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const { toast } = useToast();

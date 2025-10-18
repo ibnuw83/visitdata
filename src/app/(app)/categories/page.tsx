@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FolderTree, PlusCircle, Trash2, FilePenLine } from "lucide-react";
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,8 @@ const colorPalette = [
 
 export default function CategoriesPage() {
   const firestore = useFirestore();
-  const { data: categories, loading } = useCollection<Category>(firestore ? collection(firestore, 'categories') : null);
+  const categoriesQuery = useMemo(() => firestore ? collection(firestore, 'categories') : null, [firestore]);
+  const { data: categories, loading } = useCollection<Category>(categoriesQuery);
 
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);

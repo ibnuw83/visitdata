@@ -6,36 +6,39 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Destination, VisitData } from "@/lib/types";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
 import { useUser } from '@/firebase/auth/use-user';
+import { useFirestore } from "@/firebase/client-provider";
 import { useCollection } from "@/firebase/firestore/use-collection";
-import { collection, query, where, collectionGroup, QueryConstraint } from "firebase/firestore";
+import { collection, query, where, collectionGroup } from "firebase/firestore";
 
 export default function ReportsPage() {
   const { appUser } = useUser();
+  const firestore = useFirestore();
 
-  const [destinationsPath, setDestinationsPath] = useState<string | null>(null);
-  const [destinationsConstraints, setDestinationsConstraints] = useState<QueryConstraint[]>([]);
-
-  useEffect(() => {
-    if (!appUser) return;
-    setDestinationsPath('destinations');
+  const destinationsQuery = useMemo(() => {
+    if (!firestore || !appUser) return null;
     if (appUser.role === 'admin') {
-        setDestinationsConstraints([]);
-    } else if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-        setDestinationsConstraints([where('id', 'in', appUser.assignedLocations)]);
-    } else {
-        setDestinationsPath(null);
+        return collection(firestore, 'destinations');
     }
-  }, [appUser]);
+    if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+        return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
+    }
+    return null;
+  }, [firestore, appUser]);
 
-  const { data: destinations } = useCollection<Destination>(destinationsPath, destinationsConstraints);
-  const { data: visitData } = useCollection<VisitData>('visits', [], { group: true });
+  const visitsQuery = useMemo(() => {
+      if (!firestore) return null;
+      return collectionGroup(firestore, 'visits');
+  }, [firestore]);
+
+  const { data: destinations } = useCollection<Destination>(destinationsQuery);
+  const { data: visitData } = useCollection<VisitData>(visitsQuery);
 
   // Filter state
   const [selectedDestination, setSelectedDestination] = useState('all');

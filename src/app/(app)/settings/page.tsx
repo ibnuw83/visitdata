@@ -8,13 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser } from '@/firebase/auth/use-user';
+import { useFirestore } from '@/firebase/client-provider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import DestinationImageSettings from '@/components/settings/destination-image-settings';
-import { useFirestore } from '@/firebase/client-provider';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { AppSettings } from '@/lib/types';
@@ -22,14 +22,15 @@ import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 
 
 function AppSettingsCard() {
     const { toast } = useToast();
-    const { data: settingsData, loading } = useDoc<AppSettings>('settings/app');
+    const firestore = useFirestore();
+    const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings/app') : null, [firestore]);
+    const { data: settingsData, loading } = useDoc<AppSettings>(settingsRef);
 
     const [appTitle, setAppTitle] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
     const [footerText, setFooterText] = useState('');
     const [heroTitle, setHeroTitle] = useState('');
     const [heroSubtitle, setHeroSubtitle] = useState('');
-    const firestore = useFirestore();
 
     useEffect(() => {
         if (settingsData) {

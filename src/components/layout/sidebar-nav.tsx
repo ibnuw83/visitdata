@@ -16,12 +16,12 @@ import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
 import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree } from 'lucide-react';
 import { useUser } from '@/firebase/auth/use-user';
+import { useFirestore } from '@/firebase/client-provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
+import { useDoc } from '@/firebase/firestore/use-doc';
 import { useEffect, useState, useMemo } from 'react';
 import { collection, query, where, doc } from 'firebase/firestore';
 import type { UnlockRequest, AppSettings } from '@/lib/types';
-import { useFirestore } from '@/firebase/client-provider';
-import { useDoc } from '@/firebase/firestore/use-doc';
 
 
 const menuItems = [
@@ -38,25 +38,19 @@ const menuItems = [
 export default function SidebarNav() {
   const pathname = usePathname();
   const { appUser } = useUser();
+  const firestore = useFirestore();
 
-  const [requestsPath, setRequestsPath] = useState<string | null>(null);
-  const [requestsConstraints, setRequestsConstraints] = useState<any[]>([]);
+  const requestsQuery = useMemo(() => {
+    if (!firestore || appUser?.role !== 'admin') return null;
+    return query(collection(firestore, 'unlock-requests'), where('status', '==', 'pending'));
+  }, [firestore, appUser]);
 
-  useEffect(() => {
-    if (appUser?.role === 'admin') {
-      setRequestsPath('unlock-requests');
-      setRequestsConstraints([where('status', '==', 'pending')]);
-    } else {
-      setRequestsPath(null);
-      setRequestsConstraints([]);
-    }
-  }, [appUser]);
+  const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings/app') : null, [firestore]);
 
-  const { data: pendingRequests } = useCollection<UnlockRequest>(requestsPath, requestsConstraints);
+  const { data: pendingRequests } = useCollection<UnlockRequest>(requestsQuery);
+  const { data: settings } = useDoc<AppSettings>(settingsRef);
+
   const pendingRequestsCount = pendingRequests?.length || 0;
-  
-  const { data: settings } = useDoc<AppSettings>('settings/app');
-
   const appTitle = settings?.appTitle || 'VisitData Hub';
   const footerText = settings?.footerText || `© ${new Date().getFullYear()} VisitData Hub`;
 

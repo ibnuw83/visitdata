@@ -2,47 +2,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  onSnapshot,
-  query,
-  collection,
-  collectionGroup,
-  QueryConstraint,
-  Query,
-} from 'firebase/firestore';
-import { useFirestore } from '../client-provider';
+import { onSnapshot, Query } from 'firebase/firestore';
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
-interface UseCollectionOptions {
-  group?: boolean;
-}
-
 export function useCollection<T>(
-  path: string | null,
-  constraints: QueryConstraint[] = [],
-  options: UseCollectionOptions = {}
+  q: Query | null
 ): { data: T[]; loading: boolean; error: Error | null } {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const firestore = useFirestore();
-
-  // Serialize constraints for stable dependency array
-  const constraintsJSON = JSON.stringify(constraints.map(c => c.type));
 
   useEffect(() => {
-    if (!path || !firestore) {
-      setLoading(false);
+    if (q === null) {
       setData([]);
+      setLoading(false);
       return;
     }
-
-    setLoading(true);
     
-    let q: Query;
-    const collectionRef = options.group ? collectionGroup(firestore, path) : collection(firestore, path);
-    q = query(collectionRef, ...constraints);
+    setLoading(true);
 
     const unsubscribe = onSnapshot(
       q,
@@ -58,13 +36,12 @@ export function useCollection<T>(
       (err: Error) => {
         console.error('useCollection error:', err);
         
-        let errorPath = path;
+        let errorPath = 'unknown';
         try {
-          if ('_query' in q && (q as any)._query.path) {
-            errorPath = (q as any)._query.path.segments.join('/');
-          }
+           // @ts-ignore internal property
+           errorPath = q._query.path.segments.join('/');
         } catch (e) {
-          console.warn("Could not extract path from Firestore query for error reporting.", e);
+            console.warn("Could not extract path from Firestore query for error reporting.", e);
         }
 
         const permissionError = new FirestorePermissionError({
@@ -78,8 +55,7 @@ export function useCollection<T>(
     );
 
     return () => unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, constraintsJSON, firestore, options.group]);
+  }, [q]);
 
   return { data, loading, error };
 }

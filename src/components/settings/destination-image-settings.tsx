@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,14 +10,15 @@ import { useToast } from '@/hooks/use-toast';
 import type { Destination } from '@/lib/types';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase/client-provider';
-import { doc, writeBatch } from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 
 export default function DestinationImageSettings() {
     const { toast } = useToast();
     const firestore = useFirestore();
-    const { data: destinations, loading } = useCollection<Destination>('destinations');
+    const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
+    const { data: destinations, loading } = useCollection<Destination>(destinationsQuery);
     const [imageMap, setImageMap] = useState<Record<string, string>>({});
 
     useEffect(() => {
