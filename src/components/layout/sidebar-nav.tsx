@@ -38,18 +38,24 @@ const menuItems = [
 export default function SidebarNav() {
   const pathname = usePathname();
   const { appUser } = useUser();
-  const firestore = useFirestore();
 
-  const requestsQuery = useMemo(() => {
-    if (!firestore || !appUser || appUser.role !== 'admin') return null;
-    return query(collection(firestore, 'unlock-requests'), where('status', '==', 'pending'));
-  }, [firestore, appUser]);
-  
-  const { data: pendingRequests } = useCollection<UnlockRequest>(requestsQuery);
+  const [requestsPath, setRequestsPath] = useState<string | null>(null);
+  const [requestsConstraints, setRequestsConstraints] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (appUser?.role === 'admin') {
+      setRequestsPath('unlock-requests');
+      setRequestsConstraints([where('status', '==', 'pending')]);
+    } else {
+      setRequestsPath(null);
+      setRequestsConstraints([]);
+    }
+  }, [appUser]);
+
+  const { data: pendingRequests } = useCollection<UnlockRequest>(requestsPath, requestsConstraints);
   const pendingRequestsCount = pendingRequests?.length || 0;
-
-  const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings', 'app') : null, [firestore]);
-  const { data: settings } = useDoc<AppSettings>(settingsRef);
+  
+  const { data: settings } = useDoc<AppSettings>('settings/app');
 
   const appTitle = settings?.appTitle || 'VisitData Hub';
   const footerText = settings?.footerText || `© ${new Date().getFullYear()} VisitData Hub`;

@@ -22,15 +22,14 @@ import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 
 
 function AppSettingsCard() {
     const { toast } = useToast();
-    const firestore = useFirestore();
-    const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings', 'app') : null, [firestore]);
-    const { data: settingsData, loading } = useDoc<AppSettings>(settingsRef);
+    const { data: settingsData, loading } = useDoc<AppSettings>('settings/app');
 
     const [appTitle, setAppTitle] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
     const [footerText, setFooterText] = useState('');
     const [heroTitle, setHeroTitle] = useState('');
     const [heroSubtitle, setHeroSubtitle] = useState('');
+    const firestore = useFirestore();
 
     useEffect(() => {
         if (settingsData) {

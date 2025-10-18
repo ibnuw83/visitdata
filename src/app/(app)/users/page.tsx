@@ -145,12 +145,12 @@ function MultiSelect({
 }
 
 export default function UsersPage() {
-  const firestore = useFirestore();
   const firebaseApp = useFirebaseApp();
-  const { data: users, loading: usersLoading } = useCollection<AppUser>(firestore ? collection(firestore, 'users') : null);
-  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(firestore ? collection(firestore, 'destinations') : null);
+  const { data: users, loading: usersLoading } = useCollection<AppUser>('users');
+  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>('destinations');
 
   const { toast } = useToast();
+  const firestore = useFirestore();
 
   // State for Add User Dialog
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);

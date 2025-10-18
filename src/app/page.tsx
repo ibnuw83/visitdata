@@ -20,14 +20,10 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase/client-provider';
 import { collection, collectionGroup } from "firebase/firestore";
 import { useDoc } from '@/firebase/firestore/use-doc';
-import { doc } from 'firebase/firestore';
 
 function DashboardContent() {
-    const firestore = useFirestore();
-    const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
-    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-    const visitsQuery = useMemo(() => firestore ? collectionGroup(firestore, 'visits') : null, [firestore]);
-    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
+    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>('destinations');
+    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>('visits', [], { group: true });
     
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
@@ -140,9 +136,7 @@ function DashboardContent() {
 }
 
 function PublicLandingPage() {
-    const firestore = useFirestore();
-    const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings', 'app') : null, [firestore]);
-    const { data: settings } = useDoc<AppSettings>(settingsRef);
+    const { data: settings } = useDoc<AppSettings>('settings/app');
   
     const appTitle = settings?.appTitle || 'VisitData Hub';
     const appFooter = settings?.footerText || `© ${new Date().getFullYear()} VisitData Hub`;

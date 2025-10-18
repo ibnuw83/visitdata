@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Destination, VisitData } from "@/lib/types";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -14,31 +14,28 @@ import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from "@/firebase/firestore/use-collection";
-import { useFirestore } from "@/firebase/client-provider";
-import { collection, query, where, collectionGroup } from "firebase/firestore";
+import { collection, query, where, collectionGroup, QueryConstraint } from "firebase/firestore";
 
 export default function ReportsPage() {
   const { appUser } = useUser();
-  const firestore = useFirestore();
 
-  const destinationsQuery = useMemo(() => {
-    if (!firestore || !appUser) return null;
+  const [destinationsPath, setDestinationsPath] = useState<string | null>(null);
+  const [destinationsConstraints, setDestinationsConstraints] = useState<QueryConstraint[]>([]);
+
+  useEffect(() => {
+    if (!appUser) return;
+    setDestinationsPath('destinations');
     if (appUser.role === 'admin') {
-      return collection(firestore, 'destinations');
+        setDestinationsConstraints([]);
+    } else if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+        setDestinationsConstraints([where('id', 'in', appUser.assignedLocations)]);
+    } else {
+        setDestinationsPath(null);
     }
-    if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-      return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
-    }
-    return null;
-  }, [firestore, appUser]);
+  }, [appUser]);
 
-  const { data: destinations } = useCollection<Destination>(destinationsQuery);
-  const visitsQuery = useMemo(() => {
-    if (!firestore) return null;
-    return collectionGroup(firestore, 'visits');
-  }, [firestore]);
-  const { data: visitData } = useCollection<VisitData>(visitsQuery);
-
+  const { data: destinations } = useCollection<Destination>(destinationsPath, destinationsConstraints);
+  const { data: visitData } = useCollection<VisitData>('visits', [], { group: true });
 
   // Filter state
   const [selectedDestination, setSelectedDestination] = useState('all');
@@ -65,11 +62,7 @@ export default function ReportsPage() {
 
     let data = visitData;
 
-    // Filter based on user role
-    if (appUser?.role === 'pengelola' && appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-      const assigned = appUser.assignedLocations;
-      data = data.filter(d => assigned.includes(d.destinationId));
-    }
+    // Filter based on user role - data is already pre-filtered by the hook for 'pengelola'
     
     if (selectedDestination !== 'all') {
       data = data.filter(d => d.destinationId === selectedDestination);
@@ -80,11 +73,16 @@ export default function ReportsPage() {
     if (selectedMonth !== 'all') {
       data = data.filter(d => d.month === parseInt(selectedMonth));
     }
+    
+    // Ensure we only show data for the destinations the user has access to
+    const allowedDestinationIds = new Set(destinations.map(d => d.id));
+    data = data.filter(d => allowedDestinationIds.has(d.destinationId));
+    
     return data.sort((a, b) => {
         if (a.year !== b.year) return b.year - a.year;
         return a.month - b.month;
     });
-  }, [visitData, destinations, selectedDestination, selectedYear, selectedMonth, appUser]);
+  }, [visitData, destinations, selectedDestination, selectedYear, selectedMonth]);
 
 
   const handleDownload = () => {
@@ -178,13 +176,13 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Select value={selectedDestination} onValueChange={setSelectedDestination} disabled={appUser.role === 'pengelola' && destinations.length === 1}>
+            <Select value={selectedDestination} onValueChange={setSelectedDestination} disabled={appUser.role === 'pengelola' && (destinations || []).length === 1}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Destinasi" />
               </SelectTrigger>
               <SelectContent>
                 {appUser.role === 'admin' && <SelectItem value="all">Semua Destinasi</SelectItem>}
-                {destinations.map(d => (
+                {(destinations || []).map(d => (
                   <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                 ))}
               </SelectContent>

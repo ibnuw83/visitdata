@@ -52,9 +52,8 @@ const colorPalette = [
 ];
 
 export default function DestinationsPage() {
-  const firestore = useFirestore();
-  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(firestore ? collection(firestore, 'destinations') : null);
-  const { data: categories, loading: categoriesLoading } = useCollection<Category>(firestore ? collection(firestore, 'categories') : null);
+  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>('destinations');
+  const { data: categories, loading: categoriesLoading } = useCollection<Category>('categories');
   const loading = destinationsLoading || categoriesLoading;
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -74,6 +73,7 @@ export default function DestinationsPage() {
   const [editedDestinationImageUrl, setEditedDestinationImageUrl] = useState('');
 
   const { toast } = useToast();
+  const firestore = useFirestore();
 
   const resetAddForm = () => {
     setNewDestinationName('');

@@ -13,33 +13,30 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { useFirestore } from '@/firebase/client-provider';
-import { collection, query, where, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, collectionGroup, QueryConstraint } from 'firebase/firestore';
 
 export default function DashboardPage() {
     const { appUser } = useUser();
-    const firestore = useFirestore();
 
-    const destinationsQuery = useMemo(() => {
-        if (!firestore || !appUser) return null;
+    const [destinationsPath, setDestinationsPath] = useState<string | null>(null);
+    const [destinationsConstraints, setDestinationsConstraints] = useState<QueryConstraint[]>([]);
+
+    useEffect(() => {
+        if (!appUser) return;
+        
+        setDestinationsPath('destinations');
         if (appUser.role === 'admin') {
-            return collection(firestore, 'destinations');
+            setDestinationsConstraints([]);
+        } else if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+            setDestinationsConstraints([where('id', 'in', appUser.assignedLocations)]);
+        } else {
+            // Pengelola with no locations assigned, so no query
+            setDestinationsPath(null);
         }
-        if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-            return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
-        }
-        return null;
-    }, [firestore, appUser]);
+    }, [appUser]);
 
-    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-    
-    const visitsQuery = useMemo(() => {
-        if (!firestore) return null;
-        return collectionGroup(firestore, 'visits');
-    }, [firestore]);
-
-    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
-
+    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsPath, destinationsConstraints);
+    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>('visits', [], { group: true });
 
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
@@ -101,7 +98,7 @@ export default function DashboardPage() {
                 </div>
                  <div className="grid gap-4 lg:grid-cols-5">
                     <Skeleton className="lg:col-span-3 h-80" />
-                    <Skeleton className="lg:col-span-2 h-80" />
+                    <Skeleton className="lg-col-span-2 h-80" />
                 </div>
                 <div className="grid gap-4">
                     <Skeleton className="h-96" />

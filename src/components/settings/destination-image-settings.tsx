@@ -12,12 +12,12 @@ import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase/client-provider';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 
 export default function DestinationImageSettings() {
     const { toast } = useToast();
     const firestore = useFirestore();
-    const { data: destinations, loading } = useCollection<Destination>(firestore ? collection(firestore, 'destinations') : null);
+    const { data: destinations, loading } = useCollection<Destination>('destinations');
     const [imageMap, setImageMap] = useState<Record<string, string>>({});
 
     useEffect(() => {

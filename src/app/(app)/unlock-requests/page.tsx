@@ -14,16 +14,13 @@ import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase/client-provider';
-import { collection, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, updateDoc } from 'firebase/firestore';
 
 export default function UnlockRequestsPage() {
   const { appUser } = useUser();
-  const firestore = useFirestore();
-
-  const unlockRequestsQuery = useMemo(() => firestore ? collection(firestore, 'unlock-requests') : null, [firestore]);
-  const { data: unlockRequests } = useCollection<UnlockRequest>(unlockRequestsQuery);
-
+  const { data: unlockRequests } = useCollection<UnlockRequest>('unlock-requests');
   const { toast } = useToast();
+  const firestore = useFirestore();
   
   const statusVariant: { [key in UnlockRequest['status']]: "secondary" | "default" | "destructive" } = {
       pending: "secondary",

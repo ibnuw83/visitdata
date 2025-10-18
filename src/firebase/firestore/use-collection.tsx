@@ -2,58 +2,75 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { onSnapshot, Query, DocumentData, QuerySnapshot } from 'firebase/firestore';
+import {
+  onSnapshot,
+  query,
+  collection,
+  collectionGroup,
+  QueryConstraint,
+  Query,
+} from 'firebase/firestore';
+import { useFirestore } from '../client-provider';
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
-export function useCollection<T>(q: Query<T> | null): { data: T[]; loading: boolean; error: Error | null } {
+interface UseCollectionOptions {
+  group?: boolean;
+}
+
+export function useCollection<T>(
+  path: string | null,
+  constraints: QueryConstraint[] = [],
+  options: UseCollectionOptions = {}
+): { data: T[]; loading: boolean; error: Error | null } {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const firestore = useFirestore();
+
+  // Serialize constraints for stable dependency array
+  const constraintsJSON = JSON.stringify(constraints.map(c => c.type));
 
   useEffect(() => {
-    // Set loading to true when the query changes.
-    setLoading(true);
-    setData([]); // Clear old data
-
-    if (!q) {
+    if (!path || !firestore) {
       setLoading(false);
+      setData([]);
       return;
     }
 
+    setLoading(true);
+    
+    let q: Query;
+    const collectionRef = options.group ? collectionGroup(firestore, path) : collection(firestore, path);
+    q = query(collectionRef, ...constraints);
+
     const unsubscribe = onSnapshot(
-      q as Query<DocumentData>,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        const data = snapshot.docs.map((doc) => ({
+      q,
+      (snapshot) => {
+        const result = snapshot.docs.map((doc) => ({
           ...doc.data(),
           id: doc.id,
         })) as T[];
-        setData(data);
+        setData(result);
         setLoading(false);
         setError(null);
       },
       (err: Error) => {
-        console.error("useCollection error:", err);
+        console.error('useCollection error:', err);
         
-        let path = 'unknown_path';
+        let errorPath = path;
         try {
-            // This is a simplified way to get path from a query.
-            // Firestore queries have a private `_query` property. This is not a stable API.
-            const internalQuery = (q as any)._query;
-            if (internalQuery && internalQuery.path) {
-                path = internalQuery.path.segments.join('/');
-            } else if ((q as any)._path) {
-                 path = (q as any)._path.segments.join('/');
-            }
+          if ('_query' in q && (q as any)._query.path) {
+            errorPath = (q as any)._query.path.segments.join('/');
+          }
         } catch (e) {
-            console.warn("Could not extract path from Firestore query for error reporting.", e);
+          console.warn("Could not extract path from Firestore query for error reporting.", e);
         }
 
         const permissionError = new FirestorePermissionError({
-            path: path,
-            operation: 'list',
+          path: errorPath,
+          operation: 'list',
         });
-
         errorEmitter.emit('permission-error', permissionError);
         setError(err);
         setLoading(false);
@@ -61,7 +78,8 @@ export function useCollection<T>(q: Query<T> | null): { data: T[]; loading: bool
     );
 
     return () => unsubscribe();
-  }, [q]); // Depend directly on the query object. Stability must be ensured by the caller with useMemo.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, constraintsJSON, firestore, options.group]);
 
   return { data, loading, error };
 }
