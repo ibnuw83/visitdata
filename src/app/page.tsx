@@ -25,11 +25,11 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect if user is already logged in (e.g., from localStorage restoration)
-    if (user) {
+    // Redirect if user is already logged in
+    if (!isLoading && user) {
       router.push('/dashboard');
     }
-  }, [user, router]);
+  }, [user, isLoading, router]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -37,9 +37,9 @@ export default function LoginPage() {
     await login(formData);
   };
   
-  // Don't render the login form if we are still loading the session
-  // or if the user is already logged in.
-  if (isLoading || user) {
+  // Show loading screen only on initial load.
+  // Once loading is done, either the form is shown or the redirect happens.
+  if (isLoading && !user) {
      return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
             <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
@@ -49,6 +49,12 @@ export default function LoginPage() {
             <p>Memuat sesi...</p>
         </div>
      );
+  }
+
+  // If a user object exists, the useEffect will handle the redirect.
+  // Don't render the form to avoid a flash of the login page.
+  if (user) {
+    return null;
   }
 
   return (
