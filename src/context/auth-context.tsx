@@ -5,8 +5,6 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { useAuth as useFirebaseAuth } from '@/lib/firebase/client-provider';
-import { AuthError } from '@/lib/firebase/errors';
-import { errorEmitter } from '@/lib/firebase/error-emitter';
 import { Logo } from '@/components/logo';
 
 interface AuthContextType {
