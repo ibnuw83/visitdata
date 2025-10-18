@@ -41,7 +41,7 @@ export const users: User[] = [
     uid: 'pengelola-03',
     name: 'Pengelola Baru',
     email: 'pl@visitdata.com',
-    password: 'password123',
+    password: 'user123',
     role: 'pengelola',
     assignedLocations: ['dest-05'],
     status: 'aktif',
@@ -367,3 +367,5 @@ export const countries: Country[] = [
     { "code": "ZM", "name": "Zambia" },
     { "code": "ZW", "name": "Zimbabwe" }
 ]
+
+    
