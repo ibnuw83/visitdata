@@ -326,7 +326,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-4">
               <Avatar className="h-24 w-24">
                 <AvatarImage src={appUser.avatarUrl} alt={appUser.name} />
-                <AvatarFallback className="text-3xl">{name.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="text-3xl">{name ? name.charAt(0) : ''}</AvatarFallback>
               </Avatar>
                <div>
                 <ChangePhotoDialog onSave={handlePhotoChange} />
