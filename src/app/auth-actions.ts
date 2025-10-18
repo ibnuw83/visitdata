@@ -9,6 +9,7 @@ type LoginState = {
   error: string | null;
 } | null;
 
+// Ubah fungsi agar kompatibel dengan useActionState
 export async function login(prevState: LoginState, formData: FormData): Promise<LoginState> {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
@@ -19,8 +20,7 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
 
   const user = users.find((u) => u.email === email);
 
-  // Perbaikan Kritis: Lakukan validasi password terhadap nilai yang benar.
-  // Dalam aplikasi mock ini, kita anggap password yang valid adalah 'password123'.
+  // Logika validasi password yang benar untuk mock data
   if (user && password === 'password123') {
     await createSession(user.uid);
     // Redirect adalah cara yang benar untuk bernavigasi setelah form action berhasil.
@@ -33,4 +33,5 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
 export async function logout() {
     await deleteSession();
     // Middleware akan menangani redirect ke halaman login setelah sesi dihapus.
+    redirect('/');
 }

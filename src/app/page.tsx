@@ -1,7 +1,7 @@
 'use client';
 
-import { useFormStatus } from 'react-dom';
 import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { login } from '@/app/auth-actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +21,8 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const [state, formAction] = useActionState(login, { error: null });
+  // Ganti useFormState (usang) menjadi useActionState
+  const [state, formAction] = useActionState(login, null);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
