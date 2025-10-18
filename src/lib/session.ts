@@ -5,9 +5,8 @@ import { cookies } from 'next/headers';
 import { User } from './types';
 // This file runs on the server, so it can't access localStorage.
 // It relies on the initial mock data to find a user from a session ID.
-// The auth-actions.ts is responsible for using the *latest* data from localStorage during the login process itself.
+// The AuthProvider on the client is responsible for getting the *latest* data.
 import { users as mockUsers } from './mock-data';
-import { getUsers } from './local-data-service';
 
 
 export async function createSession(uid: string) {
@@ -32,11 +31,10 @@ export async function getCurrentUser(): Promise<User | null> {
         return null;
     }
     
-    // On the server, we must rely on a stable data source.
-    // We get the *current* user data (which might have been updated) from localStorage on the client.
-    // Here, we just need to verify the user from the cookie exists.
-    const allUsers = getUsers();
-    const user = allUsers.find(u => u.uid === sessionCookie);
+    // On the server, we verify against a stable, known data source.
+    // The client-side AuthProvider is responsible for getting the most up-to-date user data
+    // from localStorage after this initial server-side check.
+    const user = mockUsers.find(u => u.uid === sessionCookie);
     
     if (!user) {
         await deleteSession();
@@ -52,8 +50,7 @@ export async function verifySession(): Promise<boolean> {
     return false;
   }
   
-  const allUsers = getUsers();
-  const userExists = allUsers.some(u => u.uid === sessionCookie);
+  const userExists = mockUsers.some(u => u.uid === sessionCookie);
 
   if (!userExists) {
     await deleteSession();

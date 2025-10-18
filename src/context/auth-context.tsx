@@ -5,6 +5,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, Dispatch, Se
 import { useRouter } from 'next/navigation';
 import { login as loginAction, logout as logoutAction } from '@/app/auth-actions';
 import { User } from '@/lib/types';
+import { getUsers } from '@/lib/local-data-service';
 
 const LOCAL_STORAGE_KEY = 'visitdata.session';
 
@@ -28,25 +29,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const storedUserJson = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (storedUserJson) {
-          setUser(JSON.parse(storedUserJson));
-        }
-
+        // Fetch server session status first
         const res = await fetch('/api/session', { cache: 'no-store' });
         
         if (!res.ok) {
-            // If the API route itself fails, treat as logged out.
             throw new Error('Failed to fetch session');
         }
 
-        const data = await res.json();
-        const sessionUser = data;
+        const serverSessionUser = await res.json();
 
-        if (sessionUser) {
-          setUser(sessionUser);
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessionUser));
+        if (serverSessionUser) {
+          // If server session exists, get the LATEST user data from client-side storage (localStorage)
+          // This ensures we have the most up-to-date info (e.g., name changes)
+          const allClientUsers = getUsers();
+          const clientUser = allClientUsers.find(u => u.uid === serverSessionUser.uid);
+          
+          if(clientUser) {
+            setUser(clientUser);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(clientUser));
+          } else {
+            // User in session but not in client data, something is wrong. Log out.
+            await logoutAction();
+            setUser(null);
+            localStorage.removeItem(LOCAL_STORAGE_KEY);
+          }
+
         } else {
+          // No server session, ensure client is logged out
           setUser(null);
           localStorage.removeItem(LOCAL_STORAGE_KEY);
         }
@@ -64,11 +73,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await loginAction(formData);
-      if (result) {
-        setUser(result);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(result));
-        router.push('/dashboard');
+      const loginResult = await loginAction(formData);
+      if (loginResult) {
+        // After successful server login, get latest user data from client storage
+        const allClientUsers = getUsers();
+        const clientUser = allClientUsers.find(u => u.uid === loginResult.uid);
+
+        if (clientUser) {
+          setUser(clientUser);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(clientUser));
+          router.push('/dashboard');
+        } else {
+           setError('Pengguna tidak ditemukan setelah login.');
+        }
+
       } else {
         setError('Email atau kata sandi tidak valid.');
       }
