@@ -4,8 +4,8 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { useFirestore, useFirebaseApp } from '@/firebase';
+import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 
 import type { User, UnlockRequest } from '@/lib/types';
 
@@ -30,22 +30,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const router = useRouter();
   const firestore = useFirestore();
-  const firebaseApp = useFirebaseApp();
+  
+  const auth = getAuth();
 
   useEffect(() => {
-    const auth = getAuth(firebaseApp);
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser && firestore) {
-        const userDocRef = collection(firestore, 'users');
-        const q = query(userDocRef, where('uid', '==', firebaseUser.uid));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            const userDoc = querySnapshot.docs[0].data() as User;
-            userDoc.uid = querySnapshot.docs[0].id;
+        const userDocRef = doc(firestore, 'users', firebaseUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+            const userDoc = userDocSnap.data() as User;
+            userDoc.uid = userDocSnap.id;
             setAppUser(userDoc);
         } else {
             setAppUser(null);
+            console.warn(`User document not found for UID: ${firebaseUser.uid}`);
         }
       } else {
         setAppUser(null);
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [firebaseApp, firestore]);
+  }, [auth, firestore]);
 
   const refreshPendingRequests = useCallback(async () => {
     if (appUser && appUser.role === 'admin' && firestore) {
@@ -74,12 +74,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (formData: FormData) => {
     setIsLoading(true);
     setError(null);
-    const auth = getAuth(firebaseApp);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // The onAuthStateChanged listener will handle setting the user and appUser states
+      // and then redirect.
       router.push('/dashboard');
     } catch (e: any) {
       console.error("Login Error:", e);
@@ -88,15 +89,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setError(e.message || 'Terjadi kesalahan saat login.');
       }
-    } finally {
-      setIsLoading(false);
-    }
+       setIsLoading(false);
+    } 
+    // Do not set loading to false here, let the listener handle it
   };
 
   const logout = async () => {
-    const auth = getAuth(firebaseApp);
     await signOut(auth);
     setAppUser(null);
+    setUser(null);
     setPendingRequestsCount(0);
     router.push('/login');
   };

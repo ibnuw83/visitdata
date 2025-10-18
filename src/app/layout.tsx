@@ -2,9 +2,9 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from '@/context/auth-context';
 import { ThemeProvider } from '@/context/theme-provider';
 import { FirebaseClientProvider } from '@/firebase';
+import { AuthProvider } from '@/context/auth-context';
 
 export const metadata: Metadata = {
   title: 'VisitData Hub',
@@ -35,8 +35,8 @@ export default function RootLayout({
               {children}
             </AuthProvider>
           </FirebaseClientProvider>
-          <Toaster />
         </ThemeProvider>
+        <Toaster />
       </body>
     </html>
   );
