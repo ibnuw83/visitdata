@@ -1,71 +1,89 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to check if a user is authenticated
-    function isSignedIn() {
+    
+    // --- Helper Functions ---
+    function isAuth() {
       return request.auth != null;
     }
 
-    // Helper function to get user's role from the users collection
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-    
-    // Helper function to check if the user is an admin
+
     function isAdmin() {
-      return isSignedIn() && getUserRole() == 'admin';
+      return isAuth() && getUserData().role == 'admin';
     }
 
-    // --- USERS ---
+    // --- User Profiles ---
+    // Users can create their own profile.
+    // Users can read/update/delete their own profile.
+    // Admins can read/write/delete any user profile.
     match /users/{userId} {
-      allow read;
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
-      allow delete: if isAdmin();
+      allow read, update, delete: if isAuth() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuth() && request.auth.uid == userId;
     }
 
-    // --- DESTINATIONS ---
+    // --- Destinations ---
+    // Anyone can read destinations.
+    // Anyone can create destinations IF the collection is empty (for initial seed).
+    // Only admins can update, delete, or create new destinations after the initial seed.
     match /destinations/{destinationId} {
-      allow read;
-      allow write: if isAdmin();
+      allow read: true;
+      allow create: if !exists(/databases/$(database)/documents/destinations/$(destinationId)) && (resource.size() == 0 || isAdmin());
+      allow update, delete: if isAdmin();
     }
-
-    // --- CATEGORIES ---
+    
+    // --- Categories ---
+    // Anyone can read categories.
+    // Anyone can create categories IF the collection is empty (for initial seed).
+    // Only admins can update, delete, or create new categories after the initial seed.
     match /categories/{categoryId} {
-      allow read;
-      allow write: if isAdmin();
+        allow read: true;
+        allow create: if !exists(/databases/$(database)/documents/categories/$(categoryId)) && (resource.size() == 0 || isAdmin());
+        allow update, delete: if isAdmin();
     }
-    
-    // --- COUNTRIES ---
+
+    // --- Countries ---
+    // Anyone can read countries.
+    // Anyone can create countries IF the collection is empty (for initial seed).
+    // Only admins can perform other write operations.
     match /countries/{countryId} {
-      allow read;
-      allow write: if isAdmin();
+        allow read: true;
+        allow create: if !exists(/databases/$(database)/documents/countries/$(countryId)) && (resource.size() == 0 || isAdmin());
+        allow update, delete: if isAdmin();
     }
 
-    // --- UNLOCK REQUESTS ---
-    match /unlock-requests/{requestId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn(); // Pengelola can create
-      allow update: if isAdmin(); // Only admin can approve/reject
-      allow delete: if isAdmin();
-    }
-    
-    // --- APP SETTINGS ---
-    match /settings/app {
-        allow read;
-        allow write: if isAdmin();
-    }
-
-    // --- VISIT DATA ---
+    // --- Visit Data ---
+    // Anyone can read visit data.
+    // Admins can create/write any visit data.
+    // Pengelola can update visit data if it is not locked.
     match /destinations/{destinationId}/visits/{visitId} {
-      allow read;
-      
-      // Admin can write to anything.
-      // Pengelola can write if the data is not locked.
-      allow write: if isAdmin() || (isSignedIn() && getUserRole() == 'pengelola' && resource.data.locked == false);
+        allow read: true;
+        allow create: if isAdmin();
+        allow update: if isAdmin() || (isAuth() && getUserData().role == 'pengelola' && resource.data.locked == false);
+        allow delete: if isAdmin();
+    }
+
+    // --- Unlock Requests ---
+    // Admins can read/write all requests.
+    // Pengelola can create requests and read their own.
+    match /unlock-requests/{requestId} {
+        allow read, write: if isAdmin();
+        allow create: if isAuth() && getUserData().role == 'pengelola';
+        allow read: if isAuth() && getUserData().role == 'pengelola' && resource.data.requestedBy == request.auth.uid;
+    }
+
+    // --- App Settings ---
+    // Anyone can read settings.
+    // Anyone can create the settings doc IF it doesn't exist (for initial seed).
+    // Only admins can update it.
+    match /settings/app {
+        allow read: true;
+        allow create: if !exists(/databases/$(database)/documents/settings/app) || isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
     }
   }
 }
