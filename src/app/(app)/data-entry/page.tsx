@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase/client-provider';
-import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup, deleteDoc } from 'firebase/firestore';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -67,7 +67,7 @@ function UnlockRequestDialog({ destination, monthData, onNewRequest }: { destina
             requesterName: appUser.name,
         };
 
-        onNewRequest(newRequest);
+        onNewRequest(newRequest as any);
         toast({ title: 'Permintaan Terkirim', description: 'Permintaan buka kunci telah dikirim ke admin.' });
         setReason('');
         setIsOpen(false);
@@ -124,7 +124,6 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
   const [data, setData] = useState<VisitData[]>(initialData);
   const { toast } = useToast();
   const { appUser } = useUser();
-  const firestore = useFirestore();
 
   useEffect(() => {
     setData(initialData);
@@ -292,17 +291,14 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
 
 function WismanPopover({ details, totalWisman, onSave, disabled }: { details: WismanDetail[], totalWisman: number, onSave: (details: WismanDetail[]) => void, disabled?: boolean }) {
     const [wismanDetails, setWismanDetails] = useState(details);
-    const [countries, setCountries] = useState<Country[]>([]);
+    const firestore = useFirestore();
+    const { data: countries } = useCollection<Country>(firestore ? collection(firestore, 'countries') : null);
     
     useEffect(() => {
         setWismanDetails(details);
     }, [details]);
-    
-    // This will be replaced with a firestore query
-    useEffect(() => {
-    }, []);
 
-    const countryOptions = useMemo(() => countries.map(c => ({ label: c.name, value: c.name })), [countries]);
+    const countryOptions = useMemo(() => (countries || []).map(c => ({ label: c.name, value: c.name })).sort((a, b) => a.label.localeCompare(b.label)), [countries]);
 
     const handleDetailChange = (index: number, field: keyof WismanDetail, value: string | number) => {
         const newDetails = [...wismanDetails];
@@ -396,7 +392,11 @@ export default function DataEntryPage() {
   }, [firestore, appUser]);
 
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
-  const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(firestore ? collection(firestore, 'visits') : null);
+  const visitsQuery = useMemo(() => {
+      if (!firestore) return null;
+      return collectionGroup(firestore, 'visits');
+  }, [firestore]);
+  const { data: allVisitData } = useCollection<VisitData>(visitsQuery);
   
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const { toast } = useToast();
@@ -447,7 +447,7 @@ export default function DataEntryPage() {
       destinations.forEach(dest => {
         months.forEach((monthName, index) => {
           const monthIndex = index + 1;
-          const visitId = `visit-${dest.id}-${newYear}-${monthIndex}`;
+          const visitId = `${dest.id}-${newYear}-${monthIndex}`;
           const visitDocRef = doc(firestore, 'destinations', dest.id, 'visits', visitId);
           const newVisitData: VisitData = {
               id: visitId,
@@ -480,14 +480,16 @@ export default function DataEntryPage() {
         return;
     }
 
-    if (!firestore) return;
+    if (!firestore || !destinations) return;
     
-    const visitsRef = collection(firestore, 'visits');
-    const q = query(visitsRef, where('year', '==', selectedYear));
-    const snapshot = await getDocs(q);
-
     const batch = writeBatch(firestore);
-    snapshot.docs.forEach(d => batch.delete(d.ref));
+    for (const dest of destinations) {
+        const visitsRef = collection(firestore, 'destinations', dest.id, 'visits');
+        const q = query(visitsRef, where('year', '==', selectedYear));
+        const snapshot = await getDocs(q);
+        snapshot.docs.forEach(d => batch.delete(d.ref));
+    }
+    
     await batch.commit();
 
     toast({
@@ -508,7 +510,7 @@ export default function DataEntryPage() {
               if (existingData) return existingData;
 
               return {
-                  id: `visit-${dest.id}-${selectedYear}-${monthIndex}`,
+                  id: `${dest.id}-${selectedYear}-${monthIndex}`,
                   destinationId: dest.id,
                   year: selectedYear,
                   month: monthIndex,

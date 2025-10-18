@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Destination, VisitData } from "@/lib/types";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,7 +15,7 @@ import * as XLSX from 'xlsx';
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from "@/firebase/firestore/use-collection";
 import { useFirestore } from "@/firebase/client-provider";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, collectionGroup } from "firebase/firestore";
 
 export default function ReportsPage() {
   const { appUser } = useUser();
@@ -33,7 +33,11 @@ export default function ReportsPage() {
   }, [firestore, appUser]);
 
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
-  const { data: visitData } = useCollection<VisitData>(firestore ? collection(firestore, 'visits') : null);
+  const visitsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return collectionGroup(firestore, 'visits');
+  }, [firestore]);
+  const { data: visitData } = useCollection<VisitData>(visitsQuery);
 
 
   // Filter state
@@ -62,8 +66,9 @@ export default function ReportsPage() {
     let data = visitData;
 
     // Filter based on user role
-    if (appUser?.role === 'pengelola' && appUser.assignedLocations.length > 0) {
-      data = data.filter(d => appUser.assignedLocations.includes(d.destinationId));
+    if (appUser?.role === 'pengelola' && appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+      const assigned = appUser.assignedLocations;
+      data = data.filter(d => assigned.includes(d.destinationId));
     }
     
     if (selectedDestination !== 'all') {

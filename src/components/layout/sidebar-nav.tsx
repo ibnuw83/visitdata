@@ -18,9 +18,10 @@ import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmar
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useEffect, useState, useMemo } from 'react';
-import { collection, query, where } from 'firebase/firestore';
-import type { UnlockRequest } from '@/lib/types';
+import { collection, query, where, doc } from 'firebase/firestore';
+import type { UnlockRequest, AppSettings } from '@/lib/types';
 import { useFirestore } from '@/firebase/client-provider';
+import { useDoc } from '@/firebase/firestore/use-doc';
 
 
 const menuItems = [
@@ -47,12 +48,18 @@ export default function SidebarNav() {
   const { data: pendingRequests } = useCollection<UnlockRequest>(requestsQuery);
   const pendingRequestsCount = pendingRequests?.length || 0;
 
-  const [appTitle, setAppTitle] = useState('VisitData Hub');
-  const [footerText, setFooterText] = useState('© 2024 VisitData Hub');
+  const settingsRef = firestore ? doc(firestore, 'settings', 'app') : null;
+  const { data: settings } = useDoc<AppSettings>(settingsRef);
+
+  const appTitle = settings?.appTitle || 'VisitData Hub';
+  const footerText = settings?.footerText || `© ${new Date().getFullYear()} VisitData Hub`;
 
   useEffect(() => {
-    // This will be replaced with data from Firestore
-  }, []);
+    if (settings?.logoUrl) {
+      localStorage.setItem('logoUrl', settings.logoUrl);
+      window.dispatchEvent(new Event('storage'));
+    }
+  }, [settings?.logoUrl]);
 
   if (!appUser) {
     return null;

@@ -1,14 +1,14 @@
 
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Users, Landmark, Plane, Globe } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-card";
 import MonthlyVisitorsChart from "@/components/dashboard/monthly-visitors-chart";
 import VisitorBreakdownChart from "@/components/dashboard/visitor-breakdown-chart";
 import TopDestinationsCarousel from "@/components/dashboard/top-destinations-carousel";
-import type { VisitData, Destination } from '@/lib/types';
+import type { VisitData, Destination, AppSettings } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUser } from '@/firebase/auth/use-user';
@@ -18,12 +18,16 @@ import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase/client-provider';
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, collectionGroup } from "firebase/firestore";
+import { useDoc } from '@/firebase/firestore/use-doc';
+import { doc } from 'firebase/firestore';
 
 function DashboardContent() {
     const firestore = useFirestore();
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(firestore ? collection(firestore, 'destinations') : null);
-    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(firestore ? collection(firestore, 'visits') : null);
+    const visitsQuery = useMemo(() => firestore ? collectionGroup(firestore, 'visits') : null, [firestore]);
+    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
+    
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
@@ -67,7 +71,7 @@ function DashboardContent() {
                 </div>
                  <div className="grid gap-4 lg:grid-cols-5">
                     <Skeleton className="lg:col-span-3 h-80" />
-                    <Skeleton className="lg:col-span-2 h-80" />
+                    <Skeleton className="lg-col-span-2 h-80" />
                 </div>
                 <div className="grid gap-4">
                     <Skeleton className="h-96" />
@@ -135,15 +139,21 @@ function DashboardContent() {
 }
 
 function PublicLandingPage() {
-  const [appTitle, setAppTitle] = useState('VisitData Hub');
-  const [appFooter, setAppFooter] = useState(`© ${new Date().getFullYear()} VisitData Hub`);
-  const [heroTitle, setHeroTitle] = useState('Pusat Data Pariwisata Modern Anda');
-  const [heroSubtitle, setHeroSubtitle] = useState('Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.');
-
-
-  useEffect(() => {
-    // This will be replaced with data from a settings collection in Firestore
-  }, []);
+    const firestore = useFirestore();
+    const settingsRef = firestore ? doc(firestore, 'settings', 'app') : null;
+    const { data: settings } = useDoc<AppSettings>(settingsRef);
+  
+    const appTitle = settings?.appTitle || 'VisitData Hub';
+    const appFooter = settings?.footerText || `© ${new Date().getFullYear()} VisitData Hub`;
+    const heroTitle = settings?.heroTitle || 'Pusat Data Pariwisata Modern Anda';
+    const heroSubtitle = settings?.heroSubtitle || 'Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.';
+  
+    useEffect(() => {
+        if (settings?.logoUrl) {
+            localStorage.setItem('logoUrl', settings.logoUrl);
+            window.dispatchEvent(new Event('storage'));
+        }
+    }, [settings?.logoUrl]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -196,7 +206,7 @@ function PublicLandingPage() {
 
 
 export default function HomePage() {
-  const { user, loading } = useUser();
+  const { user, isLoading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
@@ -205,7 +215,7 @@ export default function HomePage() {
     }
   }, [user, router]);
   
-  if(loading) {
+  if(isLoading) {
     return <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
             <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
                 <Logo className="h-10 w-10 animate-pulse" />

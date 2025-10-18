@@ -40,6 +40,16 @@
       },
       "required": ["id", "name"]
     },
+    "Country": {
+        "title": "Country",
+        "description": "Represents a country.",
+        "type": "object",
+        "properties": {
+            "code": { "type": "string" },
+            "name": { "type": "string" }
+        },
+        "required": ["code", "name"]
+    },
     "VisitData": {
         "title": "Visit Data",
         "description": "Monthly visit data for a destination.",
@@ -87,6 +97,18 @@
             "timestamp": { "type": "string", "format": "date-time" }
         },
         "required": ["id", "destinationId", "month", "year", "reason", "status", "requestedBy", "timestamp"]
+    },
+    "AppSettings": {
+        "title": "App Settings",
+        "description": "Global settings for the application.",
+        "type": "object",
+        "properties": {
+            "appTitle": { "type": "string" },
+            "logoUrl": { "type": "string", "format": "uri" },
+            "footerText": { "type": "string" },
+            "heroTitle": { "type": "string" },
+            "heroSubtitle": { "type": "string" }
+        }
     }
   },
   "auth": {
@@ -105,6 +127,10 @@
         "schema": { "$ref": "#/entities/Category" },
         "description": "Stores all available destination categories."
     },
+    "/countries/{countryId}": {
+        "schema": { "$ref": "#/entities/Country" },
+        "description": "Stores all available countries for wisman data."
+    },
     "/destinations/{destinationId}/visits/{visitId}": {
         "schema": { "$ref": "#/entities/VisitData" },
         "description": "Stores monthly visit data for each destination. visitId is in the format YYYY-MM."
@@ -112,6 +138,10 @@
     "/unlock-requests/{requestId}": {
         "schema": { "$ref": "#/entities/UnlockRequest" },
         "description": "Stores all unlock requests from managers."
+    },
+    "/settings/app": {
+        "schema": { "$ref": "#/entities/AppSettings" },
+        "description": "Stores global application settings."
     }
   }
 }

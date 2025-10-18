@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Users, Landmark, Plane, Globe } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-card";
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase/client-provider';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, collectionGroup } from 'firebase/firestore';
 
 export default function DashboardPage() {
     const { appUser } = useUser();
@@ -33,8 +33,12 @@ export default function DashboardPage() {
 
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     
-    // Query for all visits, will be filtered client-side based on user's destinations
-    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(firestore ? collection(firestore, 'visits') : null);
+    const visitsQuery = useMemo(() => {
+        if (!firestore) return null;
+        return collectionGroup(firestore, 'visits');
+    }, [firestore]);
+
+    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
 
 
     const [loading, setLoading] = useState(true);
@@ -48,7 +52,8 @@ export default function DashboardPage() {
         if (!allVisitData || !appUser) return [];
         if (appUser.role === 'admin') return allVisitData;
         
-        return allVisitData.filter(visit => appUser.assignedLocations.includes(visit.destinationId));
+        const assigned = appUser.assignedLocations || [];
+        return allVisitData.filter(visit => assigned.includes(visit.destinationId));
     }, [allVisitData, appUser]);
 
     const availableYears = useMemo(() => {

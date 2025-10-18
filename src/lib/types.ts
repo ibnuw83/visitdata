@@ -61,3 +61,11 @@ export type UnlockRequest = {
   processedBy?: string; // uid of admin
   timestamp: string;
 };
+
+export type AppSettings = {
+    appTitle?: string;
+    logoUrl?: string;
+    footerText?: string;
+    heroTitle?: string;
+    heroSubtitle?: string;
+}

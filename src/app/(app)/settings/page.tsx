@@ -15,53 +15,87 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import DestinationImageSettings from '@/components/settings/destination-image-settings';
 import { useFirestore } from '@/firebase/client-provider';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
+import { useDoc } from '@/firebase/firestore/use-doc';
+import { AppSettings } from '@/lib/types';
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
 function AppSettingsCard() {
     const { toast } = useToast();
+    const firestore = useFirestore();
+    const settingsRef = firestore ? doc(firestore, 'settings', 'app') : null;
+    const { data: settingsData, loading } = useDoc<AppSettings>(settingsRef);
+
     const [appTitle, setAppTitle] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
     const [footerText, setFooterText] = useState('');
     const [heroTitle, setHeroTitle] = useState('');
     const [heroSubtitle, setHeroSubtitle] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        // This will be replaced by data from Firestore
-        setAppTitle('');
-        setLogoUrl('');
-        setFooterText('');
-        setHeroTitle('');
-        setHeroSubtitle('');
-    }, []);
+        if (settingsData) {
+            setAppTitle(settingsData.appTitle || '');
+            setLogoUrl(settingsData.logoUrl || '');
+            setFooterText(settingsData.footerText || '');
+            setHeroTitle(settingsData.heroTitle || '');
+            setHeroSubtitle(settingsData.heroSubtitle || '');
+        }
+    }, [settingsData]);
 
-    const handleSaveAppSettings = () => {
-        // This will be replaced by a call to Firestore
-        toast({
-            title: "Pengaturan Aplikasi Disimpan",
-            description: "Pengaturan tampilan aplikasi telah diperbarui.",
-        });
+    const handleSaveAppSettings = async () => {
+        if (!firestore) return;
+        const newSettings = { appTitle, logoUrl, footerText, heroTitle, heroSubtitle };
+        try {
+            await setDoc(doc(firestore, 'settings', 'app'), newSettings, { merge: true });
+            // Also update localStorage for immediate UI changes in Logo component
+            if (logoUrl) {
+                localStorage.setItem('logoUrl', logoUrl);
+            } else {
+                localStorage.removeItem('logoUrl');
+            }
+             window.dispatchEvent(new Event('storage')); // Notify other components of storage change
+            toast({
+                title: "Pengaturan Aplikasi Disimpan",
+                description: "Pengaturan tampilan aplikasi telah diperbarui.",
+            });
+        } catch (e) {
+            console.error("Error saving app settings:", e);
+            toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat menyimpan pengaturan aplikasi." });
+        }
     }
     
     const handleBackupData = () => {
         toast({
-            variant: 'destructive',
-            title: "Fungsi Tidak Tersedia",
-            description: "Pencadangan data akan menggunakan fitur ekspor/impor bawaan Firestore.",
+            title: "Info Pencadangan Data",
+            description: "Gunakan fitur ekspor/impor pada konsol Firebase Firestore untuk mencadangkan dan memulihkan data.",
         });
     }
 
     const handleRestoreClick = () => {
          toast({
-            variant: 'destructive',
-            title: "Fungsi Tidak Tersedia",
-            description: "Pemulihan data akan menggunakan fitur ekspor/impor bawaan Firestore.",
+            title: "Info Pemulihan Data",
+            description: "Gunakan fitur ekspor/impor pada konsol Firebase Firestore untuk mencadangkan dan memulihkan data.",
         });
     };
 
-    const handleRestoreData = (event: React.ChangeEvent<HTMLInputElement>) => {
-        // This logic is now obsolete
-    };
+    if (loading) {
+        return (
+             <Card>
+                <CardHeader>
+                     <Skeleton className="h-7 w-48" />
+                    <Skeleton className="h-5 w-80" />
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                     <Skeleton className="h-10 w-48" />
+                </CardContent>
+            </Card>
+        )
+    }
 
     return (
         <Card>
@@ -101,13 +135,6 @@ function AppSettingsCard() {
                     <div className='flex justify-between items-center'>
                         <Button variant="outline" onClick={handleBackupData}>Info Pencadangan</Button>
                         <Button variant="outline" onClick={handleRestoreClick}>Info Pemulihan</Button>
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          onChange={handleRestoreData}
-                          className="hidden"
-                          accept=".json"
-                        />
                     </div>
                 </div>
             </CardContent>
@@ -158,10 +185,12 @@ function ChangePhotoDialog({ onSave }: { onSave: (newUrl: string) => void }) {
 }
 
 export default function SettingsPage() {
-  const { appUser } = useUser();
+  const { appUser, user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [name, setName] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
 
   useEffect(() => {
     if (appUser) {
@@ -175,14 +204,50 @@ export default function SettingsPage() {
     try {
         await updateDoc(userRef, { name });
         toast({
-          title: "Perubahan Disimpan",
-          description: "Pengaturan profil Anda telah berhasil diperbarui.",
+          title: "Nama Disimpan",
+          description: "Nama profil Anda telah berhasil diperbarui.",
         });
     } catch(e) {
         console.error("Error updating profile:", e);
-        toast({ variant: 'destructive', title: 'Gagal', description: 'Gagal menyimpan perubahan.'});
+        toast({ variant: 'destructive', title: 'Gagal', description: 'Gagal menyimpan nama.'});
     }
   };
+
+  const handlePasswordChange = async () => {
+    if (!user || !user.email) {
+        toast({ variant: 'destructive', title: "Gagal", description: "Pengguna tidak ditemukan." });
+        return;
+    }
+    if (!currentPassword || !newPassword) {
+        toast({ variant: 'destructive', title: "Input Tidak Lengkap", description: "Harap isi kata sandi saat ini dan yang baru." });
+        return;
+    }
+
+    try {
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+        await reauthenticateWithCredential(user, credential);
+        await updatePassword(user, newPassword);
+        toast({
+            title: "Kata Sandi Diperbarui",
+            description: "Kata sandi Anda telah berhasil diubah.",
+        });
+        setCurrentPassword('');
+        setNewPassword('');
+    } catch (error: any) {
+        console.error("Error updating password:", error);
+        let description = "Terjadi kesalahan saat mengubah kata sandi.";
+        if (error.code === 'auth/wrong-password') {
+            description = "Kata sandi saat ini yang Anda masukkan salah.";
+        } else if (error.code === 'auth/weak-password') {
+            description = "Kata sandi baru terlalu lemah. Minimal 6 karakter.";
+        }
+        toast({
+            variant: 'destructive',
+            title: "Gagal Mengubah Kata Sandi",
+            description: description,
+        });
+    }
+  }
 
   const handlePhotoChange = async (newUrl: string) => {
     if (!appUser || !firestore) return;
@@ -260,23 +325,28 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-            <div className="grid gap-2">
+            <div className="space-y-2">
               <Label htmlFor="name">Nama</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <div className="flex gap-2">
+                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                 <Button onClick={handleSaveChanges} variant="outline">Simpan Nama</Button>
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" defaultValue={appUser.email} disabled />
             </div>
-             <div className="grid gap-2">
-              <Label htmlFor="current-password">Kata Sandi Saat Ini</Label>
-              <Input id="current-password" type="password" />
-            </div>
-             <div className="grid gap-2">
-              <Label htmlFor="new-password">Kata Sandi Baru</Label>
-              <Input id="new-password" type="password" />
-            </div>
-            <Button onClick={handleSaveChanges}>Simpan Perubahan</Button>
+             <div className="border-t pt-6 space-y-4">
+                 <div className="space-y-2">
+                     <Label htmlFor="current-password">Kata Sandi Saat Ini</Label>
+                     <Input id="current-password" type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="new-password">Kata Sandi Baru</Label>
+                    <Input id="new-password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                </div>
+                <Button onClick={handlePasswordChange}>Ubah Kata Sandi</Button>
+             </div>
         </CardContent>
       </Card>
       {appUser.role === 'admin' && (
