@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getDestinations, saveDestinations, getCategories } from "@/lib/local-data-service";
+import { getDestinations, saveDestinations, getCategories, getDestinationImageMap, saveDestinationImageMap } from "@/lib/local-data-service";
 import type { Destination, Category } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Landmark, MoreHorizontal, FilePenLine, Trash2, ToggleLeft, ToggleRight, PlusCircle, Building, Mountain } from 'lucide-react';
@@ -51,12 +52,14 @@ export default function DestinationsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [imageMap, setImageMap] = useState<Record<string, string>>({});
   
   // State for new destination form
   const [newDestinationName, setNewDestinationName] = useState('');
   const [newDestinationCategory, setNewDestinationCategory] = useState('');
   const [newDestinationLocation, setNewDestinationLocation] = useState('');
   const [newDestinationManagement, setNewDestinationManagement] = useState<'pemerintah' | 'swasta' | ''>('');
+  const [newDestinationImageUrl, setNewDestinationImageUrl] = useState('');
 
   // State for editing destination
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -65,13 +68,16 @@ export default function DestinationsPage() {
   const [editedDestinationCategory, setEditedDestinationCategory] = useState('');
   const [editedDestinationLocation, setEditedDestinationLocation] = useState('');
   const [editedDestinationManagement, setEditedDestinationManagement] = useState<'pemerintah' | 'swasta'>('pemerintah');
+  const [editedDestinationImageUrl, setEditedDestinationImageUrl] = useState('');
 
 
   const { toast } = useToast();
   
   useEffect(() => {
-    setDestinations(getDestinations());
+    const allDestinations = getDestinations();
+    setDestinations(allDestinations);
     setCategories(getCategories());
+    setImageMap(getDestinationImageMap(allDestinations));
   }, []);
 
   const resetAddForm = () => {
@@ -79,6 +85,7 @@ export default function DestinationsPage() {
     setNewDestinationCategory('');
     setNewDestinationLocation('');
     setNewDestinationManagement('');
+    setNewDestinationImageUrl('');
   }
 
   const handleAddNewDestination = () => {
@@ -91,8 +98,9 @@ export default function DestinationsPage() {
       return;
     }
 
+    const newDestinationId = `dest-${Date.now()}`;
     const newDestination: Destination = {
-      id: `dest-${Date.now()}`,
+      id: newDestinationId,
       name: newDestinationName.trim(),
       category: newDestinationCategory,
       managementType: newDestinationManagement,
@@ -104,6 +112,12 @@ export default function DestinationsPage() {
     const updatedDestinations = [...destinations, newDestination];
     setDestinations(updatedDestinations);
     saveDestinations(updatedDestinations);
+    
+    // Update and save the image map
+    const newImageMap = { ...imageMap, [newDestinationId]: newDestinationImageUrl };
+    setImageMap(newImageMap);
+    saveDestinationImageMap(newImageMap);
+
 
     toast({
       title: "Destinasi Ditambahkan",
@@ -135,6 +149,13 @@ export default function DestinationsPage() {
     const updatedDestinations = destinations.filter(dest => dest.id !== destinationId);
     setDestinations(updatedDestinations);
     saveDestinations(updatedDestinations);
+
+    // Also remove from imageMap
+    const newImageMap = { ...imageMap };
+    delete newImageMap[destinationId];
+    setImageMap(newImageMap);
+    saveDestinationImageMap(newImageMap);
+
     toast({
       title: "Destinasi Dihapus",
       description: `Destinasi "${destinationName}" telah dihapus.`,
@@ -147,6 +168,7 @@ export default function DestinationsPage() {
     setEditedDestinationCategory(destination.category);
     setEditedDestinationLocation(destination.location);
     setEditedDestinationManagement(destination.managementType);
+    setEditedDestinationImageUrl(imageMap[destination.id] || '');
     setIsEditDialogOpen(true);
   }
 
@@ -174,6 +196,12 @@ export default function DestinationsPage() {
 
     setDestinations(updatedDestinations);
     saveDestinations(updatedDestinations);
+    
+    // Update and save the image map
+    const newImageMap = { ...imageMap, [editingDestination.id]: editedDestinationImageUrl };
+    setImageMap(newImageMap);
+    saveDestinationImageMap(newImageMap);
+
     setIsEditDialogOpen(false);
     setEditingDestination(null);
     
@@ -277,6 +305,18 @@ export default function DestinationsPage() {
                       onChange={(e) => setNewDestinationLocation(e.target.value)}
                       className="col-span-3"
                       placeholder="Contoh: Nama Desa, Kecamatan, Kabupaten"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="dest-image-url" className="text-right">
+                      URL Gambar
+                    </Label>
+                    <Input
+                      id="dest-image-url"
+                      value={newDestinationImageUrl}
+                      onChange={(e) => setNewDestinationImageUrl(e.target.value)}
+                      className="col-span-3"
+                      placeholder="https://example.com/image.jpg"
                     />
                   </div>
                 </div>
@@ -433,6 +473,18 @@ export default function DestinationsPage() {
                 value={editedDestinationLocation}
                 onChange={(e) => setEditedDestinationLocation(e.target.value)}
                 className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-dest-image-url" className="text-right">
+                URL Gambar
+              </Label>
+              <Input
+                id="edit-dest-image-url"
+                value={editedDestinationImageUrl}
+                onChange={(e) => setEditedDestinationImageUrl(e.target.value)}
+                className="col-span-3"
+                placeholder="https://example.com/image.jpg"
               />
             </div>
           </div>
