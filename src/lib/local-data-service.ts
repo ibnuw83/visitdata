@@ -46,6 +46,14 @@ export function getVisitData(): VisitData[] {
     return initializeData('visitData', mockVisitData);
 }
 
+export function saveVisitData(data: VisitData[]): void {
+  try {
+    localStorage.setItem('visitData', JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving visit data to localStorage`, error);
+  }
+}
+
 export function getUnlockRequests(): UnlockRequest[] {
     return initializeData('unlockRequests', mockUnlockRequests);
 }
