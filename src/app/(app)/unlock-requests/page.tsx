@@ -22,7 +22,7 @@ export default function UnlockRequestsPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
   const requestsQuery = useMemo(() => {
-    if (!firestore || !appUser) return null;
+    if (!firestore || !appUser || appUser.role !== 'admin') return null;
     return collection(firestore, 'unlock-requests');
   }, [firestore, appUser]);
   
@@ -85,6 +85,19 @@ export default function UnlockRequestsPage() {
         return timeB - timeA;
     });
   }, [unlockRequests]);
+
+  if (appUser?.role !== 'admin') {
+    return (
+        <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-2">
+                <h1 className="font-headline text-3xl font-bold tracking-tight">Akses Ditolak</h1>
+                <p className="text-muted-foreground">
+                Halaman ini hanya dapat diakses oleh admin.
+                </p>
+            </div>
+        </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-8">
