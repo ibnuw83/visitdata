@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderTree, PlusCircle, Trash2, MoreVertical } from "lucide-react";
+import { FolderTree, PlusCircle, Trash2, FilePenLine } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -75,6 +75,13 @@ export default function CategoriesPage() {
     });
   }
 
+  const handleEditCategory = (categoryName: string) => {
+    toast({
+      title: `Aksi: Edit`,
+      description: `Anda memilih Edit untuk kategori ${categoryName}. (Fungsi belum diimplementasikan)`,
+    });
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -134,25 +141,30 @@ export default function CategoriesPage() {
                            <FolderTree className="h-5 w-5" />
                            <span className="capitalize">{category.name}</span>
                         </div>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
+                        <div className="flex items-center">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleEditCategory(category.name)}>
+                                <FilePenLine className="h-4 w-4" />
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tindakan ini akan menghapus kategori <span className="font-bold capitalize">"{category.name}"</span>. Tindakan ini tidak dapat diurungkan.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Batal</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteCategory(category.id)} className="bg-destructive hover:bg-destructive/90">Hapus</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tindakan ini akan menghapus kategori <span className="font-bold capitalize">"{category.name}"</span>. Tindakan ini tidak dapat diurungkan.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteCategory(category.id)} className="bg-destructive hover:bg-destructive/90">Hapus</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     </div>
                 ))}
             </div>
