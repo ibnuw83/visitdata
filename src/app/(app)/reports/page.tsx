@@ -12,9 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
-import { useUser } from '@/firebase/auth/use-user';
-import { useFirestore } from "@/firebase/client-provider";
-import { useCollection } from "@/firebase/firestore/use-collection";
+import { useUser, useFirestore, useCollection } from '@/lib/firebase';
 import { collection, query, where, collectionGroup } from "firebase/firestore";
 
 export default function ReportsPage() {

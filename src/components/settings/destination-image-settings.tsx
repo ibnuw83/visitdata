@@ -10,11 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import type { Destination } from '@/lib/types';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirestore } from '@/firebase/client-provider';
-import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+
 
 export default function DestinationImageSettings() {
     const { toast } = useToast();

@@ -2,10 +2,10 @@
 // It's the one-stop-shop for everything Firebase.
 'use client';
 
-export * from './config';
-export * from './client-provider';
-export * from './auth/use-user';
-export * from './firestore/use-collection';
-export * from './firestore/use-doc';
-export * from './errors';
-export * from './error-emitter';
+export * from '@/lib/firebase/config';
+export * from '@/lib/firebase/client-provider';
+export * from '@/lib/firebase/auth/use-user';
+export * from '@/lib/firebase/firestore/use-collection';
+export * from '@/lib/firebase/firestore/use-doc';
+export * from '@/lib/firebase/errors';
+export * from '@/lib/firebase/error-emitter';

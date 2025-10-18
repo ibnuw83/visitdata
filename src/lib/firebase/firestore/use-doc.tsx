@@ -3,8 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { onSnapshot, DocumentReference } from 'firebase/firestore';
-import { errorEmitter } from '../error-emitter';
-import { FirestorePermissionError } from '../errors';
+import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { FirestorePermissionError } from '@/lib/firebase/errors';
 
 export function useDoc<T>(
   ref: DocumentReference | null

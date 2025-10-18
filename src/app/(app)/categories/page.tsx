@@ -32,11 +32,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirestore } from '@/firebase/client-provider';
-import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
 import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+
 
 const colorPalette = [
     "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800/50",

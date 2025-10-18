@@ -50,11 +50,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useFirestore } from '@/firebase/client-provider';
-import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
 import { collection, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 function MultiSelect({
   options,

@@ -19,8 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { PlusCircle, Trash2, Lock, Unlock, KeyRound } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import { Combobox } from '@/components/ui/combobox';
-import { useUser } from '@/firebase/auth/use-user';
-import { useFirestore } from '@/firebase/client-provider';
+import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,10 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));

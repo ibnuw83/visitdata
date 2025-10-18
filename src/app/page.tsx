@@ -14,9 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore } from '@/firebase/client-provider';
-import { useCollection } from '@/firebase/firestore/use-collection';
-import { useDoc } from '@/firebase/firestore/use-doc';
+import { useFirestore, useCollection, useDoc } from '@/lib/firebase';
 import { collection, collectionGroup, doc } from "firebase/firestore";
 
 function DashboardContent() {

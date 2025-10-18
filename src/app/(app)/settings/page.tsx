@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser } from '@/firebase/auth/use-user';
-import { useFirestore } from '@/firebase/client-provider';
+import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -16,11 +15,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import DestinationImageSettings from '@/components/settings/destination-image-settings';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
-import { useDoc } from '@/firebase/firestore/use-doc';
 import { AppSettings } from '@/lib/types';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+
 
 function AppSettingsCard() {
     const { toast } = useToast();

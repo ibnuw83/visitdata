@@ -11,12 +11,8 @@ import { format } from 'date-fns';
 import { MoreHorizontal, CheckCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@/firebase/auth/use-user';
-import { useFirestore } from '@/firebase/client-provider';
-import { useCollection } from '@/firebase/firestore/use-collection';
+import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
 import { collection, doc, updateDoc, writeBatch } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function UnlockRequestsPage() {
   const { appUser } = useUser();

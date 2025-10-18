@@ -4,7 +4,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { useAuth as useFirebaseAuth } from '@/firebase/client-provider';
+import { useAuth as useFirebaseAuth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {

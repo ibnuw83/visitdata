@@ -2,7 +2,7 @@
 'use client';
 
 import { ThemeProvider } from '@/context/theme-provider';
-import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { FirebaseClientProvider } from '@/lib/firebase/client-provider';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { Logo } from '@/components/logo';
 

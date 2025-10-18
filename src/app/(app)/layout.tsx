@@ -5,7 +5,7 @@ import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar'
 import Header from '@/components/layout/header';
 import SidebarNav from '@/components/layout/sidebar-nav';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/firebase/auth/use-user';
+import { useUser } from '@/lib/firebase';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
