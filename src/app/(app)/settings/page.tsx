@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { getAllData, saveUsers, getUsers, saveAllData } from '@/lib/local-data-service';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import DestinationImageSettings from '@/components/settings/destination-image-settings';
 
 function AppSettingsCard() {
     const { toast } = useToast();
@@ -332,7 +333,12 @@ export default function SettingsPage() {
             <Button onClick={handleSaveChanges}>Simpan Perubahan</Button>
         </CardContent>
       </Card>
-      {user.role === 'admin' && <AppSettingsCard />}
+      {user.role === 'admin' && (
+        <>
+            <AppSettingsCard />
+            <DestinationImageSettings />
+        </>
+      )}
     </div>
   );
 }

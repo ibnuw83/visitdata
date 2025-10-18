@@ -5,19 +5,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Destination, VisitData } from "@/lib/types";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Image from "next/image";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Autoplay from "embla-carousel-autoplay";
-
-const destinationImageMap: { [key: string]: string } = {
-    'dest-01': 'dest-jatijajar',
-    'dest-02': 'dest-suwuk',
-    'dest-03': 'dest-vanderwijck',
-    'dest-04': 'dest-menganti',
-    'dest-05': 'dest-pentulu'
-};
+import { getDestinationImageMap, getDestinations as getAllDestinations } from "@/lib/local-data-service";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function TopDestinationsCarousel({ data, destinations }: { data: VisitData[], destinations: Destination[] }) {
+    const [imageMap, setImageMap] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        const updateMap = () => {
+            const map = getDestinationImageMap(getAllDestinations());
+            setImageMap(map);
+        }
+        updateMap();
+        
+        // Listen for storage changes to update the images in real-time
+        window.addEventListener('storage', updateMap);
+        return () => {
+            window.removeEventListener('storage', updateMap);
+        };
+    }, []);
     
     const destinationTotals = useMemo(() => destinations.map(dest => {
         const totalVisitors = data
@@ -27,12 +35,8 @@ export default function TopDestinationsCarousel({ data, destinations }: { data: 
     }), [data, destinations]);
 
     const top5 = useMemo(() => destinationTotals.sort((a, b) => b.totalVisitors - a.totalVisitors).slice(0, 5), [destinationTotals]);
-
-    const getImage = (destId: string) => {
-        const imageId = destinationImageMap[destId];
-        const placeholder = PlaceHolderImages.find(p => p.id === imageId);
-        return placeholder || PlaceHolderImages[0];
-    }
+    
+    const defaultImage = PlaceHolderImages[0];
 
     return (
         <Card>
@@ -55,7 +59,7 @@ export default function TopDestinationsCarousel({ data, destinations }: { data: 
                 >
                     <CarouselContent>
                         {top5.map((dest, index) => {
-                            const image = getImage(dest.id);
+                            const imageUrl = imageMap[dest.id] || defaultImage.imageUrl;
                             return (
                                 <CarouselItem key={dest.id} className="md:basis-1/2 lg:basis-1/3">
                                     <div className="p-1">
@@ -63,11 +67,10 @@ export default function TopDestinationsCarousel({ data, destinations }: { data: 
                                             <CardContent className="flex flex-col items-center justify-center p-0">
                                                  <div className="relative w-full h-48">
                                                     <Image 
-                                                        src={image.imageUrl}
+                                                        src={imageUrl}
                                                         alt={dest.name}
                                                         fill
                                                         style={{ objectFit: 'cover' }}
-                                                        data-ai-hint={image.imageHint}
                                                         className="transition-transform group-hover:scale-105"
                                                     />
                                                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />

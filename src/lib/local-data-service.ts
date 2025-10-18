@@ -10,6 +10,7 @@ import {
     countries as mockCountries,
 } from './mock-data';
 import type { User, Destination, VisitData, UnlockRequest, Category, Country } from './types';
+import { PlaceHolderImages } from './placeholder-images';
 
 function getData<T>(key: string, mockData: T[]): T[] {
   try {
@@ -29,7 +30,7 @@ function getData<T>(key: string, mockData: T[]): T[] {
   return mockData;
 }
 
-function saveData<T>(key: string, data: T[]): void {
+function saveData<T>(key: string, data: T[] | T): void {
   try {
     if (typeof window === 'undefined') return;
     localStorage.setItem(key, JSON.stringify(data));
@@ -41,13 +42,12 @@ function saveData<T>(key: string, data: T[]): void {
 // --- Data Reset Function ---
 export function resetAndSeedData(): void {
     if (typeof window === 'undefined') return;
-    // Clear all existing data
-    localStorage.removeItem('users');
-    localStorage.removeItem('destinations');
-    localStorage.removeItem('visitData');
-    localStorage.removeItem('unlockRequests');
-    localStorage.removeItem('categories');
-    localStorage.removeItem('countries');
+    
+    const keysToReset = [
+        'users', 'destinations', 'visitData', 'unlockRequests', 
+        'categories', 'countries', 'destinationImageMap'
+    ];
+    keysToReset.forEach(key => localStorage.removeItem(key));
     
     // Reseed with fresh mock data
     saveData('users', mockUsers);
@@ -56,6 +56,17 @@ export function resetAndSeedData(): void {
     saveData('unlockRequests', mockUnlockRequests);
     saveData('categories', mockCategories);
     saveData('countries', mockCountries);
+
+    // Seed the destination image map
+    const initialImageMap: Record<string, string> = {};
+    mockDestinations.forEach(dest => {
+      const placeholder = PlaceHolderImages.find(p => p.id.includes(dest.name.split(' ')[0].toLowerCase()));
+      if (placeholder) {
+        initialImageMap[dest.id] = placeholder.imageUrl;
+      }
+    });
+    saveDestinationImageMap(initialImageMap);
+
     console.log('Local storage has been reset and seeded with fresh mock data.');
 }
 
@@ -106,6 +117,29 @@ export function getCountries(): Country[] {
   return getData('countries', mockCountries);
 }
 
+export function getDestinationImageMap(destinations: Destination[]): Record<string, string> {
+    if (typeof window === 'undefined') return {};
+    const storedMap = localStorage.getItem('destinationImageMap');
+    if (storedMap) {
+        return JSON.parse(storedMap);
+    }
+    // Create and save a default map if it doesn't exist
+    const defaultMap: Record<string, string> = {};
+    destinations.forEach(dest => {
+        const placeholder = PlaceHolderImages.find(p => p.id.includes(dest.name.split(' ')[0].toLowerCase())) || PlaceHolderImages[0];
+        defaultMap[dest.id] = placeholder.imageUrl;
+    });
+    saveDestinationImageMap(defaultMap);
+    return defaultMap;
+}
+
+export function saveDestinationImageMap(map: Record<string, string>): void {
+    saveData('destinationImageMap', map);
+    // Dispatch a storage event to notify other components of the change
+    window.dispatchEvent(new Event('storage'));
+}
+
+
 // --- Combined Functions ---
 
 export function getAllData() {
@@ -115,7 +149,8 @@ export function getAllData() {
         visitData: getVisitData(),
         unlockRequests: getUnlockRequests(),
         categories: getCategories(),
-        countries: getCountries()
+        countries: getCountries(),
+        destinationImageMap: getDestinationImageMap(getDestinations()),
     };
 }
 
@@ -126,6 +161,7 @@ export function saveAllData(data: {
     unlockRequests: UnlockRequest[],
     categories: Category[],
     countries: Country[],
+    destinationImageMap?: Record<string, string>,
 }) {
     saveUsers(data.users);
     saveDestinations(data.destinations);
@@ -133,4 +169,7 @@ export function saveAllData(data: {
     saveUnlockRequests(data.unlockRequests);
     saveCategories(data.categories);
     saveData('countries', data.countries);
+    if(data.destinationImageMap) {
+        saveDestinationImageMap(data.destinationImageMap);
+    }
 }
