@@ -12,8 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
+import { useAuth } from "@/context/auth-context";
 
 export default function ReportsPage() {
+  const { user } = useAuth();
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [visitData, setVisitData] = useState<VisitData[]>([]);
 
@@ -25,9 +27,23 @@ export default function ReportsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    setDestinations(getDestinations());
-    setVisitData(getVisitData());
-  }, [])
+    if (!user) return;
+
+    const allDestinations = getDestinations();
+    const allVisitData = getVisitData();
+
+    if (user.role === 'pengelola') {
+      const assignedDestinationIds = user.assignedLocations;
+      const assignedDestinations = allDestinations.filter(d => assignedDestinationIds.includes(d.id));
+      const assignedVisitData = allVisitData.filter(vd => assignedDestinationIds.includes(vd.destinationId));
+      
+      setDestinations(assignedDestinations);
+      setVisitData(assignedVisitData);
+    } else {
+      setDestinations(allDestinations);
+      setVisitData(allVisitData);
+    }
+  }, [user]);
   
 
   const years = [...new Set(visitData.map(d => d.year))].sort((a,b) => b - a);
@@ -125,6 +141,10 @@ export default function ReportsPage() {
     })
   }
 
+  if (!user) {
+    return null; // or a loading skeleton
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -140,12 +160,12 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Select value={selectedDestination} onValueChange={setSelectedDestination}>
+            <Select value={selectedDestination} onValueChange={setSelectedDestination} disabled={user.role === 'pengelola' && destinations.length === 1}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Destinasi" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Semua Destinasi</SelectItem>
+                {user.role === 'admin' && <SelectItem value="all">Semua Destinasi</SelectItem>}
                 {destinations.map(d => (
                   <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                 ))}
