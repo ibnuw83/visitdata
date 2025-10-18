@@ -152,26 +152,21 @@ export default function HomePage() {
     const firestore = useFirestore();
     const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings/app') : null, [firestore]);
     const { data: settings } = useDoc<AppSettings>(settingsRef);
-    const [footerText, setFooterText] = useState('');
   
     const appTitle = settings?.appTitle || 'VisitData Hub';
     const heroTitle = settings?.heroTitle || 'Pusat Data Pariwisata Modern Anda';
     const heroSubtitle = settings?.heroSubtitle || 'Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.';
+    const footerText = settings?.footerText || `Hak Cipta © ${new Date().getFullYear()} Dinas Pariwisata`;
     
-    useEffect(() => {
-        if (settings) {
-            setFooterText(settings.footerText || `© ${new Date().getFullYear()} VisitData Hub`);
-        } else {
-             setFooterText(`© ${new Date().getFullYear()} VisitData Hub`);
-        }
-    }, [settings]);
-  
     useEffect(() => {
         if (settings?.logoUrl) {
             localStorage.setItem('logoUrl', settings.logoUrl);
             window.dispatchEvent(new Event('storage'));
+        } else if (settings && !settings.logoUrl) {
+            localStorage.removeItem('logoUrl');
+            window.dispatchEvent(new Event('storage'));
         }
-    }, [settings?.logoUrl]);
+    }, [settings]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
