@@ -74,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 // Now, batch write all firestore documents
                 const batch = writeBatch(firestore);
+                const seedPayload = { operation: 'initial seed' };
 
                 seedUsers.forEach(userData => {
                     const { password, ...firestoreUser } = userData;
@@ -89,7 +90,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 });
 
                 console.log("Mempersiapkan batch untuk semua data Firestore...");
-                await batch.commit();
+                
+                await batch.commit().catch(async (serverError) => {
+                    // This is the critical change: catching the batch commit error
+                    // and emitting a detailed, contextual error.
+                    const permissionError = new FirestorePermissionError({
+                        path: '/ (batch operation)',
+                        operation: 'write',
+                        requestResourceData: seedPayload,
+                    }, serverError.message);
+                    errorEmitter.emit('permission-error', permissionError);
+                    // Re-throw to ensure the outer catch block is aware of the failure.
+                    throw permissionError;
+                });
+                
                 console.log("Seeding semua data Firestore berhasil.");
 
                 toast({
@@ -102,23 +116,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
         } catch(e: any) {
-            console.error("Galat kritis saat proses seeding data:", e);
-            const description = e.message || 'Terjadi kesalahan tidak terduga saat inisialisasi data.';
-            
-            // Check if it's a permission error and emit it
-            if (e.code === 'permission-denied' || e.name === 'FirebaseError' && e.message.includes('permission')) {
-                 errorEmitter.emit('permission-error', new FirestorePermissionError({
-                    path: '/ (batch operation)',
-                    operation: 'write',
-                    requestResourceData: { operation: 'initial seed' }
-                }, description));
+             // The outer catch block will now receive either the contextual error
+             // from the batch commit or any other error that occurred.
+            if (!(e instanceof FirestorePermissionError)) {
+                 console.error("Galat kritis saat proses seeding data:", e);
+                 const description = e.message || 'Terjadi kesalahan tidak terduga saat inisialisasi data.';
+                 toast({
+                    variant: 'destructive',
+                    title: 'Gagal Melakukan Seeding',
+                    description: description
+                });
             }
-
-            toast({
-                variant: 'destructive',
-                title: 'Gagal Melakukan Seeding',
-                description: description
-            });
             
         } finally {
             setIsInitializing(false); 
@@ -173,5 +181,3 @@ export function useAuth() {
   }
   return context;
 }
-
-    
