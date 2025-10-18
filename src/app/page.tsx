@@ -1,43 +1,35 @@
 'use client';
 
+import { useFormState, useFormStatus } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import { login } from '@/app/auth-actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useEffect } from 'react';
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? 'Memeriksa...' : 'Masuk'}
+    </Button>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
+  const [state, formAction] = useFormState(login, null);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsPending(true);
-    setError(null);
-
-    const formData = new FormData(event.currentTarget);
-    
-    try {
-        const result = await login(formData);
-
-        if (result?.success) {
-            router.push('/dashboard');
-        } else if (result?.error) {
-            setError(result.error);
-        } else {
-            setError("Terjadi kesalahan yang tidak terduga.");
-        }
-    } catch (e) {
-        setError("Gagal terhubung ke server.");
-    } finally {
-        setIsPending(false);
+   useEffect(() => {
+    if (state?.success) {
+      router.push('/dashboard');
     }
-  };
+  }, [state, router]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -51,10 +43,10 @@ export default function LoginPage() {
           <CardDescription>Masukkan kredensial Anda untuk mengakses dasbor.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="grid gap-4">
-             {error && (
+          <form action={formAction} className="grid gap-4">
+             {state?.error && (
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{state.error}</AlertDescription>
               </Alert>
             )}
             <div className="grid gap-2">
@@ -65,7 +57,6 @@ export default function LoginPage() {
                 name="email"
                 placeholder="email@example.com"
                 required
-                disabled={isPending}
                 defaultValue="admin@dinas.com"
               />
             </div>
@@ -77,12 +68,9 @@ export default function LoginPage() {
                 name="password" 
                 required 
                 defaultValue="password123"
-                disabled={isPending}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? 'Memeriksa...' : 'Masuk'}
-            </Button>
+            <SubmitButton />
           </form>
         </CardContent>
       </Card>
