@@ -24,11 +24,8 @@ const menuItems = [
   { href: '/reports', label: 'Laporan', icon: FileText, roles: ['admin', 'pengelola'] },
   { href: '/unlock-requests', label: 'Permintaan Revisi', icon: KeyRound, roles: ['admin'] },
   { href: '/users', label: 'Pengguna', icon: Users, roles: ['admin'] },
+  { href: '/settings', label: 'Pengaturan', icon: Settings, roles: ['admin', 'pengelola'] },
 ];
-
-const bottomMenuItems = [
-    { href: '/settings', label: 'Pengaturan', icon: Settings, roles: ['admin', 'pengelola'] },
-]
 
 export default function SidebarNav() {
   const pathname = usePathname();
@@ -66,7 +63,7 @@ export default function SidebarNav() {
     <>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-            <Logo className="h-8 w-8 text-primary" />
+            <Logo className="h-8 w-8" />
             <span className="text-lg font-semibold font-headline">{appTitle}</span>
         </div>
       </SidebarHeader>
@@ -95,23 +92,6 @@ export default function SidebarNav() {
          <div className="px-4 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
             {footerText}
         </div>
-        <SidebarMenu>
-            {bottomMenuItems.filter(item => isUserInRole(item.roles)).map((item) => (
-                <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      href={item.href}
-                      isActive={pathname.startsWith(item.href)}
-                      tooltip={item.label}
-                    >
-                      <Link href={item.href} className='flex items-center gap-2'>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-            ))}
-        </SidebarMenu>
       </SidebarFooter>
     </>
   );
