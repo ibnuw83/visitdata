@@ -96,9 +96,9 @@ export default function SettingsPage() {
               </Avatar>
                <div>
                 <Button variant="outline" onClick={handlePhotoChange}>Ubah Foto</Button>
-                <p className="text-sm text-muted-foreground mt-2">
+                <div className="text-sm text-muted-foreground mt-2">
                     Masuk sebagai: <Badge variant={roleVariant[user.role]} className="capitalize">{user.role}</Badge>
-                </p>
+                </div>
               </div>
             </div>
             <div className="grid gap-2">
