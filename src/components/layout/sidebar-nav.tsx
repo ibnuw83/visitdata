@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -9,12 +10,14 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
+  SidebarMenuBadge,
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
 import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useEffect, useState } from 'react';
+import { getUnlockRequests } from '@/lib/local-data-service';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard, roles: ['admin', 'pengelola'] },
@@ -22,7 +25,7 @@ const menuItems = [
   { href: '/reports', label: 'Laporan', icon: FileText, roles: ['admin', 'pengelola'] },
   { href: '/categories', label: 'Kategori Wisata', icon: FolderTree, roles: ['admin'] },
   { href: '/destinations', label: 'Destinasi', icon: Landmark, roles: ['admin'] },
-  { href: '/unlock-requests', label: 'Permintaan Revisi', icon: KeyRound, roles: ['admin'] },
+  { href: '/unlock-requests', label: 'Permintaan Revisi', icon: KeyRound, roles: ['admin'], id: 'unlock-requests' },
   { href: '/users', label: 'Pengguna', icon: Users, roles: ['admin'] },
   { href: '/settings', label: 'Pengaturan', icon: Settings, roles: ['admin', 'pengelola'] },
 ];
@@ -32,6 +35,7 @@ export default function SidebarNav() {
   const { user } = useAuth();
   const [appTitle, setAppTitle] = useState('VisitData Hub');
   const [footerText, setFooterText] = useState('© 2024 VisitData Hub');
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   useEffect(() => {
     // Ensure this runs only on the client
@@ -39,6 +43,12 @@ export default function SidebarNav() {
     const savedFooter = localStorage.getItem('appFooter');
     if (savedTitle) setAppTitle(savedTitle);
     if (savedFooter) setFooterText(savedFooter);
+
+    if (user?.role === 'admin') {
+      const requests = getUnlockRequests();
+      const pendingCount = requests.filter(req => req.status === 'pending').length;
+      setPendingRequestsCount(pendingCount);
+    }
 
     const handleStorageChange = () => {
       const newTitle = localStorage.getItem('appTitle');
@@ -51,7 +61,7 @@ export default function SidebarNav() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [user]);
 
   if (!user) {
     return null;
@@ -83,6 +93,9 @@ export default function SidebarNav() {
                 <Link href={item.href} className='flex items-center gap-2'>
                   <item.icon />
                   <span>{item.label}</span>
+                   {item.id === 'unlock-requests' && pendingRequestsCount > 0 && (
+                      <SidebarMenuBadge>{pendingRequestsCount}</SidebarMenuBadge>
+                   )}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
