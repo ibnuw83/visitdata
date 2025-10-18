@@ -52,7 +52,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { appUser, loading: isUserLoading } = useUser();
   const router = useRouter();
 
-  const isLoading = isAuthLoading || (user && isUserLoading);
+  const isLoading = isAuthLoading || (user && isUserLoading) || (!isAuthLoading && !user);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -61,33 +61,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [user, isAuthLoading, router]);
 
-  // Show loading skeleton while checking auth or fetching user data
-  if (isLoading) {
+  // Show loading skeleton while checking auth, fetching user data, or redirecting
+  if (isLoading || !appUser) {
     return <AppLayoutSkeleton />;
   }
 
-  // If we have an authenticated user but no app user profile yet,
-  // it's an intermediate state, so we show the skeleton.
-  if (user && !appUser) {
-    return <AppLayoutSkeleton />;
-  }
-  
-  if (appUser) {
-    return (
-      <SidebarProvider>
-        <Sidebar>
-          <SidebarNav />
-        </Sidebar>
-        <SidebarInset>
-          <div className="flex h-full flex-col">
-            <Header />
-            <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">{children}</main>
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
-    );
-  }
-
-  // If loading is done and there's no user, render nothing while redirecting.
-  return null;
+  // If we have an appUser, show the layout
+  return (
+    <SidebarProvider>
+      <Sidebar>
+        <SidebarNav />
+      </Sidebar>
+      <SidebarInset>
+        <div className="flex h-full flex-col">
+          <Header />
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">{children}</main>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  );
 }
