@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useMemo, useEffect, useState, ReactNode } from 'react';
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, Auth, onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { firebaseConfig } from './config';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +16,8 @@ import {
   AuthError,
   NetworkError,
 } from './errors';
+import { Logo } from '@/components/logo';
+import { useRouter } from 'next/navigation';
 
 
 function FirebaseSystemListener() {
@@ -51,8 +53,11 @@ function FirebaseSystemListener() {
 const FirebaseAppContext = createContext<FirebaseApp | null>(null);
 const FirestoreContext = createContext<Firestore | null>(null);
 const AuthContext = createContext<Auth | null>(null);
+const AuthUserContext = createContext<{ user: FirebaseUser | null, isLoading: boolean, logout: () => Promise<void> } | undefined>(undefined);
 
 export function FirebaseClientProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+
   const { app, auth, firestore } = useMemo(() => {
     const existingApp = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
     const authInstance = getAuth(existingApp);
@@ -60,12 +65,41 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
     return { app: existingApp, auth: authInstance, firestore: firestoreInstance };
   }, []);
 
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [auth]);
+
+  const logout = async () => {
+    await signOut(auth);
+    router.push('/login');
+  };
+
+  const authUserContextValue = { user, isLoading, logout };
+
+  if (isLoading) {
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+            <Logo className="h-10 w-10 animate-pulse" />
+        </div>
+    );
+  }
+
   return (
     <FirebaseAppContext.Provider value={app}>
       <FirestoreContext.Provider value={firestore}>
         <AuthContext.Provider value={auth}>
-          {children}
-          <FirebaseSystemListener />
+          <AuthUserContext.Provider value={authUserContextValue}>
+            {children}
+            <FirebaseSystemListener />
+          </AuthUserContext.Provider>
         </AuthContext.Provider>
       </FirestoreContext.Provider>
     </FirebaseAppContext.Provider>
@@ -88,4 +122,12 @@ export const useAuth = (): Auth => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within a FirebaseClientProvider');
   return ctx;
+};
+
+export const useAuthUser = () => {
+  const context = useContext(AuthUserContext);
+  if (context === undefined) {
+    throw new Error('useAuthUser must be used within a FirebaseClientProvider');
+  }
+  return context;
 };

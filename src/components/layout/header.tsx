@@ -14,12 +14,12 @@ import {
 import { SidebarTrigger } from "../ui/sidebar";
 import { LogOut } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "@/context/auth-context";
+import { useAuthUser } from "@/lib/firebase/client-provider";
 import { useUser } from "@/lib/firebase/auth/use-user";
 import { ThemeToggle } from "./theme-toggle";
 
 export default function Header() {
-  const { logout } = useAuth();
+  const { logout } = useAuthUser();
   const { appUser } = useUser();
 
   if (!appUser) {

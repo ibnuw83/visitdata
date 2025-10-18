@@ -7,32 +7,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import { useAuth } from '@/context/auth-context';
 import { useEffect, useState } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
-import { useAuth as useFirebaseAuth } from '@/lib/firebase/client-provider';
+import { useAuth, useAuthUser } from '@/lib/firebase/client-provider';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { AuthError } from '@/lib/firebase/errors';
 import { errorEmitter } from '@/lib/firebase/error-emitter';
 
-function LoginSkeleton() {
-    return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-            <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
-                <Logo className="h-10 w-10 animate-pulse" />
-                <h1 className="font-headline text-3xl font-bold">VisitData Hub</h1>
-            </div>
-        </div>
-     );
-}
-
 export default function LoginPage() {
-  const { user, isInitializing } = useAuth();
-  const auth = useFirebaseAuth();
+  const { user, isLoading: isInitializing } = useAuthUser();
+  const auth = useAuth();
   const router = useRouter();
   const [appTitle, setAppTitle] = useState('VisitData Hub');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     // Redirect if user is already logged in and loading is complete
@@ -43,24 +30,31 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIsLoading(true);
+    setIsSubmitting(true);
     const formData = new FormData(event.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // Redirect will be handled by the useEffect hook
     } catch (e: any) {
       console.error("Login Error:", e);
       const authError = new AuthError(e.code, e.message);
       errorEmitter.emit('auth-error', authError);
     } finally {
-       setIsLoading(false);
+       setIsSubmitting(false);
     }
   };
   
   if (isInitializing || user) {
-     return <LoginSkeleton />;
+     return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+            <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
+                <Logo className="h-10 w-10 animate-pulse" />
+            </div>
+        </div>
+     );
   }
 
   return (
@@ -97,8 +91,8 @@ export default function LoginPage() {
                 defaultValue="password123"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Memeriksa...' : 'Masuk'}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Memeriksa...' : 'Masuk'}
             </Button>
           </form>
         </CardContent>

@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/firebase/auth/use-user';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuthUser } from '@/lib/firebase/client-provider';
 
 function AppLayoutSkeleton() {
   return (
@@ -47,18 +48,19 @@ function AppLayoutSkeleton() {
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { appUser, isLoading } = useUser();
+  const { user, isLoading } = useAuthUser();
+  const { appUser, isLoading: isAppUserLoading } = useUser();
   const router = useRouter();
 
   // Redirect if not logged in and loading is complete
   useEffect(() => {
-    if (!isLoading && !appUser) {
+    if (!isLoading && !user) {
       router.replace('/login');
     }
-  }, [appUser, isLoading, router]);
+  }, [user, isLoading, router]);
 
   // Show loading skeleton while checking auth or fetching user data.
-  if (isLoading || !appUser) {
+  if (isLoading || isAppUserLoading || !appUser) {
     return <AppLayoutSkeleton />;
   }
 
