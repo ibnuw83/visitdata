@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -16,7 +17,10 @@ export function useCollection<T>(
     // Jangan jalankan kalau query belum siap
     if (!q) {
       setData([]);
-      setLoading(false);
+      // Set loading to true if we expect a query but haven't received it yet.
+      // Set to false if we're sure no query will be provided.
+      // A simple approach is to always show loading until a query is processed.
+      setLoading(true); 
       setError(null);
       return;
     }

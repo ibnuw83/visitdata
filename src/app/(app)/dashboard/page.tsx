@@ -19,7 +19,15 @@ import { collection, query, where, collectionGroup } from 'firebase/firestore';
 export default function DashboardPage() {
     const { appUser } = useUser();
     const firestore = useFirestore();
+    const [clientReady, setClientReady] = useState(false);
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
+    useEffect(() => {
+        const year = new Date().getFullYear();
+        setCurrentYear(year);
+        setSelectedYear(year.toString());
+        setClientReady(true);
+    }, []);
 
     const destinationsQuery = useMemo(() => {
         if (!firestore || !appUser) return null;
@@ -40,27 +48,15 @@ export default function DashboardPage() {
         return null;
     }, [firestore, appUser]);
 
-    const allVisitsQuery = useMemo(() => {
-        if (!firestore) return null;
-        return collectionGroup(firestore, 'visits');
-    }, [firestore]);
-
-
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(allVisitsQuery);
+    
+    // Defer collectionGroup query until firestore is available
+    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(
+        firestore ? collectionGroup(firestore, 'visits') : null
+    );
 
-    const [loading, setLoading] = useState(true);
+    const loading = !clientReady || destinationsLoading || visitsLoading;
     const [selectedYear, setSelectedYear] = useState(currentYear.toString());
-
-    useEffect(() => {
-        const year = new Date().getFullYear();
-        setCurrentYear(year);
-        setSelectedYear(year.toString());
-    }, []);
-
-    useEffect(() => {
-        setLoading(destinationsLoading || visitsLoading);
-    }, [destinationsLoading, visitsLoading]);
 
     const userVisitData = useMemo(() => {
         if (!allVisitData || !appUser || !destinations) return [];

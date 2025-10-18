@@ -383,11 +383,13 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
 export default function DataEntryPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
+  const [clientReady, setClientReady] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   
   useEffect(() => {
     // This runs only on the client
     setSelectedYear(new Date().getFullYear());
+    setClientReady(true);
   }, []);
 
   const destinationsQuery = useMemo(() => {
@@ -411,22 +413,21 @@ export default function DataEntryPage() {
     return null;
   }, [firestore, appUser]);
 
-  const allVisitsQuery = useMemo(() => {
-    if (!firestore) return null;
-    return collectionGroup(firestore, 'visits');
-  }, [firestore]);
   
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
-  const { data: allVisitData } = useCollection<VisitData>(allVisitsQuery);
+  // Defer collectionGroup query until firestore is available
+  const { data: allVisitData } = useCollection<VisitData>(
+    firestore ? collectionGroup(firestore, 'visits') : null
+  );
   
   const { toast } = useToast();
 
   const availableYears = useMemo(() => {
-    const clientSelectedYear = new Date().getFullYear();
-    if (!allVisitData) return [clientSelectedYear];
+    const currentYear = new Date().getFullYear();
+    if (!allVisitData) return [currentYear];
     const yearsFromData = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
-    if (!yearsFromData.includes(clientSelectedYear)) {
-      yearsFromData.unshift(clientSelectedYear);
+    if (!yearsFromData.includes(currentYear)) {
+      yearsFromData.unshift(currentYear);
     }
     return yearsFromData;
   }, [allVisitData]);
@@ -586,7 +587,7 @@ export default function DataEntryPage() {
     });
   }, [destinations, allVisitData, selectedYear]);
 
-  if (!appUser) {
+  if (!appUser || !clientReady) {
     return null; // or a loading skeleton
   }
 
