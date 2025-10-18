@@ -34,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, getDoc, collectionGroup } from 'firebase/firestore';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -116,50 +116,68 @@ const colorPalette = [
     "text-indigo-600",
 ];
 
-function DestinationDataEntry({ destination, initialData, onDataChange, onLockChange, onNewRequest, colorClass, selectedYear, onManualSave, hasUnsavedChanges }: { destination: Destination, initialData: VisitData[], onDataChange: (updatedData: VisitData) => void, onLockChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void, colorClass: string, selectedYear: number, onManualSave: () => void, hasUnsavedChanges: boolean }) {
+function DestinationDataEntry({ destination, initialData, onDataChange, onLockChange, onNewRequest, colorClass, selectedYear, onManualSave, hasUnsavedChanges, pendingChanges }: { destination: Destination, initialData: VisitData[], onDataChange: (updatedData: VisitData) => void, onLockChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void, colorClass: string, selectedYear: number, onManualSave: () => void, hasUnsavedChanges: boolean, pendingChanges: Record<string, VisitData> }) {
   const [data, setData] = useState<VisitData[]>(initialData);
   const { appUser } = useUser();
   const firestore = useFirestore();
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
 
-  const destinationVisitsQuery = useMemoFirebase(() => {
-    if (!isAccordionOpen || !firestore) return null;
-    return query(collection(firestore, 'destinations', destination.id, 'visits'), where('year', '==', selectedYear));
-  }, [isAccordionOpen, firestore, destination.id, selectedYear]);
-
-  const { data: fetchedVisitData, loading: visitsLoading } = useCollection<VisitData>(destinationVisitsQuery);
-
   useEffect(() => {
-      if (isAccordionOpen && !visitsLoading && fetchedVisitData) {
-        const fullYearData = months.map((monthName, index) => {
-            const monthIndex = index + 1;
-            const existingData = fetchedVisitData.find(d => d.month === monthIndex);
-            if (existingData) return existingData;
+    const fetchData = async () => {
+        if (!isAccordionOpen || !firestore || !appUser) return;
+        
+        try {
+            const visitsRef = collection(firestore, 'destinations', destination.id, 'visits');
+            const q = query(visitsRef, where('year', '==', selectedYear));
+            const snapshot = await getDocs(q);
+            const fetchedVisitData = snapshot.docs.map(doc => doc.data() as VisitData);
             
-            const currentYear = new Date().getFullYear();
-            const currentMonth = new Date().getMonth() + 1;
-            const isFutureOrLocked = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
+            const fullYearData = months.map((monthName, index) => {
+                const monthIndex = index + 1;
+                const id = `${destination.id}-${selectedYear}-${monthIndex}`;
+                
+                // Prioritize pending changes, then fetched data, then create placeholder
+                if (pendingChanges[id]) {
+                    return pendingChanges[id];
+                }
 
-            return {
-                id: `${destination.id}-${selectedYear}-${monthIndex}`,
-                destinationId: destination.id,
-                year: selectedYear,
-                month: monthIndex,
-                monthName: monthName,
-                wisnus: 0,
-                wisman: 0,
-                wismanDetails: [],
-                totalVisitors: 0,
-                locked: appUser?.role === 'admin' ? true : isFutureOrLocked,
-            };
-        });
-        setData(fullYearData.sort((a,b) => a.month - b.month));
-      }
-  }, [isAccordionOpen, visitsLoading, fetchedVisitData, selectedYear, destination.id, appUser?.role]);
+                const existingData = fetchedVisitData.find(d => d.month === monthIndex);
+                if (existingData) return existingData;
+                
+                const currentYear = new Date().getFullYear();
+                const currentMonth = new Date().getMonth() + 1;
+                const isFutureOrLocked = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
+
+                return {
+                    id: id,
+                    destinationId: destination.id,
+                    year: selectedYear,
+                    month: monthIndex,
+                    monthName: monthName,
+                    wisnus: 0,
+                    wisman: 0,
+                    wismanDetails: [],
+                    totalVisitors: 0,
+                    locked: appUser?.role === 'admin' ? true : isFutureOrLocked,
+                };
+            });
+            setData(fullYearData.sort((a,b) => a.month - b.month));
+        } catch (serverError) {
+            const permissionError = new FirestorePermissionError({
+                path: `destinations/${destination.id}/visits`,
+                operation: 'list',
+                requestResourceData: { year: selectedYear }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+    };
+    
+    fetchData();
+  }, [isAccordionOpen, firestore, appUser, destination.id, selectedYear, pendingChanges]);
   
   useEffect(() => {
-    // This effect ensures the local state `data` is updated if the underlying `initialData`
-    // (from the parent's `dataByDestination` memo) changes, for example, after a save operation.
+    // This effect ensures the local state `data` is updated if the parent's `pendingChanges` change,
+    // for example, after a save operation clears them.
     setData(initialData);
   }, [initialData]);
 
@@ -175,8 +193,6 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onLockCh
         };
         if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
       
-      const updatedFullData = newData.map(d => d.month === monthIndex + 1 ? updatedMonthData : d)
-      setData(updatedFullData);
       onDataChange(updatedMonthData); // Bubble up the single change to parent
     }
   };
@@ -194,8 +210,6 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onLockCh
         };
         if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
 
-        const updatedFullData = newData.map(d => d.month === monthIndex + 1 ? updatedMonthData : d);
-        setData(updatedFullData);
         onDataChange(updatedMonthData); // Bubble up the single change to parent
      }
   }
@@ -212,12 +226,13 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onLockCh
 
   const yearlyTotals = useMemo(() => {
     return data.reduce((acc, curr) => {
-        acc.wisnus += curr.wisnus || 0;
-        acc.wisman += curr.wisman || 0;
-        acc.totalVisitors += curr.totalVisitors || 0;
+        const item = pendingChanges[curr.id] || curr;
+        acc.wisnus += item.wisnus || 0;
+        acc.wisman += item.wisman || 0;
+        acc.totalVisitors += item.totalVisitors || 0;
         return acc;
     }, { wisnus: 0, wisman: 0, totalVisitors: 0});
-  }, [data]);
+  }, [data, pendingChanges]);
 
   return (
     <AccordionItem value={destination.id}>
@@ -255,9 +270,10 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onLockCh
                 <TableBody>
                     {months.map((monthName, index) => {
                         const monthData = data.find(d => d.month === index + 1);
-                        const isLocked = monthData?.locked || false;
-                        
-                        if (!monthData) return null;
+                        const displayData = (monthData && pendingChanges[monthData.id]) || monthData;
+
+                        if (!displayData) return null;
+                        const isLocked = displayData.locked || false;
 
                         return (
                             <TableRow key={index} className={isLocked ? 'bg-muted/30' : ''}>
@@ -266,20 +282,20 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onLockCh
                                     <Input
                                         type="number"
                                         className="h-8 w-24 border-0 shadow-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:bg-transparent disabled:opacity-70"
-                                        value={monthData.wisnus || 0}
+                                        value={displayData.wisnus || 0}
                                         onChange={(e) => handleLocalDataChange(index, 'wisnus', parseInt(e.target.value, 10) || 0)}
                                         disabled={isLocked}
                                     />
                                 </TableCell>
                                 <TableCell>
                                     <WismanPopover 
-                                        details={monthData.wismanDetails || []}
-                                        totalWisman={monthData.wisman || 0}
+                                        details={displayData.wismanDetails || []}
+                                        totalWisman={displayData.wisman || 0}
                                         onSave={(newDetails) => handleWismanDetailsChange(index, newDetails)}
                                         disabled={isLocked}
                                     />
                                 </TableCell>
-                                <TableCell className="text-right font-medium">{monthData.totalVisitors.toLocaleString() || 0}</TableCell>
+                                <TableCell className="text-right font-medium">{displayData.totalVisitors.toLocaleString() || 0}</TableCell>
                                 <TableCell className="text-center">
                                     {appUser?.role === 'admin' ? (
                                         <div className="flex items-center justify-center gap-2">
@@ -294,7 +310,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onLockCh
                                         isLocked ? (
                                             <UnlockRequestDialog 
                                                 destination={destination}
-                                                monthData={monthData}
+                                                monthData={displayData}
                                                 onNewRequest={onNewRequest as any}
                                             />
                                         ) : (
@@ -330,7 +346,6 @@ function WismanPopover({ details, totalWisman, onSave, disabled }: { details: Wi
     const [wismanDetails, setWismanDetails] = useState<WismanDetail[]>(details);
 
     useEffect(() => {
-        // Reset local state when popover opens with new details from parent
         if (isOpen) {
             setWismanDetails(details);
         }
@@ -420,7 +435,6 @@ export default function DataEntryPage() {
   const [selectedDestinationFilter, setSelectedDestinationFilter] = useState<string>('all');
   const { toast } = useToast();
   
-  // State to hold pending changes before saving
   const [pendingChanges, setPendingChanges] = useState<Record<string, VisitData>>({});
   const hasUnsavedChanges = Object.keys(pendingChanges).length > 0;
 
@@ -781,6 +795,7 @@ export default function DataEntryPage() {
                     selectedYear={selectedYear}
                     onManualSave={handleManualSave}
                     hasUnsavedChanges={hasUnsavedChanges}
+                    pendingChanges={pendingChanges}
                   />
               ))}
             </Accordion>
