@@ -4,15 +4,12 @@ export type SecurityRuleContext = {
   requestResourceData?: any;
 };
 
-const defaultMessage = 'Firestore Permission Denied';
-
 export class FirestorePermissionError extends Error {
-  public readonly context: SecurityRuleContext;
-  constructor(context: SecurityRuleContext, message: string = defaultMessage) {
-    super(message);
+  context: Record<string, any>;
+
+  constructor(context: Record<string, any>, message?: string) {
+    super(message || 'Firestore Permission Denied');
     this.name = 'FirestorePermissionError';
     this.context = context;
-    // This is to make the error message more readable in the console.
-    Object.setPrototypeOf(this, FirestorePermissionError.prototype);
   }
 }
