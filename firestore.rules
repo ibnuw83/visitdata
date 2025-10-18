@@ -7,70 +7,51 @@ service cloud.firestore {
     function isAuth() {
       return request.auth != null;
     }
-    function isUser(uid) {
-      return isAuth() && request.auth.uid == uid;
-    }
-    function userRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
+
     function isAdmin() {
-      return isAuth() && userRole() == 'admin';
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Collection: /users/{userId}
-    // Rules for user profile documents.
+    function isOwner(userId) {
+        return isAuth() && request.auth.uid == userId;
+    }
+    
+    function isPengelolaFor(destinationId) {
+        return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedLocations.hasAny([destinationId]);
+    }
+
     match /users/{userId} {
       allow read: if true;
-      allow create: if isUser(userId);
-      allow update: if isUser(userId) || isAdmin();
-      allow delete: if isAdmin();
+      allow create: if isOwner(userId);
+      allow update, delete: if isAdmin() || isOwner(userId);
     }
 
-    // Collection: /destinations/{destinationId}
-    // Rules for tourist destination documents.
     match /destinations/{destinationId} {
       allow read: if true;
       allow write: if isAdmin();
     }
     
-    // Collection: /categories/{categoryId}
-    // Rules for destination categories.
     match /categories/{categoryId} {
         allow read: if true;
         allow write: if isAdmin();
     }
 
-    // Collection: /countries/{countryId}
-    // Rules for countries.
     match /countries/{countryId} {
         allow read: if true;
         allow write: if isAdmin();
     }
-
-    // Subcollection: /destinations/{destinationId}/visits/{visitId}
-    // Rules for monthly visit data. `pengelola` can only update, `admin` can do anything.
+    
     match /destinations/{destinationId}/visits/{visitId} {
-      allow read: if true;
-      
-      // Admin can do anything
-      // Pengelola can only update if data is not locked and they are assigned to the location.
-      allow write: if isAdmin() || 
-        (
-            request.resource.data.locked == false &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedLocations.hasAny([destinationId])
-        );
+        allow read: if true;
+        allow create, write: if isAdmin() || (isPengelolaFor(destinationId) && !resource.data.locked);
     }
     
-    // Collection: /unlock-requests/{requestId}
-    // `pengelola` can create, `admin` can read and update (approve/reject).
     match /unlock-requests/{requestId} {
-        allow read, update: if isAdmin();
-        allow create: if isAuth() && userRole() == 'pengelola';
-        allow delete: if false; // Requests should not be deleted, only their status updated.
+        allow read: if isAuth();
+        allow create: if isAuth();
+        allow update, delete: if isAdmin();
     }
-
-    // Document: /settings/app
-    // Only admins can read and write app settings.
+    
     match /settings/app {
         allow read: if true;
         allow write: if isAdmin();
