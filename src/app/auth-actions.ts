@@ -2,14 +2,13 @@
 
 import { createSession, deleteSession } from '@/lib/session';
 import { users } from '@/lib/mock-data';
-import { redirect } from 'next/navigation';
 
-export async function login(formData: FormData) {
+export async function login(formData: FormData): Promise<{ success: boolean; error?: string }> {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
   if (!email || !password) {
-    return { error: 'Email dan kata sandi harus diisi.' };
+    return { success: false, error: 'Email dan kata sandi harus diisi.' };
   }
 
   const user = users.find((u) => u.email === email);
@@ -18,11 +17,11 @@ export async function login(formData: FormData) {
     await createSession(user.uid);
     return { success: true };
   } else {
-    return { error: 'Email atau kata sandi tidak valid.' };
+    return { success: false, error: 'Email atau kata sandi tidak valid.' };
   }
 }
 
 export async function logout() {
     await deleteSession();
-    redirect('/');
+    // Redirect will be handled by the middleware
 }
