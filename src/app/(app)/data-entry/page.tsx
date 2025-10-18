@@ -438,8 +438,8 @@ export default function DataEntryPage() {
     const visitDocRef = doc(firestore, 'destinations', updatedData.destinationId, 'visits', updatedData.id);
     
     const dataToSet: Partial<VisitData> = { ...updatedData };
-    if (!dataToSet.lastUpdatedBy) {
-        delete dataToSet.lastUpdatedBy;
+    if (!dataToSet.lastUpdatedBy && appUser?.uid) {
+        dataToSet.lastUpdatedBy = appUser.uid;
     }
 
     setDoc(visitDocRef, dataToSet, { merge: true })
@@ -588,6 +588,10 @@ export default function DataEntryPage() {
       ? destinations
       : destinations.filter(d => d.id === selectedDestinationFilter);
 
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-12
+
     return filteredDestinations.map(dest => {
       let destData = allVisitData.filter(d => d.destinationId === dest.id && d.year === selectedYear);
       
@@ -596,6 +600,9 @@ export default function DataEntryPage() {
               const monthIndex = index + 1;
               const existingData = destData.find(d => d.month === monthIndex);
               if (existingData) return existingData;
+
+              // Default to locked if the period is in the future
+              const isFuture = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
 
               return {
                   id: `${dest.id}-${selectedYear}-${monthIndex}`,
@@ -607,7 +614,7 @@ export default function DataEntryPage() {
                   wisman: 0,
                   wismanDetails: [],
                   totalVisitors: 0,
-                  locked: true,
+                  locked: isFuture,
               };
           });
           return { destination: dest, data: fullYearData.sort((a,b) => a.month - b.month) };
