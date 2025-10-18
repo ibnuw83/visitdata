@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -31,8 +32,6 @@ export function useDoc<T>(
         setLoading(false);
       },
       (err: Error) => {
-        console.error('useDoc error:', err);
-
         const permissionError = new FirestorePermissionError({
           path: ref.path,
           operation: 'get',

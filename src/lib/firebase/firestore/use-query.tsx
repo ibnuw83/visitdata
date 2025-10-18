@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -34,8 +35,6 @@ export function useQuery<T>(
         }
       })
       .catch((err) => {
-        console.error('useQuery error:', err);
-
         let errorPath = '(unknown)';
         try {
           // @ts-ignore

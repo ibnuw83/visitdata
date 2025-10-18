@@ -248,7 +248,6 @@ export default function SettingsPage() {
         setCurrentPassword('');
         setNewPassword('');
     } catch (error: any) {
-        console.error("Error updating password:", error);
         const authError = new AuthError(error.code, error.message);
         errorEmitter.emit('auth-error', authError);
     }
@@ -370,5 +369,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    

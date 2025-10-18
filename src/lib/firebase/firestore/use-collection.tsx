@@ -40,8 +40,6 @@ export function useCollection<T>(
         setLoading(false);
       },
       (err: Error) => {
-        console.error('useCollection error:', err);
-
         let errorPath = '(unknown)';
         try {
           // @ts-ignore
