@@ -6,20 +6,34 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import { useEffect } from 'react';
-import { useActionState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [state, formAction, isPending] = useActionState(login, { error: null });
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
 
-  useEffect(() => {
-    if (state?.success) {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsPending(true);
+    setError(null);
+
+    const formData = new FormData(event.currentTarget);
+    const result = await login(formData);
+
+    if (result?.success) {
       router.push('/dashboard');
+      // Tidak perlu set isPending ke false karena akan navigasi
+    } else if (result?.error) {
+      setError(result.error);
+      setIsPending(false);
+    } else {
+       setError("Terjadi kesalahan yang tidak terduga.");
+       setIsPending(false);
     }
-  }, [state, router]);
+  };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -33,10 +47,10 @@ export default function LoginPage() {
           <CardDescription>Masukkan kredensial Anda untuk mengakses dasbor.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction} className="grid gap-4">
-             {state?.error && (
+          <form onSubmit={handleSubmit} className="grid gap-4">
+             {error && (
               <Alert variant="destructive">
-                <AlertDescription>{state.error}</AlertDescription>
+                <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
             <div className="grid gap-2">
