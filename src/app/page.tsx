@@ -1,13 +1,26 @@
 
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Logo } from '@/components/logo';
-import Link from 'next/link';
-import { BarChart, Database, FileText, ArrowRight } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Users, Landmark, Plane, Globe } from "lucide-react";
+import StatCard from "@/components/dashboard/stat-card";
+import MonthlyVisitorsChart from "@/components/dashboard/monthly-visitors-chart";
+import VisitorBreakdownChart from "@/components/dashboard/visitor-breakdown-chart";
+import TopDestinationsCard from "@/components/dashboard/top-destinations-card";
+import { getVisitData, getDestinations } from "@/lib/local-data-service";
+import type { VisitData, Destination } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
-import { useEffect, useState } from 'react';
+import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
+import Header from '@/components/layout/header';
+import SidebarNav from '@/components/layout/sidebar-nav';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Logo } from '@/components/logo';
+import { ArrowRight, BarChart, Database, FileText } from 'lucide-react';
 
 const features = [
   {
@@ -27,8 +40,144 @@ const features = [
   },
 ];
 
-export default function HomePage() {
-  const { user } = useAuth();
+
+function DashboardContent() {
+    const { user } = useAuth();
+    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
+    const [destinations, setDestinations] = useState<Destination[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+
+    useEffect(() => {
+        const visitDataFromDb = getVisitData();
+        const destinationsFromDb = getDestinations();
+
+        if (user && user.role === 'pengelola') {
+            const assignedIds = user.assignedLocations;
+            const assignedDestinations = destinationsFromDb.filter(d => assignedIds.includes(d.id));
+            const assignedVisitData = visitDataFromDb.filter(vd => assignedIds.includes(vd.destinationId));
+            
+            setDestinations(assignedDestinations);
+            setAllVisitData(assignedVisitData);
+
+            const availableYears = [...new Set(assignedVisitData.map(d => d.year))].sort((a,b) => b-a);
+            if (availableYears.length > 0) {
+                setSelectedYear(availableYears[0].toString());
+            } else {
+                setSelectedYear(new Date().getFullYear().toString());
+            }
+        } else { // For admin or logged-out users
+            setDestinations(destinationsFromDb);
+            setAllVisitData(visitDataFromDb);
+            
+            const availableYears = [...new Set(visitDataFromDb.map(d => d.year))].sort((a,b) => b-a);
+            if (availableYears.length > 0) {
+                setSelectedYear(availableYears[0].toString());
+            }
+        }
+
+        setLoading(false);
+    }, [user]);
+    
+    const availableYears = useMemo(() => {
+        return [...new Set(allVisitData.map(d => d.year))].sort((a, b) => b - a);
+    }, [allVisitData]);
+
+    const yearlyData = useMemo(() => {
+        return allVisitData.filter(d => d.year === parseInt(selectedYear));
+    }, [allVisitData, selectedYear]);
+    
+    const totalVisitors = useMemo(() => yearlyData.reduce((sum, item) => sum + item.totalVisitors, 0), [yearlyData]);
+    const totalWisnus = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisnus, 0), [yearlyData]);
+    const totalWisman = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisman, 0), [yearlyData]);
+
+    if (loading) {
+        return (
+             <div className="flex flex-col gap-8">
+                <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-2">
+                        <Skeleton className="h-9 w-48" />
+                        <Skeleton className="h-5 w-72" />
+                    </div>
+                    <Skeleton className="h-10 w-32" />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Skeleton className="h-28" />
+                    <Skeleton className="h-28" />
+                    <Skeleton className="h-28" />
+                    <Skeleton className="h-28" />
+                </div>
+                 <div className="grid gap-4 lg:grid-cols-5">
+                    <Skeleton className="lg:col-span-3 h-80" />
+                    <Skeleton className="lg:col-span-2 h-80" />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <Skeleton className="lg:col-span-2 h-96" />
+                    <Skeleton className="h-96" />
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="font-headline text-3xl font-bold tracking-tight">Dasbor</h1>
+                    <p className="text-muted-foreground">Ringkasan data pariwisata untuk tahun {selectedYear}.</p>
+                </div>
+                <div className="w-full sm:w-auto">
+                   <Select value={selectedYear} onValueChange={setSelectedYear} disabled={availableYears.length === 0}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Pilih Tahun" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {availableYears.map(year => (
+                            <SelectItem key={year} value={year.toString()}>
+                                Tahun {year}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <StatCard title="Total Pengunjung" value={totalVisitors.toLocaleString()} icon={<Users />} className="bg-blue-600 text-white" />
+                <StatCard title="Wisatawan Nusantara" value={totalWisnus.toLocaleString()} icon={<Globe />} className="bg-green-600 text-white" />
+                <StatCard title="Wisatawan Mancanegara" value={totalWisman.toLocaleString()} icon={<Plane />} className="bg-orange-500 text-white" />
+                <StatCard title="Total Destinasi Aktif" value={destinations.filter(d => d.status === 'aktif').length.toString()} icon={<Landmark />} className="bg-purple-600 text-white"/>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-5">
+                <Card className="lg:col-span-3">
+                    <CardHeader>
+                        <CardTitle>Tren Pengunjung Bulanan</CardTitle>
+                        <CardDescription>Total pengunjung (domestik & asing) selama tahun {selectedYear}.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <MonthlyVisitorsChart data={yearlyData} />
+                    </CardContent>
+                </Card>
+                <Card className="lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle>Komposisi Pengunjung</CardTitle>
+                         <CardDescription>Perbandingan wisatawan nusantara dan mancanegara per bulan.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <VisitorBreakdownChart data={yearlyData} />
+                    </CardContent>
+                </Card>
+            </div>
+            
+             <div className="grid gap-4">
+                <TopDestinationsCard data={yearlyData} destinations={destinations} />
+            </div>
+        </div>
+    )
+}
+
+function PublicLandingPage() {
   const [appTitle, setAppTitle] = useState('VisitData Hub');
   const [appFooter, setAppFooter] = useState(`© ${new Date().getFullYear()} VisitData Hub`);
 
@@ -61,17 +210,9 @@ export default function HomePage() {
             <span className="font-headline text-lg font-bold">{appTitle}</span>
           </Link>
           <nav className="flex items-center gap-4">
-            {user ? (
-              <Button asChild>
-                <Link href="/dashboard">
-                  Masuk ke Dasbor <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            ) : (
               <Button asChild>
                 <Link href="/login">Masuk</Link>
               </Button>
-            )}
           </nav>
         </div>
       </header>
@@ -87,14 +228,12 @@ export default function HomePage() {
             <p className="max-w-2xl text-lg text-muted-foreground">
               Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.
             </p>
-            <div className="flex gap-4">
-              <Button asChild size="lg">
-                <Link href={user ? "/dashboard" : "/login"}>
-                  Mulai Sekarang <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
           </div>
+        </section>
+        
+        {/* Dashboard Section */}
+        <section className="container py-8">
+            <DashboardContent />
         </section>
 
         {/* Features Section */}
@@ -116,6 +255,13 @@ export default function HomePage() {
               </Card>
             ))}
           </div>
+           <div className="text-center pt-6">
+              <Button asChild size="lg">
+                <Link href="/login">
+                  Mulai Sekarang <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
         </section>
       </main>
 
@@ -130,3 +276,40 @@ export default function HomePage() {
     </div>
   );
 }
+
+
+export default function HomePage() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    // This is to handle the case where a logged in user lands on `/`
+    // We want to redirect them to `/dashboard`
+    if (user) {
+      router.replace('/dashboard');
+    }
+  }, [user, router]);
+  
+  if(isLoading) {
+    return <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+            <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
+                <Logo className="h-10 w-10 animate-pulse" />
+            </div>
+        </div>
+  }
+
+  if (user) {
+    // User is logged in, show them the dashboard instead.
+    // Redirect is happening, show a loader
+    return <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+            <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
+                <Logo className="h-10 w-10 animate-pulse" />
+            </div>
+        </div>;
+  }
+
+  // No user, show the public landing page with dashboard preview
+  return <PublicLandingPage />;
+}
+
+    

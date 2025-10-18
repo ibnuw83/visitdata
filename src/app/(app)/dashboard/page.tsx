@@ -22,6 +22,8 @@ export default function DashboardPage() {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
     useEffect(() => {
+        // Data fetching should only happen if we have a user.
+        // The layout already handles redirection if there's no user.
         if (!user) return;
 
         const visitDataFromDb = getVisitData();
@@ -66,7 +68,7 @@ export default function DashboardPage() {
     const totalWisnus = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisnus, 0), [yearlyData]);
     const totalWisman = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisman, 0), [yearlyData]);
 
-    if (loading || !user) {
+    if (loading) {
         return (
              <div className="flex flex-col gap-8">
                 <div className="flex items-center justify-between">
@@ -151,3 +153,5 @@ export default function DashboardPage() {
         </div>
     )
 }
+
+    
