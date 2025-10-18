@@ -7,7 +7,7 @@ import { Users, Landmark, Plane, Globe } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-card";
 import MonthlyVisitorsChart from "@/components/dashboard/monthly-visitors-chart";
 import VisitorBreakdownChart from "@/components/dashboard/visitor-breakdown-chart";
-import TopDestinationsCard from "@/components/dashboard/top-destinations-card";
+import TopDestinationsCarousel from "@/components/dashboard/top-destinations-carousel";
 import { getVisitData, getDestinations } from "@/lib/local-data-service";
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -148,7 +148,7 @@ function DashboardContent() {
             </div>
             
              <div className="grid gap-4">
-                <TopDestinationsCard data={yearlyData} destinations={destinations} />
+                <TopDestinationsCarousel data={yearlyData} destinations={destinations} />
             </div>
         </div>
     )
