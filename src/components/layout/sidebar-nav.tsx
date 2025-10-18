@@ -32,10 +32,9 @@ const menuItems = [
 
 export default function SidebarNav() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, pendingRequestsCount } = useAuth();
   const [appTitle, setAppTitle] = useState('VisitData Hub');
   const [footerText, setFooterText] = useState('© 2024 VisitData Hub');
-  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   useEffect(() => {
     // Ensure this runs only on the client
@@ -43,12 +42,6 @@ export default function SidebarNav() {
     const savedFooter = localStorage.getItem('appFooter');
     if (savedTitle) setAppTitle(savedTitle);
     if (savedFooter) setFooterText(savedFooter);
-
-    if (user?.role === 'admin') {
-      const requests = getUnlockRequests();
-      const pendingCount = requests.filter(req => req.status === 'pending').length;
-      setPendingRequestsCount(pendingCount);
-    }
 
     const handleStorageChange = () => {
       const newTitle = localStorage.getItem('appTitle');
@@ -61,7 +54,7 @@ export default function SidebarNav() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [user]);
+  }, []);
 
   if (!user) {
     return null;

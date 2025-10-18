@@ -1,10 +1,10 @@
 
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect, Dispatch, SetStateAction } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, Dispatch, SetStateAction, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { loginAction, logoutAction } from '@/app/auth-actions';
-import { getUsers, resetAndSeedData } from '@/lib/local-data-service';
+import { getUsers, resetAndSeedData, getUnlockRequests } from '@/lib/local-data-service';
 import type { User } from '@/lib/types';
 
 interface AuthContextType {
@@ -14,6 +14,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isLoading: boolean;
   error: string | null;
+  pendingRequestsCount: number;
+  refreshPendingRequests: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,7 +27,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const router = useRouter();
+  
+  const refreshPendingRequests = useCallback(() => {
+    if (typeof window !== 'undefined') {
+        const requests = getUnlockRequests();
+        const pendingCount = requests.filter(req => req.status === 'pending').length;
+        setPendingRequestsCount(pendingCount);
+    }
+  }, []);
 
   useEffect(() => {
     // This effect runs only once when the provider mounts.
@@ -48,6 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (clientUser) {
                 const { password: _, ...userToSet } = clientUser;
                 setUser(userToSet); 
+                if (userToSet.role === 'admin') {
+                  refreshPendingRequests();
+                }
               } else {
                 await logoutAction();
                 setUser(null);
@@ -66,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     checkSession();
-  }, []);
+  }, [refreshPendingRequests]);
 
   const login = async (formData: FormData) => {
     setIsLoading(true);
@@ -96,6 +110,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 3. Set user state in the client
         const { password: _, ...userToSet } = foundUser;
         setUser(userToSet);
+        if (userToSet.role === 'admin') {
+          refreshPendingRequests();
+        }
         router.push('/dashboard');
       } else {
         throw new Error(sessionResult.error || 'Gagal membuat sesi server.');
@@ -112,11 +129,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await logoutAction();
     setUser(null);
+    setPendingRequestsCount(0);
     router.replace('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, login, logout, isLoading, error }}>
+    <AuthContext.Provider value={{ user, setUser, login, logout, isLoading, error, pendingRequestsCount, refreshPendingRequests }}>
       {children}
     </AuthContext.Provider>
   );

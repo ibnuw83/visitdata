@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -14,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
 
 export default function UnlockRequestsPage() {
-  const { user } = useAuth();
+  const { user, refreshPendingRequests } = useAuth();
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [unlockRequests, setUnlockRequests] = useState<UnlockRequest[]>([]);
@@ -43,6 +44,9 @@ export default function UnlockRequestsPage() {
     );
     setUnlockRequests(updatedRequests);
     saveUnlockRequests(updatedRequests);
+    
+    // After saving, refresh the global count
+    refreshPendingRequests();
 
     const targetRequest = updatedRequests.find(req => req.id === requestId);
     if (!targetRequest) return;
