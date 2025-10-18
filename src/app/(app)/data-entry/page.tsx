@@ -142,12 +142,12 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
     const newData = [...data];
     const monthData = newData.find(d => d.month === monthIndex + 1);
 
-    if (monthData) {
-      const updatedMonthData = {
+    if (monthData && appUser?.uid) {
+      const updatedMonthData: VisitData = {
         ...monthData,
         [field]: value,
         totalVisitors: value + monthData.wisman,
-        lastUpdatedBy: appUser?.uid
+        lastUpdatedBy: appUser.uid,
       };
       
       setData(newData.map(d => d.month === monthIndex + 1 ? updatedMonthData : d));
@@ -158,14 +158,14 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
   const handleWismanDetailsChange = (monthIndex: number, wismanDetails: WismanDetail[]) => {
      const newData = [...data];
      const monthData = newData.find(d => d.month === monthIndex + 1);
-     if (monthData) {
+     if (monthData && appUser?.uid) {
         const wisman = wismanDetails.reduce((sum, detail) => sum + (detail.count || 0), 0);
-        const updatedMonthData = {
+        const updatedMonthData: VisitData = {
           ...monthData,
           wismanDetails,
           wisman,
           totalVisitors: monthData.wisnus + wisman,
-          lastUpdatedBy: appUser?.uid
+          lastUpdatedBy: appUser.uid,
         };
         setData(newData.map(d => d.month === monthIndex + 1 ? updatedMonthData : d));
         debouncedSave(updatedMonthData);
@@ -174,8 +174,8 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
 
   const handleLockChange = (monthIndex: number, locked: boolean) => {
     const monthData = data.find(d => d.month === monthIndex + 1);
-    if (monthData) {
-        const updatedMonthData = { ...monthData, locked, lastUpdatedBy: appUser?.uid };
+    if (monthData && appUser?.uid) {
+        const updatedMonthData: VisitData = { ...monthData, locked, lastUpdatedBy: appUser.uid };
         onDataChange(updatedMonthData); // Save immediately
         toast({
             title: `Data ${locked ? 'Dikunci' : 'Dibuka'}`,
