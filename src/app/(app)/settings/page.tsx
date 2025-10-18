@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,7 @@ import { useAuth } from '@/context/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { getAllData, saveUsers, getUsers } from '@/lib/local-data-service';
+import { getAllData, saveUsers, getUsers, saveAllData } from '@/lib/local-data-service';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 
 function AppSettingsCard() {
@@ -18,6 +19,7 @@ function AppSettingsCard() {
     const [appTitle, setAppTitle] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
     const [footerText, setFooterText] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         setAppTitle(localStorage.getItem('appTitle') || 'VisitData Hub');
@@ -47,7 +49,7 @@ function AppSettingsCard() {
             a.href = url;
             a.download = `visitdata-backup-${new Date().toISOString().split('T')[0]}.json`;
             document.body.appendChild(a);
-            a.click();
+a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             toast({
@@ -64,28 +66,92 @@ function AppSettingsCard() {
         }
     }
 
+    const handleRestoreClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleRestoreData = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text !== 'string') {
+                    throw new Error("Gagal membaca file.");
+                }
+                const data = JSON.parse(text);
+
+                // Basic validation
+                if (data && data.users && data.destinations && data.visitData) {
+                    saveAllData(data);
+                    toast({
+                        title: "Pemulihan Berhasil",
+                        description: "Data telah dipulihkan. Harap muat ulang halaman.",
+                    });
+                     // Optional: prompt user to reload
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    throw new Error("Format file cadangan tidak valid.");
+                }
+            } catch (error: any) {
+                console.error("Restore failed", error);
+                toast({
+                    variant: 'destructive',
+                    title: "Pemulihan Gagal",
+                    description: error.message || "Terjadi kesalahan saat memulihkan data.",
+                });
+            } finally {
+                // Reset file input
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
+            }
+        };
+        reader.readAsText(file);
+    };
+
     return (
         <Card>
             <CardHeader>
                 <CardTitle>Pengaturan Aplikasi</CardTitle>
-                <CardDescription>Sesuaikan tampilan global dan cadangkan data aplikasi.</CardDescription>
+                <CardDescription>Sesuaikan tampilan global serta cadangkan dan pulihkan data aplikasi.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="grid gap-2">
-                    <Label htmlFor="app-title">Judul Aplikasi</Label>
-                    <Input id="app-title" value={appTitle} onChange={(e) => setAppTitle(e.target.value)} />
+                <div className="space-y-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="app-title">Judul Aplikasi</Label>
+                        <Input id="app-title" value={appTitle} onChange={(e) => setAppTitle(e.target.value)} />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="logo-url">URL Logo</Label>
+                        <Input id="logo-url" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://example.com/logo.png" />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="footer-text">Teks Footer</Label>
+                        <Input id="footer-text" value={footerText} onChange={(e) => setFooterText(e.target.value)} />
+                    </div>
+                    <Button onClick={handleSaveAppSettings}>Simpan Pengaturan Tampilan</Button>
                 </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="logo-url">URL Logo</Label>
-                    <Input id="logo-url" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://example.com/logo.png" />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="footer-text">Teks Footer</Label>
-                    <Input id="footer-text" value={footerText} onChange={(e) => setFooterText(e.target.value)} />
-                </div>
-                <div className='flex justify-between items-center pt-2'>
-                    <Button onClick={handleSaveAppSettings}>Simpan Pengaturan Aplikasi</Button>
-                    <Button variant="outline" onClick={handleBackupData}>Cadangkan Semua Data (JSON)</Button>
+                <div className="border-t pt-6 space-y-4">
+                     <div>
+                        <h3 className="text-base font-medium">Cadangkan & Pulihkan Data</h3>
+                        <p className="text-sm text-muted-foreground">Simpan semua data aplikasi ke file JSON, atau pulihkan dari file cadangan.</p>
+                    </div>
+                    <div className='flex justify-between items-center'>
+                        <Button variant="outline" onClick={handleBackupData}>Cadangkan Semua Data (JSON)</Button>
+                        <Button variant="outline" onClick={handleRestoreClick}>Pulihkan Data dari JSON</Button>
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleRestoreData}
+                          className="hidden"
+                          accept=".json"
+                        />
+                    </div>
                 </div>
             </CardContent>
         </Card>

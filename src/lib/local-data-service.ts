@@ -84,19 +84,32 @@ export function getCountries(): Country[] {
   return initializeData('countries', mockCountries);
 }
 
-
-// --- Combined Function for Server Actions ---
+// --- Combined Functions ---
 
 export function getAllData() {
-    // This function is intended to be used where client-side access is guaranteed,
-    // but we might need a way to get all data at once.
     return {
         users: getUsers(),
         destinations: getDestinations(),
         visitData: getVisitData(),
         unlockRequests: getUnlockRequests(),
-        categories: getCategories()
+        categories: getCategories(),
+        countries: getCountries()
     };
 }
 
-    
+export function saveAllData(data: {
+    users: User[],
+    destinations: Destination[],
+    visitData: VisitData[],
+    unlockRequests: UnlockRequest[],
+    categories: Category[],
+    countries: Country[],
+}) {
+    saveUsers(data.users);
+    saveDestinations(data.destinations);
+    saveVisitData(data.visitData);
+    saveUnlockRequests(data.unlockRequests);
+    saveCategories(data.categories);
+    // Countries are generally static, but we can save them too
+    saveData('countries', data.countries);
+}
