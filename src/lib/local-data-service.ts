@@ -21,6 +21,10 @@ function initializeData<T>(key: string, mockData: T[]): T[] {
         // but the real data will come from the client's localStorage.
         return mockData;
     }
+    // Force re-initialization of users to fix password issue
+    if (key === 'users') {
+        localStorage.removeItem('users');
+    }
     const storedData = localStorage.getItem(key);
     if (storedData) {
       return JSON.parse(storedData);
