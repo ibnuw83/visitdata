@@ -25,29 +25,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    (async () => {
+    const checkSession = async () => {
+      setIsLoading(true);
       try {
         const res = await fetch('/api/session', { cache: 'no-store' });
         
-        if (!res.ok) {
-            throw new Error('Failed to fetch session');
-        }
-
-        const serverSessionUser = await res.json();
-
-        if (serverSessionUser) {
-          const allClientUsers = getUsers();
-          const clientUser = allClientUsers.find(u => u.uid === serverSessionUser.uid);
-          
-          if(clientUser) {
-            setUser(clientUser);
-          } else {
-            await logoutAction();
-            setUser(null);
-          }
-
+        if (res.ok) {
+            const serverSessionUser = await res.json();
+            if (serverSessionUser && serverSessionUser.uid) {
+              const allClientUsers = getUsers();
+              const clientUser = allClientUsers.find(u => u.uid === serverSessionUser.uid);
+              
+              if (clientUser) {
+                setUser(clientUser);
+              } else {
+                // User exists in session but not in client storage, likely stale. Log them out.
+                await logoutAction();
+                setUser(null);
+              }
+            } else {
+              setUser(null);
+            }
         } else {
-          setUser(null);
+            // If the API call fails, assume no session
+            setUser(null);
         }
       } catch (e) {
         console.error("Session check failed:", e);
@@ -55,7 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } finally {
         setIsLoading(false);
       }
-    })();
+    };
+    checkSession();
   }, []);
 
   const login = async (formData: FormData) => {
