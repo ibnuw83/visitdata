@@ -150,7 +150,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
 
   const handleLockChange = (monthIndex: number, locked: boolean) => {
     const newData = [...data];
-    const monthData = newData.find(d => d.month === monthIndex + 1);
+    const monthData = newData.find(d => d.month === index + 1);
     if (monthData) {
         monthData.locked = locked;
         setData(newData);
@@ -365,7 +365,6 @@ export default function DataEntryPage() {
   const { user } = useAuth();
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
-  const [unlockRequests, setUnlockRequests] = useState<UnlockRequest[]>([]);
   
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -384,7 +383,6 @@ export default function DataEntryPage() {
 
     const visitData = getVisitData();
     setAllVisitData(visitData);
-    setUnlockRequests(getUnlockRequests());
     
     const yearsFromData = [...new Set(visitData.map(d => d.year))].sort((a,b) => b-a);
     const currentYear = new Date().getFullYear();
@@ -431,6 +429,10 @@ export default function DataEntryPage() {
     if (!availableYears.includes(newYear)) {
       setAvailableYears([newYear, ...availableYears]);
       setSelectedYear(newYear);
+      toast({
+        title: "Tahun Ditambahkan",
+        description: `Tahun ${newYear} telah ditambahkan. Anda sekarang dapat mengelola data untuk tahun tersebut.`
+      });
     }
   };
 
@@ -461,6 +463,13 @@ export default function DataEntryPage() {
               };
           });
           destData = fullYearData;
+
+          // Save the newly created year data if it's a new year
+          const existingDataForYear = allVisitData.filter(d => d.destinationId === dest.id && d.year === selectedYear);
+          if(existingDataForYear.length === 0) {
+            const allData = getVisitData();
+            saveVisitData([...allData, ...destData]);
+          }
       }
       
       return { destination: dest, data: destData.sort((a,b) => a.month - b.month) };
@@ -531,3 +540,5 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+    
