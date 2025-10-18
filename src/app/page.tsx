@@ -50,15 +50,11 @@ export default function LoginPage() {
     await login(formData);
   };
   
-  if (isLoading) {
+  // Show skeleton while loading or if user is logged in and we are redirecting
+  if (isLoading || user) {
      return <LoginSkeleton />;
   }
 
-  // JANGAN render form jika pengguna sudah terautentikasi dan proses redirect sedang berlangsung.
-  // Cukup tampilkan skeleton. `useEffect` di atas akan menangani pengalihan.
-  if (user) {
-    return <LoginSkeleton />;
-  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">

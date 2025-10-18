@@ -23,44 +23,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // On initial mount, try to restore the session and verify with the server.
   useEffect(() => {
-    let isMounted = true;
-    const restoreAndVerifySession = async () => {
+    const checkSession = async () => {
       try {
-        const storedUserJson = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (storedUserJson) {
-            const storedUser = JSON.parse(storedUserJson);
-            if (isMounted) setUser(storedUser);
-        }
-        
         const sessionUser = await getSessionUser();
-        if (isMounted) {
-          if (sessionUser) {
-              setUser(sessionUser);
-              localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessionUser));
-          } else {
-              setUser(null);
-              localStorage.removeItem(LOCAL_STORAGE_KEY);
-          }
+        if (sessionUser) {
+          setUser(sessionUser);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessionUser));
+        } else {
+          setUser(null);
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
         }
       } catch (e) {
-         if (isMounted) {
-            setUser(null);
-            localStorage.removeItem(LOCAL_STORAGE_KEY);
-         }
+        setUser(null);
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
       } finally {
-         if (isMounted) {
-            setIsLoading(false);
-         }
+        setIsLoading(false);
       }
     };
 
-    restoreAndVerifySession();
-    
-    return () => {
-        isMounted = false;
+    // First, try a quick sync restore from localStorage
+    try {
+        const storedUserJson = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedUserJson) {
+            setUser(JSON.parse(storedUserJson));
+        }
+    } catch (e) {
+        // Ignore parsing errors
     }
+
+    // Then, verify with the server
+    checkSession();
   }, []);
 
   const login = async (formData: FormData) => {
