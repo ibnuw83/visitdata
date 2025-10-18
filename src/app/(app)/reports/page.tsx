@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +11,7 @@ import { Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import * as XLSX from 'xlsx';
 
 export default function ReportsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -63,93 +63,65 @@ export default function ReportsPage() {
         return;
     }
 
-    const groupedByDestinationAndYear = filteredData.reduce((acc, d) => {
-        const key = `${d.destinationId}_${d.year}`;
-        if (!acc[key]) {
-            acc[key] = {
-                destName: destinationMap.get(d.destinationId) || 'Tidak Dikenal',
-                year: d.year,
-                data: []
-            };
+    const wb = XLSX.utils.book_new();
+
+    const groupedByDestination = filteredData.reduce((acc, d) => {
+        const destName = destinationMap.get(d.destinationId) || 'Tidak Dikenal';
+        if (!acc[destName]) {
+            acc[destName] = [];
         }
-        acc[key].data.push(d);
+        acc[destName].push(d);
         return acc;
-    }, {} as Record<string, { destName: string, year: number, data: VisitData[] }>);
+    }, {} as Record<string, VisitData[]>);
 
-    let csvContent = "";
-    
-    const allMonths = Array.from({ length: 12 }, (_, i) => ({
-      month: i + 1,
-      name: new Date(0, i).toLocaleString('id-ID', { month: 'long' })
-    }));
+    for (const destName in groupedByDestination) {
+        if (Object.prototype.hasOwnProperty.call(groupedByDestination, destName)) {
+            const sheetData = groupedByDestination[destName];
+            const year = sheetData[0]?.year;
+            
+            const header = ["Bulan", "Wis. Domestik", "Wis. Asing", "Rincian Negara", "Total Pengunjung"];
+            
+            const totals = { wisnus: 0, wisman: 0, totalVisitors: 0 };
+            
+            const allMonthsData = months.map(m => {
+                const data = sheetData.find(d => d.month === m.value);
+                const wisnus = data?.wisnus || 0;
+                const wisman = data?.wisman || 0;
+                const totalVisitors = data?.totalVisitors || 0;
+                const rincianNegara = data?.wismanDetails?.map(detail => `${detail.country} = ${detail.count}`).join('; ') || '';
 
-    for (const key in groupedByDestinationAndYear) {
-        const group = groupedByDestinationAndYear[key];
-        
-        csvContent += `Laporan untuk:,"${group.destName} - Tahun ${group.year}"\n`;
-        
-        const csvHeader = [
-          "Bulan",
-          "Wisatawan Domestik",
-          "Wisatawan Asing",
-          "Rincian Negara",
-          "Total Pengunjung"
-        ];
-        csvContent += csvHeader.join(',') + '\n';
-        
-        const totals = { wisnus: 0, wisman: 0, totalVisitors: 0 };
+                totals.wisnus += wisnus;
+                totals.wisman += wisman;
+                totals.totalVisitors += totalVisitors;
 
-        const monthlyData = new Map(group.data.map(d => [d.month, d]));
+                return [m.name, wisnus, wisman, rincianNegara, totalVisitors];
+            });
 
-        allMonths.forEach(m => {
-            const d = monthlyData.get(m.month);
-            const wisnus = d?.wisnus || 0;
-            const wisman = d?.wisman || 0;
-            const totalVisitors = d?.totalVisitors || 0;
-            const rincianNegara = d?.wismanDetails?.map(detail => `${detail.country} = ${detail.count}`).join(', ') || '';
-
-            totals.wisnus += wisnus;
-            totals.wisman += wisman;
-            totals.totalVisitors += totalVisitors;
-
-            const row = [
-                m.name,
-                wisnus,
-                wisman,
-                `"${rincianNegara}"`,
-                totalVisitors
+            const totalRow = ["JUMLAH", totals.wisnus, totals.wisman, "", totals.totalVisitors];
+            
+            const dataToExport = [
+                [`Laporan untuk: ${destName} - Tahun ${year}`],
+                [],
+                header,
+                ...allMonthsData,
+                [],
+                totalRow
             ];
-            csvContent += row.join(',') + '\n';
-        });
 
-        // Add total row
-        const totalRow = [
-          "JUMLAH",
-          totals.wisnus,
-          totals.wisman,
-          "", // Empty cell for rincian
-          totals.totalVisitors
-        ];
-        csvContent += totalRow.join(',') + '\n';
+            const ws = XLSX.utils.aoa_to_sheet(dataToExport);
 
-        csvContent += '\n\n'; // Add two empty lines for separation
+            // Sanitize sheet name
+            const safeSheetName = destName.replace(/[:\\/?*[\]]/g, '').substring(0, 31);
+            XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+        }
     }
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
     
-    const url = URL.createObjectURL(blob);
-    link.href = url;
     const date = new Date().toISOString().split('T')[0];
-    link.setAttribute('download', `laporan-kunjungan-${date}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
+    XLSX.writeFile(wb, `laporan-kunjungan-${date}.xlsx`);
+
     toast({
         title: "Laporan Diunduh",
-        description: "File laporan CSV Anda telah berhasil diunduh.",
+        description: "File laporan Excel Anda telah berhasil diunduh.",
     })
   }
 
@@ -203,7 +175,7 @@ export default function ReportsPage() {
             </Select>
              <Button className="w-full lg:w-auto" onClick={handleDownload}>
               <Download className="mr-2 h-4 w-4" />
-              Unduh Laporan (CSV)
+              Unduh Laporan (Excel)
             </Button>
           </div>
         </CardContent>
