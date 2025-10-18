@@ -34,6 +34,14 @@ export function getDestinations(): Destination[] {
   return initializeData('destinations', mockDestinations);
 }
 
+export function saveDestinations(destinations: Destination[]): void {
+  try {
+    localStorage.setItem('destinations', JSON.stringify(destinations));
+  } catch (error) {
+    console.error(`Error saving destinations to localStorage`, error);
+  }
+}
+
 export function getVisitData(): VisitData[] {
     return initializeData('visitData', mockVisitData);
 }

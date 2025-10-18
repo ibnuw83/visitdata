@@ -37,6 +37,7 @@ export const destinations: Destination[] = [
     category: 'alam',
     manager: 'pengelola-01',
     location: 'Jatijajar, Ayah, Kebumen',
+    status: 'aktif',
   },
   {
     id: 'dest-02',
@@ -44,6 +45,7 @@ export const destinations: Destination[] = [
     category: 'alam',
     manager: 'pengelola-02',
     location: 'Suwuk, Puring, Kebumen',
+    status: 'aktif',
   },
   {
     id: 'dest-03',
@@ -51,20 +53,23 @@ export const destinations: Destination[] = [
     category: 'sejarah',
     manager: 'pengelola-02',
     location: 'Gombong, Kebumen',
+    status: 'aktif',
   },
     {
     id: 'dest-04',
     name: 'Pantai Menganti',
     category: 'alam',
     manager: 'pengelola-01',
-    location: 'Karangduwur, Ayah, Kebumen'
+    location: 'Karangduwur, Ayah, Kebumen',
+    status: 'nonaktif',
     },
     {
     id: 'dest-05',
     name: 'Bukit Pentulu Indah',
     category: 'buatan',
     manager: 'pengelola-02',
-    location: 'Karangsambung, Kebumen'
+    location: 'Karangsambung, Kebumen',
+    status: 'aktif',
     }
 ];
 

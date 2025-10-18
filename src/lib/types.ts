@@ -14,6 +14,7 @@ export type Destination = {
   category: string; // Now a string to allow dynamic categories
   manager: string; // uid of pengelola
   location: string;
+  status: 'aktif' | 'nonaktif';
 };
 
 export type Category = {
