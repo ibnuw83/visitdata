@@ -22,6 +22,11 @@ export type Category = {
   name: string;
 };
 
+export type Country = {
+  code: string;
+  name: string;
+};
+
 export type WismanDetail = {
   country: string;
   count: number;

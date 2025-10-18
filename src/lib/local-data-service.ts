@@ -5,9 +5,10 @@ import {
     destinations as mockDestinations, 
     visitData as mockVisitData, 
     unlockRequests as mockUnlockRequests,
-    categories as mockCategories
+    categories as mockCategories,
+    countries as mockCountries,
 } from './mock-data';
-import type { User, Destination, VisitData, UnlockRequest, Category } from './types';
+import type { User, Destination, VisitData, UnlockRequest, Category, Country } from './types';
 
 function initializeData<T>(key: string, mockData: T[]): T[] {
   try {
@@ -69,6 +70,11 @@ export function saveCategories(categories: Category[]): void {
     console.error(`Error saving categories to localStorage`, error);
   }
 }
+
+export function getCountries(): Country[] {
+  return initializeData('countries', mockCountries);
+}
+
 
 // --- Combined Function for Server Actions ---
 

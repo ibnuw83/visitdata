@@ -12,12 +12,14 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getDestinations, getVisitData, saveVisitData } from "@/lib/local-data-service";
-import { Destination, VisitData, WismanDetail } from "@/lib/types";
+import { getDestinations, getVisitData, saveVisitData, getCountries } from "@/lib/local-data-service";
+import { Destination, VisitData, WismanDetail, Country } from "@/lib/types";
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import debounce from 'lodash.debounce';
+import { Combobox } from '@/components/ui/combobox';
+
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
 
@@ -109,18 +111,11 @@ function DestinationDataEntry({ destination, initialData, onDataChange }: { dest
                                     />
                                 </TableCell>
                                 <TableCell>
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            type="number"
-                                            className="h-8 w-24 border-0 shadow-none focus-visible:ring-1"
-                                            value={monthData?.wisman || 0}
-                                            readOnly
-                                        />
-                                        <WismanPopover 
-                                          details={monthData?.wismanDetails || []} 
-                                          onSave={(newDetails) => handleWismanDetailsChange(index, newDetails)}
-                                        />
-                                    </div>
+                                    <WismanPopover 
+                                        details={monthData?.wismanDetails || []}
+                                        totalWisman={monthData?.wisman || 0}
+                                        onSave={(newDetails) => handleWismanDetailsChange(index, newDetails)}
+                                    />
                                 </TableCell>
                                 <TableCell className="text-right font-medium">{monthData?.totalVisitors.toLocaleString() || 0}</TableCell>
                             </TableRow>
@@ -142,12 +137,19 @@ function DestinationDataEntry({ destination, initialData, onDataChange }: { dest
   );
 }
 
-function WismanPopover({ details, onSave }: { details: WismanDetail[], onSave: (details: WismanDetail[]) => void }) {
+function WismanPopover({ details, totalWisman, onSave }: { details: WismanDetail[], totalWisman: number, onSave: (details: WismanDetail[]) => void }) {
     const [wismanDetails, setWismanDetails] = useState(details);
+    const [countries, setCountries] = useState<Country[]>([]);
     
     useEffect(() => {
         setWismanDetails(details);
     }, [details]);
+    
+    useEffect(() => {
+        setCountries(getCountries());
+    }, []);
+
+    const countryOptions = useMemo(() => countries.map(c => ({ label: c.name, value: c.name })), [countries]);
 
     const handleDetailChange = (index: number, field: keyof WismanDetail, value: string | number) => {
         const newDetails = [...wismanDetails];
@@ -175,9 +177,15 @@ function WismanPopover({ details, onSave }: { details: WismanDetail[], onSave: (
     return (
         <Popover onOpenChange={(open) => !open && handleSave()}>
             <PopoverTrigger asChild>
-                <Button variant="link" className="h-8 p-1 text-sm">Rincian</Button>
+                <Input
+                    type="number"
+                    readOnly
+                    value={totalWisman}
+                    className="h-8 w-24 cursor-pointer border-0 shadow-none focus-visible:ring-1"
+                    placeholder="Input Rincian"
+                />
             </PopoverTrigger>
-            <PopoverContent className="w-80">
+            <PopoverContent className="w-96">
                 <div className="grid gap-4">
                     <div className="space-y-2">
                         <h4 className="font-medium leading-none">Rincian Wisatawan Asing</h4>
@@ -185,23 +193,24 @@ function WismanPopover({ details, onSave }: { details: WismanDetail[], onSave: (
                             Tambahkan jumlah pengunjung per negara asal.
                         </p>
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-2 max-h-60 overflow-y-auto pr-3">
                         {wismanDetails.map((detail, index) => (
                            <div key={index} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-                                <Input
-                                    placeholder="Negara Asal"
-                                    value={detail.country}
-                                    className="h-8"
-                                    onChange={(e) => handleDetailChange(index, 'country', e.target.value)}
+                                <Combobox
+                                  options={countryOptions}
+                                  value={detail.country}
+                                  onChange={(value) => handleDetailChange(index, 'country', value)}
+                                  placeholder="Cari negara..."
+                                  inputPlaceholder="Pilih Negara"
                                 />
                                 <Input
                                     type="number"
                                     placeholder="Jumlah"
                                     value={detail.count}
-                                    className="h-8 w-20"
+                                    className="h-9 w-24"
                                     onChange={(e) => handleDetailChange(index, 'count', e.target.value)}
                                 />
-                                 <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeEntry(index)}>
+                                 <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={() => removeEntry(index)}>
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
                             </div>
