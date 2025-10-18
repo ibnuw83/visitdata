@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -19,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { PlusCircle, Trash2, Lock, Unlock, KeyRound, Save } from 'lucide-react';
 import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError, useMemoFirebase, useQuery as useFirestoreQuery } from '@/firebase';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup } from 'firebase/firestore';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -140,7 +141,7 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
             const existingData = fetchedVisitData.find(d => d.month === monthIndex);
             if (existingData) return existingData;
             
-            // This is placeholder data for months without entries in Firestore
+            const isFutureOrCurrent = new Date(selectedYear, monthIndex - 1) >= new Date(new Date().getFullYear(), new Date().getMonth());
             return initialData.find(d => d.month === monthIndex) || {
                 id: `${destination.id}-${selectedYear}-${monthIndex}`,
                 destinationId: destination.id,
@@ -151,7 +152,7 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
                 wisman: 0,
                 wismanDetails: [],
                 totalVisitors: 0,
-                locked: appUser?.role === 'admin' ? true : new Date(selectedYear, monthIndex, 1) > new Date(),
+                locked: appUser?.role === 'admin' ? true : isFutureOrCurrent,
             };
         });
       setData(fullYearData.sort((a,b) => a.month - b.month));
@@ -159,7 +160,8 @@ function DestinationDataEntry({ destination, initialData, onBulkDataChange, onLo
         setData(initialData);
     }
      setHasChanges(false);
-  }, [initialData, fetchedVisitData, visitsLoading, isAccordionOpen, selectedYear, destination.id, appUser?.role]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchedVisitData, visitsLoading, isAccordionOpen, selectedYear, destination.id, appUser?.role]);
   
   
   const handleDataChange = (monthIndex: number, field: 'wisnus', value: number) => {
@@ -456,12 +458,9 @@ export default function DataEntryPage() {
 
   
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
-  const { data: allVisitData, setData: setAllVisitData } = useCollection<VisitData>(null); // Initially null
   
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
-    // Since we don't fetch all data upfront, we manage years manually.
-    // For simplicity, let's show the last 5 years plus the next year.
     const years = Array.from({length: 7}, (_, i) => currentYear + 1 - i);
     return years.map(String);
   }, []);
@@ -569,7 +568,6 @@ export default function DataEntryPage() {
   
     batch.commit()
       .then(() => {
-        // We don't need to update global state anymore
         setSelectedYear(newYear);
         toast({
           title: "Tahun Ditambahkan",
@@ -655,11 +653,9 @@ export default function DataEntryPage() {
       : destinations.filter(d => d.id === selectedDestinationFilter);
 
     return filteredDestinations.map(dest => {
-        // Create placeholder data for all 12 months.
-        // The actual data will be lazy-loaded inside DestinationDataEntry.
         const placeholderData = months.map((monthName, index) => {
             const monthIndex = index + 1;
-            const isFuture = new Date(selectedYear, monthIndex, 1) > new Date();
+            const isFutureOrCurrent = new Date(selectedYear, monthIndex - 1) >= new Date(new Date().getFullYear(), new Date().getMonth());
             return {
                 id: `${dest.id}-${selectedYear}-${monthIndex}`,
                 destinationId: dest.id,
@@ -670,7 +666,7 @@ export default function DataEntryPage() {
                 wisman: 0,
                 wismanDetails: [],
                 totalVisitors: 0,
-                locked: appUser?.role === 'admin' ? true : isFuture,
+                locked: appUser?.role === 'admin' ? true : isFutureOrCurrent,
             };
         });
         return { destination: dest, data: placeholderData.sort((a,b) => a.month - b.month) };
