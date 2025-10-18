@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/context/auth-context';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 
 function SubmitButton() {
   const { isLoading } = useAuth();
@@ -99,6 +100,11 @@ export default function LoginPage() {
           </form>
         </CardContent>
       </Card>
+      <div className="mt-4 text-center text-sm">
+        <Link href="/" className="underline text-muted-foreground hover:text-primary">
+          Kembali ke halaman utama
+        </Link>
+      </div>
     </div>
   );
 }
