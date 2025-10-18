@@ -27,7 +27,8 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Redirect if user is already logged in and loading is complete
+    // AppLayout now handles redirection for logged-in users.
+    // This hook will redirect if a logged-in user tries to manually navigate to /login.
     if (!isInitializing && user) {
       router.push('/dashboard');
     }
@@ -42,7 +43,9 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // Redirect will be handled by the useEffect hook
+      // Successful login will trigger a re-render, and the useEffect above
+      // or the logic in AppLayout will handle the redirect.
+      router.push('/dashboard');
     } catch (e: any) {
       console.error("Login Error:", e);
       const authError = new AuthError(e.code, e.message);
@@ -74,6 +77,8 @@ export default function LoginPage() {
     }
   };
   
+  // Show a loading indicator while checking auth status.
+  // If the user is already logged in, they will be redirected by the useEffect.
   if (isInitializing || user) {
      return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -84,6 +89,7 @@ export default function LoginPage() {
      );
   }
 
+  // If not loading and no user, show the login form.
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">

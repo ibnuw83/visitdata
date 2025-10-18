@@ -48,23 +48,39 @@ function AppLayoutSkeleton() {
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuthUser();
+  const { user, isLoading: isAuthLoading } = useAuthUser();
   const { appUser, isLoading: isAppUserLoading } = useUser();
   const router = useRouter();
 
   // Redirect if not logged in and loading is complete
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.replace('/login');
+    // Wait until the initial auth check is finished
+    if (!isAuthLoading) {
+        // If there's no authenticated user, redirect to login
+        if (!user) {
+            router.replace('/login');
+        } 
+        // If there is an authenticated user, but we've checked for appUser and it's null
+        // (e.g., user deleted from Firestore but not Auth), also redirect.
+        else if (!isAppUserLoading && !appUser) {
+            router.replace('/login');
+        }
     }
-  }, [user, isLoading, router]);
+  }, [user, isAuthLoading, appUser, isAppUserLoading, router]);
 
-  // Show loading skeleton while checking auth or fetching user data.
-  if (isLoading || isAppUserLoading || !appUser) {
+  // Show loading skeleton while checking auth or fetching user profile data.
+  // The `!appUser` check is crucial to wait for the Firestore profile.
+  if (isAuthLoading || (user && !appUser)) {
     return <AppLayoutSkeleton />;
   }
+  
+  // If we're done loading and there's still no user, we'll be redirected by the useEffect.
+  // Render nothing to avoid a flash of the layout.
+  if (!user) {
+    return null;
+  }
 
-  // If we have an appUser, show the layout
+  // If we have a user and their profile, show the full app layout.
   return (
     <SidebarProvider>
       <Sidebar>
