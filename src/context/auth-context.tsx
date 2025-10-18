@@ -1,9 +1,8 @@
-
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { login as loginAction, logout as logoutAction, getSessionUser } from '@/app/auth-actions';
+import { login as loginAction, logout as logoutAction } from '@/app/auth-actions';
 import { User } from '@/lib/types';
 
 const LOCAL_STORAGE_KEY = 'visitdata.session';
@@ -25,31 +24,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Immediately Invoked Function Expression (IIFE) to run async code in useEffect
     (async () => {
       try {
-        // First, try a quick sync restore from localStorage to prevent UI flicker
         const storedUserJson = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (storedUserJson) {
           setUser(JSON.parse(storedUserJson));
         }
 
-        // Then, verify with the server
-        const sessionUser = await getSessionUser();
+        const res = await fetch('/api/session', { cache: 'no-store' });
+        
+        if (!res.ok) {
+            throw new Error('Failed to fetch session');
+        }
+
+        const data = await res.json();
+        const sessionUser = data.user;
+
         if (sessionUser) {
           setUser(sessionUser);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessionUser));
         } else {
-          // If server has no session, clear client state
           setUser(null);
           localStorage.removeItem(LOCAL_STORAGE_KEY);
         }
       } catch (e) {
-        console.error("Session check failed", e);
+        console.error("Session check failed:", e);
         setUser(null);
         localStorage.removeItem(LOCAL_STORAGE_KEY);
       } finally {
-        // THIS IS CRITICAL: Always set loading to false after the check is complete.
         setIsLoading(false);
       }
     })();

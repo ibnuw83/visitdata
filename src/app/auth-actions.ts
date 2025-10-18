@@ -1,6 +1,6 @@
 'use server';
 
-import { createSession, deleteSession } from '@/lib/session';
+import { createSession, deleteSession, getCurrentUser } from '@/lib/session';
 import { users } from '@/lib/mock-data';
 import { User } from '@/lib/types';
 
@@ -27,11 +27,3 @@ export async function login(formData: FormData): Promise<User | null> {
 export async function logout() {
   await deleteSession();
 }
-
-export async function getSessionUser() {
-  return await getCurrentUser();
-}
-
-// getCurrentUser is now imported from session, so we don't need it here.
-// Re-import it from session to avoid circular dependencies and keep logic separated.
-import { getCurrentUser } from '@/lib/session';
