@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -12,6 +13,7 @@ import type { User, Destination, VisitData, UnlockRequest, Category, Country } f
 
 function initializeData<T>(key: string, mockData: T[]): T[] {
   try {
+    if (typeof window === 'undefined') return mockData; // Return mock data in SSR
     const storedData = localStorage.getItem(key);
     if (storedData) {
       return JSON.parse(storedData);
@@ -25,6 +27,16 @@ function initializeData<T>(key: string, mockData: T[]): T[] {
   }
 }
 
+function saveData<T>(key: string, data: T[]): void {
+  try {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving data for key ${key} to localStorage`, error);
+  }
+}
+
+
 // --- Data Access Functions ---
 
 export function getUsers(): User[] {
@@ -36,11 +48,7 @@ export function getDestinations(): Destination[] {
 }
 
 export function saveDestinations(destinations: Destination[]): void {
-  try {
-    localStorage.setItem('destinations', JSON.stringify(destinations));
-  } catch (error) {
-    console.error(`Error saving destinations to localStorage`, error);
-  }
+  saveData('destinations', destinations);
 }
 
 export function getVisitData(): VisitData[] {
@@ -48,27 +56,24 @@ export function getVisitData(): VisitData[] {
 }
 
 export function saveVisitData(data: VisitData[]): void {
-  try {
-    localStorage.setItem('visitData', JSON.stringify(data));
-  } catch (error) {
-    console.error(`Error saving visit data to localStorage`, error);
-  }
+  saveData('visitData', data);
 }
 
 export function getUnlockRequests(): UnlockRequest[] {
     return initializeData('unlockRequests', mockUnlockRequests);
 }
 
+export function saveUnlockRequests(requests: UnlockRequest[]): void {
+    saveData('unlockRequests', requests);
+}
+
+
 export function getCategories(): Category[] {
   return initializeData('categories', mockCategories);
 }
 
 export function saveCategories(categories: Category[]): void {
-  try {
-    localStorage.setItem('categories', JSON.stringify(categories));
-  } catch (error) {
-    console.error(`Error saving categories to localStorage`, error);
-  }
+  saveData('categories', categories);
 }
 
 export function getCountries(): Country[] {
@@ -90,5 +95,4 @@ export function getAllData() {
     };
 }
 
-// In a real app, you would have functions to update the data as well.
-// e.g., export function saveUsers(users: User[]): void { localStorage.setItem('users', JSON.stringify(users)); }
+    
