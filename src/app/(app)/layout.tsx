@@ -5,7 +5,6 @@ import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar'
 import Header from '@/components/layout/header';
 import SidebarNav from '@/components/layout/sidebar-nav';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/auth-context';
 import { useUser } from '@/firebase/auth/use-user';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -48,20 +47,17 @@ function AppLayoutSkeleton() {
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading: isAuthLoading } = useAuth();
-  const { appUser, loading: isUserLoading } = useUser();
+  const { appUser, isLoading } = useUser();
   const router = useRouter();
-
-  const isLoading = isAuthLoading || (user && isUserLoading) || (!isAuthLoading && !user && typeof window !== 'undefined' && window.location.pathname !== '/login');
 
   // Redirect if not logged in and loading is complete
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isLoading && !appUser) {
       router.replace('/login');
     }
-  }, [user, isLoading, router]);
+  }, [appUser, isLoading, router]);
 
-  // Show loading skeleton while checking auth, fetching user data, or if user exists but appUser is not yet loaded.
+  // Show loading skeleton while checking auth or fetching user data.
   if (isLoading || !appUser) {
     return <AppLayoutSkeleton />;
   }
