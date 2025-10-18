@@ -13,7 +13,7 @@ export function useCollection<T>(
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // Jangan jalankan apapun kalau query belum siap
+    // Jangan jalankan kalau query belum siap
     if (!q) {
       setData([]);
       setLoading(false);

@@ -8,9 +8,7 @@ export { FirebaseClientProvider, useFirebaseApp, useFirestore, useAuth } from '@
 export { useUser } from '@/lib/firebase/auth/use-user';
 
 // Firestore hooks
-export { useCollection } from '@/lib/firebase/firestore/use-collection';
-export { useDoc } from '@/lib/firebase/firestore/use-doc';
-export { useQuery } from '@/lib/firebase/firestore/use-query';
+export { useCollection, useDoc, useQuery } from '@/lib/firebase/firestore';
 
 // Error handling utilities
 export { errorEmitter } from '@/lib/firebase/error-emitter';

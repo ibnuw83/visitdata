@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -14,32 +13,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore } from '@/lib/firebase/client-provider';
-import { useCollection } from '@/lib/firebase/firestore/use-collection';
-import { useDoc } from '@/lib/firebase/firestore/use-doc';
+import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, collectionGroup, doc } from "firebase/firestore";
 
 function DashboardContent() {
     const firestore = useFirestore();
+    const [clientReady, setClientReady] = useState(false);
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
+    useEffect(() => {
+        // This effect runs only on the client, ensuring `new Date()` is safe
+        const year = new Date().getFullYear();
+        setCurrentYear(year);
+        setSelectedYear(year.toString());
+        setClientReady(true);
+    }, []);
+    
     const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
     const visitsQuery = useMemo(() => firestore ? collectionGroup(firestore, 'visits') : null, [firestore]);
 
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
     
-    const [loading, setLoading] = useState(true);
+    const loading = !clientReady || destinationsLoading || visitsLoading;
     const [selectedYear, setSelectedYear] = useState(currentYear.toString());
-
-    useEffect(() => {
-        setLoading(destinationsLoading || visitsLoading);
-    }, [destinationsLoading, visitsLoading]);
-    
-     useEffect(() => {
-        const year = new Date().getFullYear();
-        setCurrentYear(year);
-        setSelectedYear(year.toString());
-    }, []);
 
     const availableYears = useMemo(() => {
         if (!allVisitData) return [currentYear];
