@@ -6,19 +6,26 @@ import { users } from '@/lib/mock-data';
 
 // The 'prevState' is required for useActionState, but we don't use it here.
 export async function login(prevState: any, formData: FormData) {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
+  try {
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
 
-  const user = users.find((u) => u.email === email);
+    // This handles the initial state before any submission
+    if (!email && !password) {
+        return { error: null };
+    }
 
-  // CRITICAL: Validate user exists AND password is correct.
-  if (user && password === 'password123') {
-    // CRITICAL: Await session creation before returning.
-    await createSession(user.uid);
-    // Instead of redirecting, return a success status to the client component.
-    return { success: true };
-  } else {
-    return { error: 'Email atau kata sandi tidak valid.' };
+    const user = users.find((u) => u.email === email);
+
+    if (user && password === 'password123') {
+      await createSession(user.uid);
+      return { success: true };
+    } else {
+      return { error: 'Email atau kata sandi tidak valid.' };
+    }
+  } catch (error) {
+    console.error(error);
+    return { error: 'Terjadi kesalahan yang tidak terduga.' };
   }
 }
 

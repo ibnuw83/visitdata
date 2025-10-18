@@ -6,13 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import { useEffect, useActionState } from 'react';
+import { useEffect } from 'react';
+import { useActionState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [state, formAction, isPending] = useActionState(login, null);
+  const [state, formAction, isPending] = useActionState(login, { error: null });
 
   useEffect(() => {
     if (state?.success) {
@@ -47,6 +48,7 @@ export default function LoginPage() {
                 placeholder="email@example.com"
                 required
                 disabled={isPending}
+                defaultValue="admin@dinas.com"
               />
             </div>
             <div className="grid gap-2">
