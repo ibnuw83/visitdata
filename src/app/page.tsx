@@ -9,6 +9,7 @@ import { Logo } from '@/components/logo';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/context/auth-context';
 import { useEffect } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function SubmitButton() {
   const { isLoading } = useAuth();
@@ -18,6 +19,18 @@ function SubmitButton() {
       {isLoading ? 'Memeriksa...' : 'Masuk'}
     </Button>
   );
+}
+
+function LoginSkeleton() {
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+            <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
+                <Logo className="h-10 w-10 animate-pulse" />
+                <h1 className="font-headline text-3xl font-bold">VisitData Hub</h1>
+            </div>
+            <p>Memuat sesi...</p>
+        </div>
+     );
 }
 
 export default function LoginPage() {
@@ -37,24 +50,14 @@ export default function LoginPage() {
     await login(formData);
   };
   
-  // Show loading screen only on initial load.
-  // Once loading is done, either the form is shown or the redirect happens.
-  if (isLoading && !user) {
-     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-            <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
-                <Logo className="h-10 w-10 animate-pulse" />
-                <h1 className="font-headline text-3xl font-bold">VisitData Hub</h1>
-            </div>
-            <p>Memuat sesi...</p>
-        </div>
-     );
+  if (isLoading) {
+     return <LoginSkeleton />;
   }
 
-  // If a user object exists, the useEffect will handle the redirect.
-  // Don't render the form to avoid a flash of the login page.
+  // JANGAN render form jika pengguna sudah terautentikasi dan proses redirect sedang berlangsung.
+  // Cukup tampilkan skeleton. `useEffect` di atas akan menangani pengalihan.
   if (user) {
-    return null;
+    return <LoginSkeleton />;
   }
 
   return (
