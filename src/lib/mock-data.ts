@@ -1,3 +1,4 @@
+
 import { User, Destination, VisitData, UnlockRequest, Category, Country } from './types';
 import { PlaceHolderImages } from './placeholder-images';
 
