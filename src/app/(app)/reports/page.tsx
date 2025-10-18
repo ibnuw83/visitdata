@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +46,10 @@ export default function ReportsPage() {
     if (selectedMonth !== 'all') {
       data = data.filter(d => d.month === parseInt(selectedMonth));
     }
-    return data.sort((a,b) => b.year - a.year || a.month - b.month);
+    return data.sort((a, b) => {
+        if (a.year !== b.year) return b.year - a.year;
+        return a.month - b.month;
+    });
   }, [visitData, selectedDestination, selectedYear, selectedMonth]);
 
 
@@ -58,47 +62,62 @@ export default function ReportsPage() {
         });
         return;
     }
+
+    const groupedByDestination = filteredData.reduce((acc, d) => {
+        const destName = destinationMap.get(d.destinationId) || 'Tidak Dikenal';
+        if (!acc[destName]) {
+            acc[destName] = [];
+        }
+        acc[destName].push(d);
+        return acc;
+    }, {} as Record<string, VisitData[]>);
     
-    // Get all unique countries from the filtered data
+    // Get all unique countries from the ENTIRE filtered data to create consistent columns
     const allCountries = [...new Set(filteredData.flatMap(d => d.wismanDetails?.map(detail => detail.country) || []))];
 
-    const csvHeader = [
-      "ID Kunjungan",
-      "ID Destinasi",
-      "Nama Destinasi",
-      "Tahun",
-      "Bulan",
-      "Wisatawan Domestik",
-      "Total Wisatawan Asing",
-      ...allCountries, // Add country columns
-      "Total Pengunjung"
-    ];
-    
-    const csvRows = filteredData.map(d => {
-        const countryCounts = new Map(d.wismanDetails?.map(detail => [detail.country, detail.count]) || []);
-        const countryValues = allCountries.map(country => countryCounts.get(country) || 0);
+    let csvContent = "";
 
-        return [
-          d.id,
-          d.destinationId,
-          `"${destinationMap.get(d.destinationId) || 'Tidak Dikenal'}"`,
-          d.year,
-          d.monthName,
-          d.wisnus,
-          d.wisman,
-          ...countryValues,
-          d.totalVisitors
-        ].join(',');
-    });
+    for (const destName in groupedByDestination) {
+        const destData = groupedByDestination[destName];
+        
+        // Add a title for the table
+        csvContent += `Laporan untuk:,"${destName}"\n`;
+        
+        const csvHeader = [
+          "Tahun",
+          "Bulan",
+          "Wisatawan Domestik",
+          "Total Wisatawan Asing",
+          ...allCountries, // Add country columns
+          "Total Pengunjung"
+        ];
+        
+        const csvRows = destData.map(d => {
+            const countryCounts = new Map(d.wismanDetails?.map(detail => [detail.country, detail.count]) || []);
+            const countryValues = allCountries.map(country => countryCounts.get(country) || 0);
 
-    const csvContent = [csvHeader.join(','), ...csvRows].join('\n');
+            return [
+              d.year,
+              d.monthName,
+              d.wisnus,
+              d.wisman,
+              ...countryValues,
+              d.totalVisitors
+            ].join(',');
+        });
+
+        csvContent += csvHeader.join(',') + '\n';
+        csvContent += csvRows.join('\n');
+        csvContent += '\n\n'; // Add two empty lines for separation
+    }
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     
     const url = URL.createObjectURL(blob);
     link.href = url;
     const date = new Date().toISOString().split('T')[0];
-    link.setAttribute('download', `laporan-kunjungan-wisman-detailed-${date}.csv`);
+    link.setAttribute('download', `laporan-kunjungan-${date}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
