@@ -62,8 +62,7 @@ export function Combobox({ options, value, onChange, placeholder, inputPlacehold
                   key={option.value}
                   value={option.value}
                   onSelect={(currentValue) => {
-                    const selectedOption = options.find(opt => opt.label.toLowerCase() === currentValue.toLowerCase());
-                    onChange(selectedOption ? selectedOption.value : (currentValue === value ? "" : currentValue))
+                    onChange(currentValue === value ? "" : currentValue)
                     setOpen(false)
                   }}
                 >
