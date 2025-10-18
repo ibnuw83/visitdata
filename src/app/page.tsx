@@ -21,10 +21,11 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const { login, error, user } = useAuth();
+  const { login, error, user, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
+    // Redirect if user is already logged in (e.g., from localStorage restoration)
     if (user) {
       router.push('/dashboard');
     }
@@ -36,6 +37,20 @@ export default function LoginPage() {
     await login(formData);
   };
   
+  // Don't render the login form if we are still loading the session
+  // or if the user is already logged in.
+  if (isLoading || user) {
+     return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+            <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
+                <Logo className="h-10 w-10 animate-pulse" />
+                <h1 className="font-headline text-3xl font-bold">VisitData Hub</h1>
+            </div>
+            <p>Memuat sesi...</p>
+        </div>
+     );
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
