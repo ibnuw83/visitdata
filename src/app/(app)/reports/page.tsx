@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Destination, VisitData } from "@/lib/types";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -20,6 +20,12 @@ import { collection, query, where, collectionGroup } from "firebase/firestore";
 export default function ReportsPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
+  useEffect(() => {
+    // This runs only on the client
+    setCurrentYear(new Date().getFullYear());
+  }, []);
 
   const destinationsQuery = useMemo(() => {
     if (!firestore || !appUser) return null;
@@ -49,19 +55,19 @@ export default function ReportsPage() {
 
   // Filter state
   const [selectedDestination, setSelectedDestination] = useState('all');
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState('all');
 
   const { toast } = useToast();
 
   const years = useMemo(() => {
-    if (!visitData) return [new Date().getFullYear()];
+    if (!visitData) return [currentYear];
     const allYears = [...new Set(visitData.map(d => d.year))].sort((a,b) => b-a);
-    if (!allYears.includes(new Date().getFullYear())) {
-        allYears.unshift(new Date().getFullYear());
+    if (!allYears.includes(currentYear)) {
+        allYears.unshift(currentYear);
     }
     return allYears;
-  },[visitData]);
+  },[visitData, currentYear]);
 
   const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, name: new Date(0, i).toLocaleString('id-ID', { month: 'long' }) }));
   
@@ -72,6 +78,10 @@ export default function ReportsPage() {
 
     let data = visitData;
     
+    const dests = destinations || [];
+    const allowedDestinationIds = new Set(dests.map(d => d.id));
+    data = data.filter(d => allowedDestinationIds.has(d.destinationId));
+
     if (selectedDestination !== 'all') {
       data = data.filter(d => d.destinationId === selectedDestination);
     }
@@ -81,10 +91,6 @@ export default function ReportsPage() {
     if (selectedMonth !== 'all') {
       data = data.filter(d => d.month === parseInt(selectedMonth));
     }
-    
-    // Ensure we only show data for the destinations the user has access to
-    const allowedDestinationIds = new Set(destinations.map(d => d.id));
-    data = data.filter(d => allowedDestinationIds.has(d.destinationId));
     
     return data.sort((a, b) => {
         if (a.year !== b.year) return b.year - a.year;
@@ -164,6 +170,10 @@ export default function ReportsPage() {
         description: "File laporan Excel Anda telah berhasil diunduh.",
     })
   }
+
+  useEffect(() => {
+    setSelectedYear(currentYear.toString());
+  }, [currentYear]);
 
   if (!appUser || !destinations || !visitData) {
     return null; // or a loading skeleton

@@ -21,6 +21,7 @@ import { collection, collectionGroup, doc } from "firebase/firestore";
 
 function DashboardContent() {
     const firestore = useFirestore();
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
     const visitsQuery = useMemo(() => firestore ? collectionGroup(firestore, 'visits') : null, [firestore]);
 
@@ -28,20 +29,26 @@ function DashboardContent() {
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
     
     const [loading, setLoading] = useState(true);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+    const [selectedYear, setSelectedYear] = useState(currentYear.toString());
 
     useEffect(() => {
         setLoading(destinationsLoading || visitsLoading);
     }, [destinationsLoading, visitsLoading]);
     
+     useEffect(() => {
+        const year = new Date().getFullYear();
+        setCurrentYear(year);
+        setSelectedYear(year.toString());
+    }, []);
+
     const availableYears = useMemo(() => {
-        if (!allVisitData) return [new Date().getFullYear()];
+        if (!allVisitData) return [currentYear];
         const allYears = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
-        if (!allYears.includes(new Date().getFullYear())) {
-            allYears.unshift(new Date().getFullYear());
+        if (!allYears.includes(currentYear)) {
+            allYears.unshift(currentYear);
         }
         return allYears;
-    }, [allVisitData]);
+    }, [allVisitData, currentYear]);
 
     const yearlyData = useMemo(() => {
         if (!allVisitData) return [];
@@ -141,11 +148,19 @@ export default function HomePage() {
     const firestore = useFirestore();
     const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings/app') : null, [firestore]);
     const { data: settings } = useDoc<AppSettings>(settingsRef);
+    const [footerText, setFooterText] = useState('');
   
     const appTitle = settings?.appTitle || 'VisitData Hub';
-    const appFooter = settings?.footerText || `© ${new Date().getFullYear()} VisitData Hub`;
     const heroTitle = settings?.heroTitle || 'Pusat Data Pariwisata Modern Anda';
     const heroSubtitle = settings?.heroSubtitle || 'Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.';
+    
+    useEffect(() => {
+        if (settings) {
+            setFooterText(settings.footerText || `© ${new Date().getFullYear()} VisitData Hub`);
+        } else {
+             setFooterText(`© ${new Date().getFullYear()} VisitData Hub`);
+        }
+    }, [settings]);
   
     useEffect(() => {
         if (settings?.logoUrl) {
@@ -195,7 +210,7 @@ export default function HomePage() {
       <footer className="py-6 md:px-8 md:py-0">
         <div className="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
           <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
-            {appFooter}
+            {footerText}
           </p>
         </div>
       </footer>

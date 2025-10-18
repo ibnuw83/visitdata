@@ -25,7 +25,8 @@ export const useUser = () => {
   const userDocRef = useMemo(() => {
       if (!authUser || !firestore) return null;
       return doc(firestore, 'users', authUser.uid) as DocumentReference<AppUser>;
-  }, [authUser, firestore]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.uid, firestore]);
   
   const { data: appUser, loading: loadingUser, error } = useDoc<AppUser>(userDocRef);
 

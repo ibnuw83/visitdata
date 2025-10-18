@@ -383,6 +383,13 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
 export default function DataEntryPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [clientSelectedYear, setClientSelectedYear] = useState<number>(selectedYear);
+
+  useEffect(() => {
+    // This runs only on the client
+    setClientSelectedYear(new Date().getFullYear());
+  }, []);
 
   const destinationsQuery = useMemo(() => {
     if (!firestore || !appUser) return null;
@@ -413,18 +420,16 @@ export default function DataEntryPage() {
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
   const { data: allVisitData } = useCollection<VisitData>(allVisitsQuery);
   
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const { toast } = useToast();
 
   const availableYears = useMemo(() => {
-    if (!allVisitData) return [new Date().getFullYear()];
+    if (!allVisitData) return [clientSelectedYear];
     const yearsFromData = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
-    const currentYear = new Date().getFullYear();
-    if (!yearsFromData.includes(currentYear)) {
-      yearsFromData.unshift(currentYear);
+    if (!yearsFromData.includes(clientSelectedYear)) {
+      yearsFromData.unshift(clientSelectedYear);
     }
     return yearsFromData;
-  }, [allVisitData]);
+  }, [allVisitData, clientSelectedYear]);
 
   const handleDataChange = async (updatedData: VisitData) => {
     if (!firestore) return;
@@ -467,7 +472,7 @@ export default function DataEntryPage() {
   }
   
   const handleAddYear = async () => {
-    const newYear = (availableYears[0] || new Date().getFullYear()) + 1;
+    const newYear = (availableYears[0] || clientSelectedYear) + 1;
     if (!availableYears.includes(newYear) && firestore && destinations) {
       const batch = writeBatch(firestore);
       const batchData: Record<string, VisitData> = {};

@@ -19,6 +19,7 @@ import { collection, query, where, collectionGroup } from 'firebase/firestore';
 export default function DashboardPage() {
     const { appUser } = useUser();
     const firestore = useFirestore();
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
     const destinationsQuery = useMemo(() => {
         if (!firestore || !appUser) return null;
@@ -49,7 +50,7 @@ export default function DashboardPage() {
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(allVisitsQuery);
 
     const [loading, setLoading] = useState(true);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+    const [selectedYear, setSelectedYear] = useState(currentYear.toString());
 
     useEffect(() => {
         setLoading(destinationsLoading || visitsLoading);
@@ -73,14 +74,13 @@ export default function DashboardPage() {
     }, [allVisitData, appUser, destinations]);
 
     const availableYears = useMemo(() => {
-        if (!userVisitData) return [new Date().getFullYear()];
+        if (!userVisitData) return [currentYear];
         const allYears = [...new Set(userVisitData.map(d => d.year))].sort((a, b) => b - a);
-        const currentYear = new Date().getFullYear();
         if (!allYears.includes(currentYear)) {
             allYears.unshift(currentYear);
         }
         return allYears;
-    }, [userVisitData]);
+    }, [userVisitData, currentYear]);
 
     const yearlyData = useMemo(() => {
         if (!userVisitData) return [];
@@ -98,6 +98,10 @@ export default function DashboardPage() {
         }
         return 'Dasbor';
     }, [appUser, destinations]);
+    
+    useEffect(() => {
+        setSelectedYear(currentYear.toString());
+    }, [currentYear]);
 
     if (loading) {
         return (
