@@ -426,7 +426,8 @@ export default function UsersPage() {
              <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Pengguna</TableHead>
+                        <TableHead>Nama</TableHead>
+                        <TableHead>Email</TableHead>
                         <TableHead>Peran</TableHead>
                         <TableHead>Lokasi Kelolaan</TableHead>
                         <TableHead>Status</TableHead>
@@ -436,7 +437,7 @@ export default function UsersPage() {
                 <TableBody>
                     {usersLoading ? (
                       <TableRow key="loading-row">
-                        <TableCell colSpan={5} className="h-24 text-center">
+                        <TableCell colSpan={6} className="h-24 text-center">
                           Memuat data pengguna...
                         </TableCell>
                       </TableRow>
@@ -449,12 +450,10 @@ export default function UsersPage() {
                                   <AvatarImage src={user.avatarUrl} alt={user.name}/>
                                   <AvatarFallback>{user.name ? user.name.charAt(0) : ''}</AvatarFallback>
                                 </Avatar>
-                                <div>
-                                  <div>{user.name}</div>
-                                  <div className="text-xs text-muted-foreground">{user.email}</div>
-                                </div>
+                                <div>{user.name}</div>
                               </div>
                             </TableCell>
+                            <TableCell className="text-muted-foreground">{user.email}</TableCell>
                             <TableCell>
                                 <Badge variant={roleVariant[user.role]} className="capitalize">{user.role}</Badge>
                             </TableCell>
@@ -578,3 +577,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+    
