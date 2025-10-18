@@ -35,7 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup } from 'firebase/firestore';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -611,7 +611,7 @@ export default function DataEntryPage() {
                   wisman: 0,
                   wismanDetails: [],
                   totalVisitors: 0,
-                  locked: !isPastOrPresent,
+                  locked: appUser?.role === 'admin' ? true : !isPastOrPresent,
               };
           });
           return { destination: dest, data: fullYearData.sort((a,b) => a.month - b.month) };
@@ -619,7 +619,7 @@ export default function DataEntryPage() {
       
       return { destination: dest, data: destData.sort((a,b) => a.month - b.month) };
     });
-  }, [destinations, allVisitData, selectedYear, selectedDestinationFilter]);
+  }, [destinations, allVisitData, selectedYear, selectedDestinationFilter, appUser?.role]);
 
   if (!appUser) {
     return null; // or a loading skeleton
