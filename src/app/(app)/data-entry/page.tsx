@@ -415,7 +415,9 @@ export default function DataEntryPage() {
 
   
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
-  const { data: allVisitData } = useCollection<VisitData>(firestore ? collectionGroup(firestore, 'visits') : null);
+
+  const visitsQuery = useMemo(() => firestore ? collectionGroup(firestore, 'visits') : null, [firestore]);
+  const { data: allVisitData } = useCollection<VisitData>(visitsQuery);
   
   const { toast } = useToast();
 

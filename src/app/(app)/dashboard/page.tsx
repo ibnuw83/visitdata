@@ -20,11 +20,12 @@ export default function DashboardPage() {
     const { appUser } = useUser();
     const firestore = useFirestore();
     const [clientReady, setClientReady] = useState(false);
-    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+    
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
     useEffect(() => {
+        // This effect runs only on the client, ensuring `new Date()` is safe
         const year = new Date().getFullYear();
-        setCurrentYear(year);
         setSelectedYear(year.toString());
         setClientReady(true);
     }, []);
@@ -51,12 +52,13 @@ export default function DashboardPage() {
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     
     // Defer collectionGroup query until firestore is available
-    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(
-        firestore ? collectionGroup(firestore, 'visits') : null
-    );
+    const visitsQuery = useMemo(() => {
+        return firestore ? collectionGroup(firestore, 'visits') : null;
+    }, [firestore]);
+    
+    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
 
     const loading = !clientReady || destinationsLoading || visitsLoading;
-    const [selectedYear, setSelectedYear] = useState(currentYear.toString());
 
     const userVisitData = useMemo(() => {
         if (!allVisitData || !appUser || !destinations) return [];
@@ -74,7 +76,8 @@ export default function DashboardPage() {
             allowedDestinationIds.has(visit.destinationId) && assignedSet.has(visit.destinationId)
         );
     }, [allVisitData, appUser, destinations]);
-
+    
+    const currentYear = new Date().getFullYear();
     const availableYears = useMemo(() => {
         if (!userVisitData) return [currentYear];
         const allYears = [...new Set(userVisitData.map(d => d.year))].sort((a, b) => b - a);
