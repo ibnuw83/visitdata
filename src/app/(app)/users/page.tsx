@@ -5,13 +5,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getUsers } from '@/lib/local-data-service';
+import { getUsers, saveUsers } from '@/lib/local-data-service';
 import type { User } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { MoreHorizontal, FilePenLine, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -25,10 +36,24 @@ export default function UsersPage() {
     return PlaceHolderImages.find(p => p.id === avatarId);
   }
 
-  const handleActionClick = (action: string, userName: string) => {
+  const handleEditClick = (userName: string) => {
     toast({
-      title: `Aksi: ${action}`,
-      description: `Anda memilih ${action} untuk pengguna ${userName}. (Fungsi belum diimplementasikan)`,
+      title: `Aksi: Edit`,
+      description: `Anda memilih Edit untuk pengguna ${userName}. (Fungsi belum diimplementasikan)`,
+    });
+  }
+
+  const handleDeleteUser = (userId: string) => {
+    const userToDelete = users.find(u => u.uid === userId);
+    if (!userToDelete) return;
+
+    const updatedUsers = users.filter(u => u.uid !== userId);
+    setUsers(updatedUsers);
+    saveUsers(updatedUsers);
+
+    toast({
+      title: "Pengguna Dihapus",
+      description: `Pengguna "${userToDelete.name}" telah berhasil dihapus.`,
     });
   }
 
@@ -88,24 +113,40 @@ export default function UsersPage() {
                                 <Badge variant={statusVariant[user.status]}>{user.status}</Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                            <span className="sr-only">Buka menu</span>
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => handleActionClick('Edit', user.name)}>
-                                            <FilePenLine className="mr-2 h-4 w-4" />
-                                            <span>Edit</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem className="text-destructive" onClick={() => handleActionClick('Hapus', user.name)}>
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            <span>Hapus</span>
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                <AlertDialog>
+                                  <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" className="h-8 w-8 p-0">
+                                              <span className="sr-only">Buka menu</span>
+                                              <MoreHorizontal className="h-4 w-4" />
+                                          </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                          <DropdownMenuItem onClick={() => handleEditClick(user.name)}>
+                                              <FilePenLine className="mr-2 h-4 w-4" />
+                                              <span>Edit</span>
+                                          </DropdownMenuItem>
+                                          <AlertDialogTrigger asChild>
+                                            <DropdownMenuItem className="text-destructive">
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                <span>Hapus</span>
+                                            </DropdownMenuItem>
+                                          </AlertDialogTrigger>
+                                      </DropdownMenuContent>
+                                  </DropdownMenu>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tindakan ini akan menghapus pengguna <span className="font-bold">"{user.name}"</span> secara permanen. Tindakan ini tidak dapat diurungkan.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Batal</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteUser(user.uid)} className="bg-destructive hover:bg-destructive/90">Hapus</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                             </TableCell>
                         </TableRow>
                       )

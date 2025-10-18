@@ -43,6 +43,10 @@ export function getUsers(): User[] {
   return initializeData('users', mockUsers);
 }
 
+export function saveUsers(users: User[]): void {
+  saveData('users', users);
+}
+
 export function getDestinations(): Destination[] {
   return initializeData('destinations', mockDestinations);
 }
