@@ -4,11 +4,11 @@
 // You can get this from the Firebase console.
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyAHKE8Oe7i5Uqb-kL8elzrjHdrTCdOMK_0",
-  authDomain: "wisatavisits.firebaseapp.com",
-  projectId: "wisatavisits",
-  storageBucket: "wisatavisits.firebasestorage.app",
-  messagingSenderId: "594192326469",
-  appId: "1:594192326469:web:5e3aee38f781d21ae4682c",
-  measurementId: "G-JLXZF9PWYT"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
