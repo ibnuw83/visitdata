@@ -27,7 +27,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
     const restoreAndVerifySession = async () => {
-      // Don't set loading to true here to prevent skeleton on every navigation
       try {
         const storedUserJson = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (storedUserJson) {

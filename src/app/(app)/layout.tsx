@@ -53,20 +53,27 @@ export default function AppLayout({
 }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  
-  useEffect(() => {
-    // If loading is finished and there's still no user, redirect to login.
-    if (!isLoading && !user) {
-      router.push('/');
-    }
-  }, [user, isLoading, router]);
 
-  // While loading or if there's no user (before redirect happens), show a skeleton.
-  if (isLoading || !user) {
+  if (isLoading) {
     return <AppLayoutSkeleton />;
   }
+
+  if (!user) {
+    // useEffect is not ideal here because it runs after the first render,
+    // which can cause a flash of content. Checking before the return is better.
+    // However, to trigger navigation, it often needs to be in a useEffect or a click handler.
+    // A more robust solution might use middleware, but for a client-side auth context,
+    // this useEffect is a common pattern.
+    // Let's try moving the redirect outside the return statement, but it must be in useEffect
+    // to prevent errors during server-side rendering.
+    // The key is to ensure we don't render anything until the check is complete.
+     useEffect(() => {
+        router.push('/');
+    }, [router]);
+    return <AppLayoutSkeleton />; // or a blank page while redirecting.
+  }
   
-  // If loading is done and user exists, render the full app layout.
+  // If we reach here, user is authenticated.
   return (
     <SidebarProvider>
       <Sidebar>
