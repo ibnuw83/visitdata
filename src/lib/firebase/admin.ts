@@ -1,22 +1,30 @@
 
-import { getApps, initializeApp, applicationDefault } from "firebase-admin/app";
+import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
-// This setup is robust for both local development and production.
-//
-// In Production (e.g., deployed on Google Cloud/Firebase):
-// `applicationDefault()` will automatically find the service account credentials
-// from the environment. No `serviceAccountKey.json` file is needed.
-//
-// In Local Development:
-// The Firebase Admin SDK, when using `applicationDefault()`, will automatically look for
-// a file specified by the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.
-// This is the recommended approach for local development.
+// This setup uses environment variables for secure initialization,
+// which is the recommended approach for Next.js and serverless environments.
+// It avoids filesystem access during the build process.
 
 if (getApps().length === 0) {
-  initializeApp({
-    credential: applicationDefault(),
-  });
+  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
+  if (!privateKey) {
+    // In production (e.g., Vercel, Google Cloud), the SDK can often
+    // auto-discover credentials without any config. For local dev,
+    // ensure GOOGLE_APPLICATION_CREDENTIALS is set if these env vars are not.
+    console.log("Initializing Firebase Admin with Application Default Credentials.");
+    initializeApp();
+  } else {
+    console.log("Initializing Firebase Admin with environment variables.");
+    initializeApp({
+      credential: cert({
+        projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+        // The private key needs to have its newlines properly escaped.
+        privateKey: privateKey.replace(/\\n/g, "\n"),
+      }),
+    });
+  }
 }
 
 export const adminDb = getFirestore();
