@@ -13,7 +13,7 @@ export default function TopDestinationsCard({ data, destinations }: { data: Visi
     const top5 = destinationTotals.sort((a, b) => b.totalVisitors - a.totalVisitors).slice(0, 5);
 
     return (
-        <Card className="lg:col-span-2">
+        <Card>
             <CardHeader>
                 <CardTitle>Peringkat 5 Destinasi</CardTitle>
                 <CardDescription>Berdasarkan total kunjungan tertinggi.</CardDescription>

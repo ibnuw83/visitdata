@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,7 +8,6 @@ import StatCard from "@/components/dashboard/stat-card";
 import MonthlyVisitorsChart from "@/components/dashboard/monthly-visitors-chart";
 import VisitorBreakdownChart from "@/components/dashboard/visitor-breakdown-chart";
 import TopDestinationsCard from "@/components/dashboard/top-destinations-card";
-import AiSummary from "@/components/dashboard/ai-summary";
 import { getVisitData, getDestinations } from "@/lib/local-data-service";
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -91,9 +91,8 @@ export default function DashboardPage() {
                 </Card>
             </div>
             
-             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+             <div className="grid gap-4">
                 <TopDestinationsCard data={yearlyData} destinations={destinations} />
-                <AiSummary data={yearlyData} year={year} />
             </div>
         </div>
     )
