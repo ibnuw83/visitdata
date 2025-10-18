@@ -11,7 +11,7 @@ import TopDestinationsCard from "@/components/dashboard/top-destinations-card";
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useUser, useFirestore, useCollection } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, collectionGroup } from 'firebase/firestore';
 
 export default function DashboardPage() {
@@ -20,16 +20,22 @@ export default function DashboardPage() {
     
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
 
-    const destinationsQuery = useMemo(() => {
+    const destinationsQuery = useMemoFirebase(() => {
         if (!firestore || !appUser) return null;
 
         let q = query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
 
-        if (appUser.role === 'pengelola' && appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-            q = query(q, where('id', 'in', appUser.assignedLocations));
-        } else if (appUser.role === 'pengelola') {
-            q = query(q, where('id', 'in', ['non-existent-id']));
+        if (appUser.role === 'pengelola') {
+            // Pengelola should only see their assigned locations.
+            // If they have no locations, they see nothing. This prevents a Firestore error on an empty 'in' query.
+            if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+                q = query(q, where('id', 'in', appUser.assignedLocations));
+            } else {
+                // Return a query that is guaranteed to be empty.
+                return query(q, where('id', 'in', ['non-existent-id']));
+            }
         }
+        // Admin sees all active destinations, so no extra filter is needed.
         return q;
     }, [firestore, appUser]);
 
@@ -37,14 +43,15 @@ export default function DashboardPage() {
     
     const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
 
-    const visitsQuery = useMemo(() => {
+    const visitsQuery = useMemoFirebase(() => {
+        // Do not run the query if there are no destination IDs to filter by.
         if (!firestore || destinationIds.length === 0) return null;
         return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
     }, [firestore, destinationIds]);
     
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
 
-    const loading = destinationsLoading || visitsLoading;
+    const loading = destinationsLoading || (destinationIds.length > 0 && visitsLoading);
 
     const currentYear = new Date().getFullYear();
     const availableYears = useMemo(() => {
@@ -163,3 +170,5 @@ export default function DashboardPage() {
         </div>
     )
 }
+
+    

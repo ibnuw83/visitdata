@@ -115,8 +115,8 @@ const colorPalette = [
     "text-indigo-600",
 ];
 
-function DestinationDataEntry({ destination, initialData, onDataChange, onLockChange, onNewRequest, colorClass, selectedYear, onManualSave, hasUnsavedChanges, pendingChanges }: { destination: Destination, initialData: VisitData[], onDataChange: (updatedData: VisitData) => void, onLockChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void, colorClass: string, selectedYear: number, onManualSave: () => void, hasUnsavedChanges: boolean, pendingChanges: Record<string, VisitData> }) {
-  const [data, setData] = useState<VisitData[]>(initialData);
+function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRequest, colorClass, selectedYear, onManualSave, hasUnsavedChanges, pendingChanges }: { destination: Destination, onDataChange: (updatedData: VisitData) => void, onLockChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void, colorClass: string, selectedYear: number, onManualSave: () => void, hasUnsavedChanges: boolean, pendingChanges: Record<string, VisitData> }) {
+  const [data, setData] = useState<VisitData[]>([]);
   const { appUser } = useUser();
   const firestore = useFirestore();
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
@@ -442,10 +442,12 @@ export default function DataEntryPage() {
 
     let q = query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
     
-    if (appUser.role === 'pengelola' && appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-      q = query(q, where('id', 'in', appUser.assignedLocations));
-    } else if (appUser.role === 'pengelola') {
-        q = query(q, where('id', 'in', ['non-existent-id']));
+    if (appUser.role === 'pengelola') {
+      if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+        q = query(q, where('id', 'in', appUser.assignedLocations));
+      } else {
+        return query(q, where('id', 'in', ['non-existent-id']));
+      }
     }
 
     return q;
@@ -663,40 +665,11 @@ export default function DataEntryPage() {
   const dataByDestination = useMemo(() => {
     if (!destinations) return [];
     
-    const filteredDestinations = selectedDestinationFilter === 'all'
+    return selectedDestinationFilter === 'all'
       ? destinations
       : destinations.filter(d => d.id === selectedDestinationFilter);
 
-    return filteredDestinations.map(dest => {
-        const placeholderData = months.map((monthName, index) => {
-            const monthIndex = index + 1;
-            const id = `${dest.id}-${selectedYear}-${monthIndex}`;
-            
-            // Check if there are pending changes for this item
-            if (pendingChanges[id]) {
-                return pendingChanges[id];
-            }
-
-            const currentYear = new Date().getFullYear();
-            const currentMonth = new Date().getMonth() + 1;
-            const isFutureOrLocked = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
-
-            return {
-                id: id,
-                destinationId: dest.id,
-                year: selectedYear,
-                month: monthIndex,
-                monthName: monthName,
-                wisnus: 0,
-                wisman: 0,
-                wismanDetails: [],
-                totalVisitors: 0,
-                locked: appUser?.role === 'admin' ? true : isFutureOrLocked,
-            };
-        });
-        return { destination: dest, data: placeholderData.sort((a,b) => a.month - b.month) };
-    });
-  }, [destinations, selectedYear, selectedDestinationFilter, appUser?.role, pendingChanges]);
+  }, [destinations, selectedDestinationFilter]);
 
   if (!appUser) {
     return null; // or a loading skeleton
@@ -775,11 +748,10 @@ export default function DataEntryPage() {
         <CardContent>
             <Accordion type="multiple" className="w-full space-y-2">
               {dataByDestination
-                .map(({ destination, data }, index) => (
+                .map((destination, index) => (
                   <DestinationDataEntry 
                     key={`${destination.id}-${selectedYear}`}
                     destination={destination} 
-                    initialData={data}
                     onDataChange={handleDataChange}
                     onLockChange={handleLockChange}
                     onNewRequest={handleNewRequest as any}
@@ -801,3 +773,5 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+    

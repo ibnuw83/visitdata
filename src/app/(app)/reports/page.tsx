@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
-import { useUser, useFirestore, useCollection } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, collectionGroup } from "firebase/firestore";
 
 export default function ReportsPage() {
@@ -24,15 +24,17 @@ export default function ReportsPage() {
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState('all');
 
-  const destinationsQuery = useMemo(() => {
+  const destinationsQuery = useMemoFirebase(() => {
     if (!firestore || !appUser) return null;
 
     let q = query(collection(firestore, 'destinations'));
     
-    if (appUser.role === 'pengelola' && appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-        q = query(q, where('id', 'in', appUser.assignedLocations));
-    } else if (appUser.role === 'pengelola') {
-        q = query(q, where('id', 'in', ['non-existent-id']));
+    if (appUser.role === 'pengelola') {
+      if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+          q = query(q, where('id', 'in', appUser.assignedLocations));
+      } else {
+          return query(q, where('id', 'in', ['non-existent-id']));
+      }
     }
     return q;
   }, [firestore, appUser]);
@@ -40,7 +42,7 @@ export default function ReportsPage() {
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
   const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
 
-  const visitsQuery = useMemo(() => {
+  const visitsQuery = useMemoFirebase(() => {
       if (!firestore || destinationIds.length === 0) return null;
       return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
   }, [firestore, destinationIds]);
@@ -297,5 +299,7 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
 
     
