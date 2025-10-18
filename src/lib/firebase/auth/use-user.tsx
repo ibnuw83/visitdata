@@ -23,9 +23,9 @@ export const useUser = () => {
   }, [auth]);
 
   const userDocRef = useMemo(() => {
-      if (!authUser || !firestore) return null;
+      if (!authUser?.uid || !firestore) return null;
       return doc(firestore, 'users', authUser.uid) as DocumentReference<AppUser>;
-  }, [authUser, firestore]);
+  }, [authUser?.uid, firestore]);
   
   const { data: appUser, loading: loadingUser, error } = useDoc<AppUser>(userDocRef);
 

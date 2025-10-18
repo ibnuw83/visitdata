@@ -12,21 +12,17 @@ import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
-import { useUser } from '@/lib/firebase/auth/use-user';
-import { useFirestore } from '@/lib/firebase/client-provider';
-import { useCollection } from '@/lib/firebase/firestore/use-collection';
+import { useUser, useFirestore, useCollection } from '@/firebase';
 import { collection, query, where, collectionGroup } from "firebase/firestore";
 
 export default function ReportsPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   
-  useEffect(() => {
-    const year = new Date().getFullYear();
-    setCurrentYear(year);
-    setSelectedYear(year.toString());
-  }, []);
+  const [selectedDestination, setSelectedDestination] = useState('all');
+  const [selectedYear, setSelectedYear] = useState(currentYear.toString());
+  const [selectedMonth, setSelectedMonth] = useState('all');
 
   const destinationsQuery = useMemo(() => {
     if (!firestore || !appUser) return null;
@@ -54,23 +50,24 @@ export default function ReportsPage() {
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
   const { data: visitData } = useCollection<VisitData>(visitsQuery);
 
-  // Filter state
-  const [selectedDestination, setSelectedDestination] = useState('all');
-  const [selectedYear, setSelectedYear] = useState(currentYear.toString());
-  const [selectedMonth, setSelectedMonth] = useState('all');
 
   const { toast } = useToast();
 
   const years = useMemo(() => {
-    if (!visitData) return [currentYear];
+    if (!visitData) return [currentYear.toString()];
     const allYears = [...new Set(visitData.map(d => d.year))].sort((a,b) => b-a);
     if (!allYears.includes(currentYear)) {
         allYears.unshift(currentYear);
     }
-    return allYears;
+    return allYears.map(String);
   },[visitData, currentYear]);
 
-  const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, name: new Date(0, i).toLocaleString('id-ID', { month: 'long' }) }));
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+    setSelectedYear(new Date().getFullYear().toString());
+  }, []);
+
+  const months = Array.from({ length: 12 }, (_, i) => ({ value: (i + 1).toString(), name: new Date(0, i).toLocaleString('id-ID', { month: 'long' }) }));
   
   const destinationMap = useMemo(() => new Map(destinations?.map(d => [d.id, d.name])), [destinations]);
 
@@ -131,7 +128,7 @@ export default function ReportsPage() {
             const totals = { wisnus: 0, wisman: 0, totalVisitors: 0 };
             
             const allMonthsData = months.map(m => {
-                const data = sheetData.find(d => d.month === m.value);
+                const data = sheetData.find(d => d.month === parseInt(m.value));
                 const wisnus = data?.wisnus || 0;
                 const wisman = data?.wisman || 0;
                 const totalVisitors = data?.totalVisitors || 0;
@@ -209,7 +206,7 @@ export default function ReportsPage() {
               <SelectContent>
                  <SelectItem value="all">Semua Tahun</SelectItem>
                 {years.map(y => (
-                  <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                  <SelectItem key={y} value={y}>{y}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -220,7 +217,7 @@ export default function ReportsPage() {
               <SelectContent>
                  <SelectItem value="all">Semua Bulan</SelectItem>
                 {months.map(m => (
-                  <SelectItem key={m.value} value={m.value.toString()}>{m.name}</SelectItem>
+                  <SelectItem key={m.value} value={m.value}>{m.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

@@ -15,10 +15,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
 import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree } from 'lucide-react';
-import { useUser } from '@/lib/firebase/auth/use-user';
-import { useFirestore } from '@/lib/firebase/client-provider';
-import { useCollection } from '@/lib/firebase/firestore/use-collection';
-import { useDoc } from '@/lib/firebase/firestore/use-doc';
+import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
 import { useEffect, useState, useMemo } from 'react';
 import { collection, query, where, doc } from 'firebase/firestore';
 import type { UnlockRequest, AppSettings } from '@/lib/types';

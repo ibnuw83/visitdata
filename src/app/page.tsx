@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -18,34 +19,30 @@ import { collection, collectionGroup, doc } from "firebase/firestore";
 
 function DashboardContent() {
     const firestore = useFirestore();
-    const [clientReady, setClientReady] = useState(false);
-    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+    const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
 
-    useEffect(() => {
-        // This effect runs only on the client, ensuring `new Date()` is safe
-        const year = new Date().getFullYear();
-        setCurrentYear(year);
-        setSelectedYear(year.toString());
-        setClientReady(true);
-    }, []);
-    
     const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
     const visitsQuery = useMemo(() => firestore ? collectionGroup(firestore, 'visits') : null, [firestore]);
 
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
     
-    const loading = !clientReady || destinationsLoading || visitsLoading;
-    const [selectedYear, setSelectedYear] = useState(currentYear.toString());
+    const loading = destinationsLoading || visitsLoading;
 
+    const currentYear = useMemo(() => new Date().getFullYear(), []);
+    
     const availableYears = useMemo(() => {
-        if (!allVisitData) return [currentYear];
-        const allYears = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
-        if (!allYears.includes(currentYear)) {
-            allYears.unshift(currentYear);
-        }
-        return allYears;
+        if (!allVisitData) return [currentYear.toString()];
+        const allYearsSet = new Set(allVisitData.map(d => d.year.toString()));
+        allYearsSet.add(currentYear.toString());
+        return Array.from(allYearsSet).sort((a,b) => parseInt(b) - parseInt(a));
     }, [allVisitData, currentYear]);
+
+    useEffect(() => {
+        if (!availableYears.includes(selectedYear)) {
+            setSelectedYear(currentYear.toString());
+        }
+    }, [availableYears, selectedYear, currentYear]);
 
     const yearlyData = useMemo(() => {
         if (!allVisitData) return [];
@@ -97,7 +94,7 @@ function DashboardContent() {
                     </SelectTrigger>
                     <SelectContent>
                         {availableYears.map(year => (
-                            <SelectItem key={year} value={year.toString()}>
+                            <SelectItem key={year} value={year}>
                                 Tahun {year}
                             </SelectItem>
                         ))}

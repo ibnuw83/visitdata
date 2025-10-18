@@ -12,16 +12,10 @@ import { useAuth } from '@/context/auth-context';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
-
-function SubmitButton() {
-  const { isLoading } = useAuth();
-
-  return (
-    <Button type="submit" className="w-full" disabled={isLoading}>
-      {isLoading ? 'Memeriksa...' : 'Masuk'}
-    </Button>
-  );
-}
+import { useAuth as useFirebaseAuth } from '@/lib/firebase/client-provider';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { AuthError } from '@/lib/firebase/errors';
+import { errorEmitter } from '@/lib/firebase/error-emitter';
 
 function LoginSkeleton() {
     return (
@@ -35,24 +29,46 @@ function LoginSkeleton() {
 }
 
 export default function LoginPage() {
-  const { login, error, user, isLoading } = useAuth();
+  const { user, isInitializing } = useAuth();
+  const auth = useFirebaseAuth();
   const router = useRouter();
   const [appTitle, setAppTitle] = useState('VisitData Hub');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     // Redirect if user is already logged in and loading is complete
-    if (!isLoading && user) {
+    if (!isInitializing && user) {
       router.push('/dashboard');
     }
-  }, [user, isLoading, router]);
+  }, [user, isInitializing, router]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setIsLoading(true);
+    setError(null);
     const formData = new FormData(event.currentTarget);
-    await login(formData);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // On success, the onAuthStateChanged listener will handle the user state
+      // and the layout effect will handle the redirect.
+    } catch (e: any) {
+      console.error("Login Error:", e);
+      // Emit a structured error for the global listener
+      const authError = new AuthError(e.code, e.message);
+      errorEmitter.emit('auth-error', authError);
+      
+      // We can still set a local error if needed for inline messages
+      setError('Email atau kata sandi salah.');
+    } finally {
+       setIsLoading(false);
+    }
   };
   
-  if (isLoading || user) {
+  if (isInitializing || user) {
      return <LoginSkeleton />;
   }
 
@@ -95,7 +111,9 @@ export default function LoginPage() {
                 defaultValue="password123"
               />
             </div>
-            <SubmitButton />
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Memeriksa...' : 'Masuk'}
+            </Button>
           </form>
         </CardContent>
       </Card>
@@ -107,3 +125,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    

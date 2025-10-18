@@ -3,7 +3,7 @@
 
 import { ThemeProvider } from '@/context/theme-provider';
 import { FirebaseClientProvider } from '@/lib/firebase/client-provider';
-import { AuthProvider, useAuth } from '@/context/auth-context';
+import { AuthProvider } from '@/context/auth-context';
 import { Logo } from '@/components/logo';
 
 function InitialLoadingScreen() {
@@ -17,16 +17,6 @@ function InitialLoadingScreen() {
     )
 }
 
-function AuthGate({ children }: { children: React.ReactNode }) {
-    const { isInitializing } = useAuth();
-
-    if (isInitializing) {
-        return <InitialLoadingScreen />;
-    }
-
-    return <>{children}</>;
-}
-
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider
@@ -37,11 +27,11 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     >
       <FirebaseClientProvider>
         <AuthProvider>
-            <AuthGate>
-                {children}
-            </AuthGate>
+            {children}
         </AuthProvider>
       </FirebaseClientProvider>
     </ThemeProvider>
   );
 }
+
+    

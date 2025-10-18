@@ -11,24 +11,14 @@ import TopDestinationsCard from "@/components/dashboard/top-destinations-card";
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useUser } from '@/lib/firebase/auth/use-user';
-import { useFirestore } from '@/lib/firebase/client-provider';
-import { useCollection } from '@/lib/firebase/firestore/use-collection';
+import { useUser, useFirestore, useCollection } from '@/firebase';
 import { collection, query, where, collectionGroup } from 'firebase/firestore';
 
 export default function DashboardPage() {
     const { appUser } = useUser();
     const firestore = useFirestore();
-    const [clientReady, setClientReady] = useState(false);
     
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
-
-    useEffect(() => {
-        // This effect runs only on the client, ensuring `new Date()` is safe
-        const year = new Date().getFullYear();
-        setSelectedYear(year.toString());
-        setClientReady(true);
-    }, []);
+    const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
 
     const destinationsQuery = useMemo(() => {
         if (!firestore || !appUser) return null;
@@ -41,7 +31,6 @@ export default function DashboardPage() {
             return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
         }
 
-        // Return a query that will yield no results if a manager has no assigned locations
         if (appUser.role === 'pengelola') {
             return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
         }
@@ -51,14 +40,13 @@ export default function DashboardPage() {
 
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     
-    // Defer collectionGroup query until firestore is available
     const visitsQuery = useMemo(() => {
         return firestore ? collectionGroup(firestore, 'visits') : null;
     }, [firestore]);
     
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
 
-    const loading = !clientReady || destinationsLoading || visitsLoading;
+    const loading = destinationsLoading || visitsLoading;
 
     const userVisitData = useMemo(() => {
         if (!allVisitData || !appUser || !destinations) return [];
@@ -84,8 +72,14 @@ export default function DashboardPage() {
         if (!allYears.includes(currentYear)) {
             allYears.unshift(currentYear);
         }
-        return allYears;
+        return allYears.map(String);
     }, [userVisitData, currentYear]);
+
+    useEffect(() => {
+        if (!availableYears.includes(selectedYear)) {
+            setSelectedYear(currentYear.toString());
+        }
+    }, [availableYears, selectedYear, currentYear]);
 
     const yearlyData = useMemo(() => {
         if (!userVisitData) return [];
@@ -145,7 +139,7 @@ export default function DashboardPage() {
                     </SelectTrigger>
                     <SelectContent>
                         {availableYears.map(year => (
-                            <SelectItem key={year} value={year.toString()}>
+                            <SelectItem key={year} value={year}>
                                 Tahun {year}
                             </SelectItem>
                         ))}

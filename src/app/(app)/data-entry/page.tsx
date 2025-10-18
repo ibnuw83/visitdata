@@ -19,11 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { PlusCircle, Trash2, Lock, Unlock, KeyRound } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import { Combobox } from '@/components/ui/combobox';
-import { useUser } from '@/lib/firebase/auth/use-user';
-import { useFirestore } from '@/lib/firebase/client-provider';
-import { useCollection } from '@/lib/firebase/firestore/use-collection';
-import { errorEmitter } from '@/lib/firebase/error-emitter';
-import { FirestorePermissionError } from '@/lib/firebase/errors';
+import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -383,15 +379,9 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
 export default function DataEntryPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
-  const [clientReady, setClientReady] = useState(false);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const { toast } = useToast();
   
-  useEffect(() => {
-    // This runs only on the client
-    setSelectedYear(new Date().getFullYear());
-    setClientReady(true);
-  }, []);
-
   const destinationsQuery = useMemo(() => {
     if (!firestore || !appUser) return null;
 
@@ -416,32 +406,32 @@ export default function DataEntryPage() {
   
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
 
-  const visitsQuery = useMemo(() => firestore ? collectionGroup(firestore, 'visits') : null, [firestore]);
+  const visitsQuery = useMemo(() => {
+    return firestore ? collectionGroup(firestore, 'visits') : null;
+  }, [firestore]);
   const { data: allVisitData } = useCollection<VisitData>(visitsQuery);
   
-  const { toast } = useToast();
-
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
-    if (!allVisitData) return [currentYear];
+    if (!allVisitData) return [currentYear.toString()];
     const yearsFromData = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
     if (!yearsFromData.includes(currentYear)) {
       yearsFromData.unshift(currentYear);
     }
-    return yearsFromData;
+    return yearsFromData.map(String);
   }, [allVisitData]);
+
+  useEffect(() => {
+    if (!availableYears.includes(selectedYear.toString())) {
+        setSelectedYear(new Date().getFullYear());
+    }
+  }, [availableYears, selectedYear]);
 
   const handleDataChange = async (updatedData: VisitData) => {
     if (!firestore) return;
     const visitDocRef = doc(firestore, 'destinations', updatedData.destinationId, 'visits', updatedData.id);
     
     setDoc(visitDocRef, updatedData, { merge: true })
-        .then(() => {
-            toast({
-                title: "Data Disimpan Otomatis",
-                description: `Perubahan untuk destinasi telah disimpan.`,
-            });
-        })
         .catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({
                 path: visitDocRef.path,
@@ -472,8 +462,8 @@ export default function DataEntryPage() {
   }
   
   const handleAddYear = async () => {
-    const newYear = (availableYears[0] || new Date().getFullYear()) + 1;
-    if (!availableYears.includes(newYear) && firestore && destinations) {
+    const newYear = (parseInt(availableYears[0]) || new Date().getFullYear()) + 1;
+    if (!availableYears.includes(newYear.toString()) && firestore && destinations) {
       const batch = writeBatch(firestore);
       const batchData: Record<string, VisitData> = {};
       destinations.forEach(dest => {
@@ -544,6 +534,10 @@ export default function DataEntryPage() {
             title: "Tahun Dihapus",
             description: `Semua data untuk tahun ${selectedYear} telah dihapus.`,
         });
+        if (availableYears.length > 1) {
+            const newYear = availableYears.find(y => y !== selectedYear.toString()) || new Date().getFullYear().toString();
+            setSelectedYear(parseInt(newYear));
+        }
       })
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -586,7 +580,7 @@ export default function DataEntryPage() {
     });
   }, [destinations, allVisitData, selectedYear]);
 
-  if (!appUser || !clientReady) {
+  if (!appUser) {
     return null; // or a loading skeleton
   }
 
@@ -615,7 +609,7 @@ export default function DataEntryPage() {
                   </SelectTrigger>
                   <SelectContent>
                       {availableYears.map(year => (
-                          <SelectItem key={year} value={year.toString()}>
+                          <SelectItem key={year} value={year}>
                               Tahun {year}
                           </SelectItem>
                       ))}
@@ -670,5 +664,3 @@ export default function DataEntryPage() {
     </div>
   );
 }
-
-    
