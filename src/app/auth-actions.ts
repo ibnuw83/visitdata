@@ -13,8 +13,3 @@ export async function loginAction(uid: string): Promise<{ success: boolean; erro
     return { success: false, error: e.message || 'Terjadi kesalahan saat membuat sesi.' };
   }
 }
-
-// Kept for consistency, though AuthContext now calls deleteSession directly.
-export async function logoutAction() {
-  await deleteSession();
-}
