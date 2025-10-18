@@ -14,7 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore, useCollection, useDoc } from '@/lib/firebase';
+import { useFirestore } from '@/lib/firebase/client-provider';
+import { useCollection } from '@/lib/firebase/firestore/use-collection';
+import { useDoc } from '@/lib/firebase/firestore/use-doc';
 import { collection, collectionGroup, doc } from "firebase/firestore";
 
 function DashboardContent() {
@@ -200,3 +202,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    

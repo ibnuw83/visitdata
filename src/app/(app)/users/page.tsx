@@ -50,7 +50,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
+import { useFirestore } from '@/lib/firebase/client-provider';
+import { useCollection } from '@/lib/firebase/firestore/use-collection';
+import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { FirestorePermissionError } from '@/lib/firebase/errors';
 import { collection, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 function MultiSelect({
@@ -519,3 +522,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+    

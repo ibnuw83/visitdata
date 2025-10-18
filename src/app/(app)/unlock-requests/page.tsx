@@ -11,7 +11,11 @@ import { format } from 'date-fns';
 import { MoreHorizontal, CheckCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
+import { useUser } from '@/lib/firebase/auth/use-user';
+import { useFirestore } from '@/lib/firebase/client-provider';
+import { useCollection } from '@/lib/firebase/firestore/use-collection';
+import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { FirestorePermissionError } from '@/lib/firebase/errors';
 import { collection, doc, updateDoc, writeBatch } from 'firebase/firestore';
 
 export default function UnlockRequestsPage() {
@@ -156,3 +160,5 @@ export default function UnlockRequestsPage() {
     </div>
   );
 }
+
+    

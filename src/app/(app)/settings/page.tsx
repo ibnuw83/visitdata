@@ -7,7 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
+import { useUser } from '@/lib/firebase/auth/use-user';
+import { useFirestore } from '@/lib/firebase/client-provider';
+import { useDoc } from '@/lib/firebase/firestore/use-doc';
+import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { FirestorePermissionError } from '@/lib/firebase/errors';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -377,3 +381,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    

@@ -11,7 +11,9 @@ import TopDestinationsCard from "@/components/dashboard/top-destinations-card";
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useUser, useFirestore, useCollection } from '@/lib/firebase';
+import { useUser } from '@/lib/firebase/auth/use-user';
+import { useFirestore } from '@/lib/firebase/client-provider';
+import { useCollection } from '@/lib/firebase/firestore/use-collection';
 import { collection, query, where, collectionGroup } from 'firebase/firestore';
 
 export default function DashboardPage() {
@@ -167,3 +169,5 @@ export default function DashboardPage() {
         </div>
     )
 }
+
+    

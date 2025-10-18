@@ -19,7 +19,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { PlusCircle, Trash2, Lock, Unlock, KeyRound } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import { Combobox } from '@/components/ui/combobox';
-import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
+import { useUser } from '@/lib/firebase/auth/use-user';
+import { useFirestore } from '@/lib/firebase/client-provider';
+import { useCollection } from '@/lib/firebase/firestore/use-collection';
+import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { FirestorePermissionError } from '@/lib/firebase/errors';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -627,3 +631,5 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+    

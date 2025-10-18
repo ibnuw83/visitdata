@@ -32,7 +32,10 @@ import {
 } from "@/components/ui/alert-dialog"
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
+import { useFirestore } from '@/lib/firebase/client-provider';
+import { useCollection } from '@/lib/firebase/firestore/use-collection';
+import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { FirestorePermissionError } from '@/lib/firebase/errors';
 import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 
 
@@ -301,3 +304,5 @@ export default function CategoriesPage() {
     </div>
   );
 }
+
+    

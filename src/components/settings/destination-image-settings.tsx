@@ -10,7 +10,10 @@ import { useToast } from '@/hooks/use-toast';
 import type { Destination } from '@/lib/types';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
+import { useFirestore } from '@/lib/firebase/client-provider';
+import { useCollection } from '@/lib/firebase/firestore/use-collection';
+import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { FirestorePermissionError } from '@/lib/firebase/errors';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
 
@@ -136,3 +139,5 @@ export default function DestinationImageSettings() {
         </Card>
     );
 }
+
+    

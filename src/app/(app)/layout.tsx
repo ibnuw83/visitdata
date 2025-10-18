@@ -5,7 +5,7 @@ import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar'
 import Header from '@/components/layout/header';
 import SidebarNav from '@/components/layout/sidebar-nav';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/lib/firebase';
+import { useUser } from '@/lib/firebase/auth/use-user';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -77,3 +77,5 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    

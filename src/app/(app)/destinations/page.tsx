@@ -36,7 +36,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore, errorEmitter, FirestorePermissionError } from '@/lib/firebase';
+import { useCollection } from '@/lib/firebase/firestore/use-collection';
+import { useFirestore } from '@/lib/firebase/client-provider';
+import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { FirestorePermissionError } from '@/lib/firebase/errors';
 import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 
 
@@ -545,3 +548,5 @@ export default function DestinationsPage() {
     </div>
   );
 }
+
+    
