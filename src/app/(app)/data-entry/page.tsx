@@ -338,7 +338,7 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
                     disabled={disabled}
                 />
             </PopoverTrigger>
-            <PopoverContent className="w-96">
+            <PopoverContent onOpenAutoFocus={(e) => e.preventDefault()} className="w-96">
                 <div className="grid gap-4">
                     <div className="space-y-2">
                         <h4 className="font-medium leading-none">Rincian Wisatawan Asing</h4>
