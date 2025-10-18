@@ -52,16 +52,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { appUser, loading: isUserLoading } = useUser();
   const router = useRouter();
 
-  const isLoading = isAuthLoading || (user && isUserLoading) || (!isAuthLoading && !user);
+  const isLoading = isAuthLoading || (user && isUserLoading) || (!isAuthLoading && !user && typeof window !== 'undefined' && window.location.pathname !== '/login');
 
-  // Redirect if not logged in
+  // Redirect if not logged in and loading is complete
   useEffect(() => {
-    if (!isAuthLoading && !user) {
+    if (!isLoading && !user) {
       router.replace('/login');
     }
-  }, [user, isAuthLoading, router]);
+  }, [user, isLoading, router]);
 
-  // Show loading skeleton while checking auth, fetching user data, or redirecting
+  // Show loading skeleton while checking auth, fetching user data, or if user exists but appUser is not yet loaded.
   if (isLoading || !appUser) {
     return <AppLayoutSkeleton />;
   }
