@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/lib/session';
 export async function GET() {
   try {
     const user = await getCurrentUser();
-    return NextResponse.json({ user });
+    return NextResponse.json(user);
   } catch (error) {
     console.error('API session error:', error);
     return new NextResponse(

@@ -1,236 +1,290 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getDestinations, getVisitData, saveVisitData } from "@/lib/local-data-service";
 import { Destination, VisitData, WismanDetail } from "@/lib/types";
 import { useToast } from '@/hooks/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PlusCircle, Trash2 } from 'lucide-react';
+import debounce from 'lodash.debounce';
 
-export default function DataEntryPage() {
-  const [destinations, setDestinations] = useState<Destination[]>([]);
-  const [visitData, setVisitData] = useState<VisitData[]>([]);
+const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
+
+function DestinationDataEntry({ destination, initialData, onDataChange }: { destination: Destination, initialData: VisitData[], onDataChange: (updatedData: VisitData[]) => void }) {
+  const [data, setData] = useState<VisitData[]>(initialData);
   const { toast } = useToast();
 
-  // Form state
-  const [destinationId, setDestinationId] = useState('');
-  const [year, setYear] = useState('');
-  const [month, setMonth] = useState('');
-  const [wisnus, setWisnus] = useState(0);
-  const [wismanDetails, setWismanDetails] = useState<WismanDetail[]>([{ country: '', count: 0 }]);
-  const [eventVisitors, setEventVisitors] = useState(0);
-  const [historicalVisitors, setHistoricalVisitors] = useState(0);
-
-  useEffect(() => {
-    setDestinations(getDestinations());
-    setVisitData(getVisitData());
-  }, []);
-
-  const years = [...new Set(visitData.map(d => d.year))].sort((a,b) => b-a);
-  const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, name: new Date(0, i).toLocaleString('id-ID', { month: 'long' }) }));
-
-  const handleWismanDetailChange = (index: number, field: keyof WismanDetail, value: string | number) => {
-    const newDetails = [...wismanDetails];
-    if (field === 'count') {
-      newDetails[index][field] = Number(value);
-    } else {
-      newDetails[index][field] = String(value);
-    }
-    setWismanDetails(newDetails);
-  };
-
-  const addWismanEntry = () => {
-    setWismanDetails([...wismanDetails, { country: '', count: 0 }]);
-  };
-
-  const removeWismanEntry = (index: number) => {
-    const newDetails = wismanDetails.filter((_, i) => i !== index);
-    setWismanDetails(newDetails);
-  };
+  const debouncedSave = useCallback(
+    debounce((newData: VisitData[]) => {
+      saveVisitData(newData);
+      toast({
+        title: "Data Disimpan",
+        description: `Perubahan untuk ${destination.name} telah disimpan otomatis.`,
+      });
+    }, 1000),
+    [destination.name]
+  );
   
-  const totalWisman = wismanDetails.reduce((sum, detail) => sum + detail.count, 0);
-  const totalVisitors = wisnus + totalWisman + eventVisitors + historicalVisitors;
+  const handleDataChange = (monthIndex: number, field: 'wisnus', value: number) => {
+    const newData = [...data];
+    const monthData = newData.find(d => d.month === monthIndex + 1);
 
-  const resetForm = () => {
-    setDestinationId('');
-    setYear('');
-    setMonth('');
-    setWisnus(0);
-    setWismanDetails([{ country: '', count: 0 }]);
-    setEventVisitors(0);
-    setHistoricalVisitors(0);
-  }
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!destinationId || !year || !month) {
-        toast({
-            variant: 'destructive',
-            title: "Input Tidak Lengkap",
-            description: "Harap pilih destinasi, tahun, dan bulan.",
-        });
-        return;
+    if (monthData) {
+      monthData[field] = value;
+      monthData.totalVisitors = monthData.wisnus + monthData.wisman;
+      setData(newData);
+      onDataChange(newData);
+      debouncedSave(newData);
     }
-    
-    // In a real app, you would save this to a database
-    // For this demo, we simulate saving to local storage
-    const newEntry: VisitData = {
-        id: `visit-${destinationId}-${year}-${month}`,
-        destinationId,
-        year: Number(year),
-        month: Number(month),
-        monthName: months.find(m => m.value === Number(month))?.name || '',
-        wisnus,
-        wisman: totalWisman,
-        wismanDetails: wismanDetails.filter(d => d.country && d.count > 0),
-        eventVisitors,
-        historicalVisitors,
-        totalVisitors,
-        locked: false, // New entries are unlocked by default
-    };
+  };
 
-    const updatedData = [...visitData.filter(d => d.id !== newEntry.id), newEntry];
-    saveVisitData(updatedData);
-    setVisitData(updatedData);
-
-    toast({
-        title: "Data Tersimpan",
-        description: `Data pengunjung untuk ${newEntry.monthName} ${newEntry.year} berhasil disimpan.`,
-    });
-    resetForm();
+  const handleWismanDetailsChange = (monthIndex: number, wismanDetails: WismanDetail[]) => {
+     const newData = [...data];
+     const monthData = newData.find(d => d.month === monthIndex + 1);
+     if (monthData) {
+        monthData.wismanDetails = wismanDetails;
+        monthData.wisman = wismanDetails.reduce((sum, detail) => sum + (detail.count || 0), 0);
+        monthData.totalVisitors = monthData.wisnus + monthData.wisman;
+        setData(newData);
+        onDataChange(newData);
+        debouncedSave(newData);
+     }
   }
+
+  const yearlyTotals = useMemo(() => {
+    return data.reduce((acc, curr) => {
+        acc.wisnus += curr.wisnus;
+        acc.wisman += curr.wisman;
+        acc.totalVisitors += curr.totalVisitors;
+        return acc;
+    }, { wisnus: 0, wisman: 0, totalVisitors: 0});
+  }, [data]);
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">Input Data</h1>
-        <p className="text-muted-foreground">
-          Formulir untuk pengelola destinasi menginput data pengunjung bulanan.
-        </p>
-      </div>
-      <Card>
-        <CardHeader>
-            <CardTitle>Formulir Input Data Pengunjung</CardTitle>
-            <CardDescription>Isi detail di bawah ini untuk mencatat data pengunjung.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                        <Label htmlFor="destination">Destinasi</Label>
-                        <Select name="destinationId" value={destinationId} onValueChange={setDestinationId} required>
-                            <SelectTrigger id="destination">
-                                <SelectValue placeholder="Pilih Destinasi" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {destinations.map(d => (
-                                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="year">Tahun</Label>
-                         <Select name="year" value={year} onValueChange={setYear} required>
-                            <SelectTrigger id="year">
-                                <SelectValue placeholder="Pilih Tahun" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {years.map(y => (
-                                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="month">Bulan</Label>
-                        <Select name="month" value={month} onValueChange={setMonth} required>
-                            <SelectTrigger id="month">
-                                <SelectValue placeholder="Pilih Bulan" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {months.map(m => (
-                                <SelectItem key={m.value} value={m.value.toString()}>{m.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
+    <AccordionItem value={destination.id}>
+      <AccordionTrigger className="hover:no-underline">
+        <div className="flex w-full items-center justify-between pr-4">
+          <span className="font-semibold text-primary">{destination.name} - {initialData[0]?.year || 'N/A'}</span>
+          <div className="flex items-center gap-4 text-sm font-normal">
+            <span>Domestik: <span className="font-bold">{yearlyTotals.wisnus.toLocaleString()}</span></span>
+            <span>Asing: <span className="font-bold">{yearlyTotals.wisman.toLocaleString()}</span></span>
+            <span>Total: <span className="font-bold">{yearlyTotals.totalVisitors.toLocaleString()}</span></span>
+          </div>
+        </div>
+      </AccordionTrigger>
+      <AccordionContent>
+        <div className="p-1">
+            <Table>
+                <TableHeader>
+                    <TableRow className="bg-secondary/50">
+                        <TableHead className="w-[120px]">Bulan</TableHead>
+                        <TableHead>Wis. Domestik</TableHead>
+                        <TableHead>Wis. Asing</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {months.map((monthName, index) => {
+                        const monthData = data.find(d => d.month === index + 1);
+                        return (
+                            <TableRow key={index}>
+                                <TableCell className="font-medium">{monthName}</TableCell>
+                                <TableCell>
+                                    <Input
+                                        type="number"
+                                        className="h-8 w-24 border-0 shadow-none focus-visible:ring-1"
+                                        value={monthData?.wisnus || 0}
+                                        onChange={(e) => handleDataChange(index, 'wisnus', parseInt(e.target.value, 10) || 0)}
+                                    />
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            type="number"
+                                            className="h-8 w-24 border-0 shadow-none focus-visible:ring-1"
+                                            value={monthData?.wisman || 0}
+                                            readOnly
+                                        />
+                                        <WismanPopover 
+                                          details={monthData?.wismanDetails || []} 
+                                          onSave={(newDetails) => handleWismanDetailsChange(index, newDetails)}
+                                        />
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-right font-medium">{monthData?.totalVisitors.toLocaleString() || 0}</TableCell>
+                            </TableRow>
+                        );
+                    })}
+                </TableBody>
+                <TableFooter>
+                    <TableRow className="bg-secondary/50 font-bold">
+                        <TableCell>Total Tahunan</TableCell>
+                        <TableCell>{yearlyTotals.wisnus.toLocaleString()}</TableCell>
+                        <TableCell>{yearlyTotals.wisman.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{yearlyTotals.totalVisitors.toLocaleString()}</TableCell>
+                    </TableRow>
+                </TableFooter>
+            </Table>
+        </div>
+      </AccordionContent>
+    </AccordionItem>
+  );
+}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+function WismanPopover({ details, onSave }: { details: WismanDetail[], onSave: (details: WismanDetail[]) => void }) {
+    const [wismanDetails, setWismanDetails] = useState(details);
+    
+    useEffect(() => {
+        setWismanDetails(details);
+    }, [details]);
+
+    const handleDetailChange = (index: number, field: keyof WismanDetail, value: string | number) => {
+        const newDetails = [...wismanDetails];
+        if (field === 'count') {
+            newDetails[index][field] = Number(value);
+        } else {
+            newDetails[index][field] = String(value);
+        }
+        setWismanDetails(newDetails);
+    };
+
+    const addEntry = () => {
+        setWismanDetails([...wismanDetails, { country: '', count: 0 }]);
+    };
+
+    const removeEntry = (index: number) => {
+        const newDetails = wismanDetails.filter((_, i) => i !== index);
+        setWismanDetails(newDetails);
+    };
+
+    const handleSave = () => {
+        onSave(wismanDetails.filter(d => d.country && d.count > 0));
+    }
+
+    return (
+        <Popover onOpenChange={(open) => !open && handleSave()}>
+            <PopoverTrigger asChild>
+                <Button variant="link" className="h-8 p-1 text-sm">Rincian</Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+                <div className="grid gap-4">
                     <div className="space-y-2">
-                        <Label htmlFor="wisnus">Wisatawan Nusantara (Wisnus)</Label>
-                        <Input id="wisnus" name="wisnus" type="number" placeholder="Contoh: 1200" value={wisnus} onChange={e => setWisnus(Number(e.target.value))}/>
+                        <h4 className="font-medium leading-none">Rincian Wisatawan Asing</h4>
+                        <p className="text-sm text-muted-foreground">
+                            Tambahkan jumlah pengunjung per negara asal.
+                        </p>
                     </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="eventVisitors">Pengunjung Event Budaya</Label>
-                        <Input id="eventVisitors" name="eventVisitors" type="number" placeholder="Contoh: 300" value={eventVisitors} onChange={e => setEventVisitors(Number(e.target.value))}/>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="historicalVisitors">Pengunjung Situs Sejarah</Label>
-                        <Input id="historicalVisitors" name="historicalVisitors" type="number" placeholder="Contoh: 150" value={historicalVisitors} onChange={e => setHistoricalVisitors(Number(e.target.value))}/>
-                    </div>
-                </div>
-                
-                <div className="space-y-4">
-                    <Label>Wisatawan Mancanegara (Wisman)</Label>
-                    <div className="space-y-3 rounded-lg border p-4">
+                    <div className="grid gap-2">
                         {wismanDetails.map((detail, index) => (
-                            <div key={index} className="grid grid-cols-[1fr_1fr_auto] items-center gap-3">
-                                <Input 
-                                    placeholder="Negara Asal" 
-                                    value={detail.country} 
-                                    onChange={e => handleWismanDetailChange(index, 'country', e.target.value)}
+                           <div key={index} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+                                <Input
+                                    placeholder="Negara Asal"
+                                    value={detail.country}
+                                    className="h-8"
+                                    onChange={(e) => handleDetailChange(index, 'country', e.target.value)}
                                 />
-                                <Input 
-                                    type="number" 
-                                    placeholder="Jumlah" 
+                                <Input
+                                    type="number"
+                                    placeholder="Jumlah"
                                     value={detail.count}
-                                    onChange={e => handleWismanDetailChange(index, 'count', e.target.value)}
+                                    className="h-8 w-20"
+                                    onChange={(e) => handleDetailChange(index, 'count', e.target.value)}
                                 />
-                                <Button type="button" variant="ghost" size="icon" onClick={() => removeWismanEntry(index)} disabled={wismanDetails.length === 1}>
+                                 <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeEntry(index)}>
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
                             </div>
                         ))}
-                         <Button type="button" variant="outline" size="sm" onClick={addWismanEntry}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Tambah Negara
-                        </Button>
                     </div>
+                    <Button type="button" variant="outline" size="sm" onClick={addEntry}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Tambah Negara
+                    </Button>
                 </div>
-                
-                <div className="space-y-4 rounded-lg bg-secondary p-4 text-secondary-foreground">
-                    <h3 className="font-semibold">Total Pengunjung</h3>
-                    <div className="flex justify-between items-center">
-                        <span>Wisnus:</span>
-                        <span className="font-bold">{wisnus.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span>Wisman:</span>
-                        <span className="font-bold">{totalWisman.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span>Event:</span>
-                        <span className="font-bold">{eventVisitors.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span>Sejarah:</span>
-                        <span className="font-bold">{historicalVisitors.toLocaleString()}</span>
-                    </div>
-                    <hr className="border-border"/>
-                    <div className="flex justify-between items-center text-lg">
-                        <span className="font-bold">Total Keseluruhan:</span>
-                        <span className="font-bold">{totalVisitors.toLocaleString()}</span>
-                    </div>
-                </div>
+            </PopoverContent>
+        </Popover>
+    )
+}
 
-                <Button type="submit">Simpan Data</Button>
-            </form>
+export default function DataEntryPage() {
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
+  const [year, setYear] = useState(new Date().getFullYear()); // Default to current year
+
+  useEffect(() => {
+    setDestinations(getDestinations());
+    setAllVisitData(getVisitData());
+  }, []);
+
+  const handleDataChange = (updatedData: VisitData[]) => {
+    const newAllVisitData = allVisitData.map(d => updatedData.find(ud => ud.id === d.id) || d);
+    setAllVisitData(newAllVisitData);
+  }
+
+  const dataByDestination = useMemo(() => {
+    return destinations.map(dest => {
+      const destData = allVisitData.filter(d => d.destinationId === dest.id && d.year === year);
+      if (destData.length === 0) {
+        // If no data for the year, create a default structure
+        return {
+          destination: dest,
+          data: months.map((monthName, index) => ({
+            id: `visit-${dest.id}-${year}-${index + 1}`,
+            destinationId: dest.id,
+            year: year,
+            month: index + 1,
+            monthName: monthName,
+            wisnus: 0,
+            wisman: 0,
+            wismanDetails: [],
+            eventVisitors: 0,
+            historicalVisitors: 0,
+            totalVisitors: 0,
+            locked: false,
+          }))
+        }
+      }
+      return { destination: dest, data: destData };
+    });
+  }, [destinations, allVisitData, year]);
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-2">
+        <h1 className="font-headline text-3xl font-bold tracking-tight">Input Data Kunjungan</h1>
+        <p className="text-muted-foreground">
+          Pilih destinasi untuk melihat dan mengedit data kunjungan tahunan.
+        </p>
+      </div>
+      <Card>
+        <CardHeader>
+            <CardTitle>Data Kunjungan Tahun {year}</CardTitle>
+            <CardDescription>Klik pada setiap destinasi untuk mengelola data.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Accordion type="multiple" className="w-full space-y-2">
+              {dataByDestination
+                .filter(d => d.destination.status === 'aktif')
+                .map(({ destination, data }) => (
+                  <DestinationDataEntry 
+                    key={destination.id} 
+                    destination={destination} 
+                    initialData={data}
+                    onDataChange={handleDataChange}
+                  />
+              ))}
+            </Accordion>
         </CardContent>
       </Card>
     </div>

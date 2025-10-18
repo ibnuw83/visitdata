@@ -34,11 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const res = await fetch('/api/session', { cache: 'no-store' });
         
         if (!res.ok) {
+            // If the API route itself fails, treat as logged out.
             throw new Error('Failed to fetch session');
         }
 
         const data = await res.json();
-        const sessionUser = data.user;
+        const sessionUser = data;
 
         if (sessionUser) {
           setUser(sessionUser);
