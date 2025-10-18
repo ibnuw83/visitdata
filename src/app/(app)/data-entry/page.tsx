@@ -24,6 +24,7 @@ import { useAuth } from '@/context/auth-context';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -94,7 +95,18 @@ function UnlockRequestDialog({ destination, monthData, onNewRequest }: { destina
     )
 }
 
-function DestinationDataEntry({ destination, initialData, onDataChange, onNewRequest }: { destination: Destination, initialData: VisitData[], onDataChange: (updatedData: VisitData[]) => void, onNewRequest: (req: UnlockRequest) => void }) {
+const colorPalette = [
+    "text-blue-600",
+    "text-green-600",
+    "text-orange-500",
+    "text-purple-600",
+    "text-red-600",
+    "text-yellow-600",
+    "text-pink-600",
+    "text-indigo-600",
+];
+
+function DestinationDataEntry({ destination, initialData, onDataChange, onNewRequest, colorClass }: { destination: Destination, initialData: VisitData[], onDataChange: (updatedData: VisitData[]) => void, onNewRequest: (req: UnlockRequest) => void, colorClass: string }) {
   const [data, setData] = useState<VisitData[]>(initialData);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -161,7 +173,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
     <AccordionItem value={destination.id}>
       <AccordionTrigger className="hover:no-underline">
         <div className="flex w-full items-center justify-between pr-4">
-          <span className="font-semibold text-primary">{destination.name} - {initialData[0]?.year || 'N/A'}</span>
+          <span className={cn("font-semibold", colorClass)}>{destination.name} - {initialData[0]?.year || 'N/A'}</span>
           <div className="flex items-center gap-4 text-sm font-normal">
             <span>Domestik: <span className="font-bold">{yearlyTotals.wisnus.toLocaleString()}</span></span>
             <span>Asing: <span className="font-bold">{yearlyTotals.wisman.toLocaleString()}</span></span>
@@ -437,13 +449,14 @@ export default function DataEntryPage() {
             <Accordion type="multiple" className="w-full space-y-2">
               {dataByDestination
                 .filter(d => d.destination.status === 'aktif')
-                .map(({ destination, data }) => (
+                .map(({ destination, data }, index) => (
                   <DestinationDataEntry 
                     key={destination.id} 
                     destination={destination} 
                     initialData={data}
                     onDataChange={handleDataChange}
                     onNewRequest={handleNewRequest}
+                    colorClass={colorPalette[index % colorPalette.length]}
                   />
               ))}
             </Accordion>
@@ -452,5 +465,3 @@ export default function DataEntryPage() {
     </div>
   );
 }
-
-    
