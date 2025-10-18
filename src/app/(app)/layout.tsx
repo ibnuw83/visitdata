@@ -10,9 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 function AppLayoutSkeleton() {
   return (
-     <SidebarProvider>
+    <SidebarProvider>
       <Sidebar>
-         <div className="flex flex-col h-full p-2 gap-2">
+        <div className="flex flex-col h-full p-2 gap-2">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-px w-full" />
           <div className="flex-1 p-2 space-y-2">
@@ -25,55 +25,48 @@ function AppLayoutSkeleton() {
       </Sidebar>
       <SidebarInset>
         <div className="flex h-full flex-col">
-           <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-              <div className="ml-auto flex items-center gap-4">
-                <Skeleton className="h-10 w-10 rounded-full" />
-              </div>
-           </header>
+          <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+            <div className="ml-auto flex items-center gap-4">
+              <Skeleton className="h-10 w-10 rounded-full" />
+            </div>
+          </header>
           <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-             <div className="flex flex-col gap-8">
-                <div className="flex flex-col gap-2">
-                    <Skeleton className="h-9 w-48" />
-                    <Skeleton className="h-5 w-72" />
-                </div>
-                <Skeleton className="h-96" />
+            <div className="flex flex-col gap-8">
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-9 w-48" />
+                <Skeleton className="h-5 w-72" />
+              </div>
+              <Skeleton className="h-96" />
             </div>
           </main>
         </div>
       </SidebarInset>
     </SidebarProvider>
-  )
+  );
 }
 
-
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
+  // Redirect jika belum login
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.replace('/');
+    }
+  }, [user, isLoading, router]);
+
+  // Loading skeleton saat cek session
   if (isLoading) {
     return <AppLayoutSkeleton />;
   }
 
+  // Jangan render apapun saat redirect
   if (!user) {
-    // useEffect is not ideal here because it runs after the first render,
-    // which can cause a flash of content. Checking before the return is better.
-    // However, to trigger navigation, it often needs to be in a useEffect or a click handler.
-    // A more robust solution might use middleware, but for a client-side auth context,
-    // this useEffect is a common pattern.
-    // Let's try moving the redirect outside the return statement, but it must be in useEffect
-    // to prevent errors during server-side rendering.
-    // The key is to ensure we don't render anything until the check is complete.
-     useEffect(() => {
-        router.push('/');
-    }, [router]);
-    return <AppLayoutSkeleton />; // or a blank page while redirecting.
+    return null;
   }
-  
-  // If we reach here, user is authenticated.
+
+  // Jika login, render layout utama
   return (
     <SidebarProvider>
       <Sidebar>
@@ -82,9 +75,7 @@ export default function AppLayout({
       <SidebarInset>
         <div className="flex h-full flex-col">
           <Header />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-            {children}
-          </main>
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">{children}</main>
         </div>
       </SidebarInset>
     </SidebarProvider>
