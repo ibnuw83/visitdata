@@ -7,6 +7,7 @@ import { getDestinations, getVisitData } from "@/lib/local-data-service";
 import { Destination, VisitData } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ReportsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -16,6 +17,8 @@ export default function ReportsPage() {
   const [selectedDestination, setSelectedDestination] = useState('all');
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
+
+  const { toast } = useToast();
 
   useEffect(() => {
     setDestinations(getDestinations());
@@ -38,6 +41,15 @@ export default function ReportsPage() {
     if (selectedMonth !== 'all') {
       filteredData = filteredData.filter(d => d.month === parseInt(selectedMonth));
     }
+    
+    if (filteredData.length === 0) {
+        toast({
+            variant: "destructive",
+            title: "Tidak ada data",
+            description: "Tidak ada data yang cocok dengan filter yang Anda pilih.",
+        });
+        return;
+    }
 
     const csvHeader = [
       "ID Kunjungan",
@@ -55,7 +67,7 @@ export default function ReportsPage() {
     const csvRows = filteredData.map(d => [
       d.id,
       d.destinationId,
-      destinationMap.get(d.destinationId) || 'Tidak Dikenal',
+      `"${destinationMap.get(d.destinationId) || 'Tidak Dikenal'}"`,
       d.year,
       d.monthName,
       d.wisnus,
@@ -66,15 +78,19 @@ export default function ReportsPage() {
     const csvContent = [csvHeader.join(','), ...csvRows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    if (link.href) {
-      URL.revokeObjectURL(link.href);
-    }
+    
     const url = URL.createObjectURL(blob);
     link.href = url;
     link.setAttribute('download', 'laporan_kunjungan.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast({
+        title: "Laporan Diunduh",
+        description: "File laporan CSV Anda telah berhasil diunduh.",
+    })
   }
 
   return (
