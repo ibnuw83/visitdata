@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { onSnapshot, Query } from 'firebase/firestore';
+import { getDocs, Query } from 'firebase/firestore';
 import { errorEmitter } from '@/lib/firebase/error-emitter';
 import { FirestorePermissionError } from '@/lib/firebase/errors';
 
-export function useCollection<T>(
+export function useQuery<T>(
   q: Query | null
 ): { data: T[]; loading: boolean; error: Error | null } {
   const [data, setData] = useState<T[]>([]);
@@ -13,33 +13,28 @@ export function useCollection<T>(
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // Jangan jalankan apapun kalau query belum siap
     if (!q) {
       setData([]);
       setLoading(false);
-      setError(null);
       return;
     }
 
-    let unsubscribed = false;
-
+    let isMounted = true;
     setLoading(true);
     setError(null);
-    setData([]);
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        if (unsubscribed) return;
-        const result = snapshot.docs.map((doc) => ({
-          ...doc.data(),
-          id: doc.id,
-        })) as T[];
-        setData(result);
-        setLoading(false);
-      },
-      (err: Error) => {
-        console.error('useCollection error:', err);
+    getDocs(q)
+      .then((snapshot) => {
+        if (isMounted) {
+            const result = snapshot.docs.map((doc) => ({
+              ...doc.data(),
+              id: doc.id,
+            })) as T[];
+            setData(result);
+        }
+      })
+      .catch((err) => {
+        console.error('useQuery error:', err);
 
         let errorPath = '(unknown)';
         try {
@@ -52,18 +47,19 @@ export function useCollection<T>(
           operation: 'list',
         });
         errorEmitter.emit('permission-error', permissionError);
-
-        if (!unsubscribed) {
-          setError(err);
-          setLoading(false);
+        if (isMounted) {
+            setError(err);
         }
+      })
+      .finally(() => {
+        if (isMounted) {
+            setLoading(false)
+        }
+      });
+      
+      return () => {
+          isMounted = false;
       }
-    );
-
-    return () => {
-      unsubscribed = true;
-      unsubscribe();
-    };
   }, [q]);
 
   return { data, loading, error };

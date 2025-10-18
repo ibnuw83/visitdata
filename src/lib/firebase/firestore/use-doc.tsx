@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,7 +13,6 @@ export function useDoc<T>(
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // Jangan jalankan apapun kalau referensi belum siap
     if (!ref) {
       setData(null);
       setLoading(false);
@@ -22,38 +20,37 @@ export function useDoc<T>(
     }
 
     let unsubscribed = false;
-
     setLoading(true);
+    setError(null);
 
     const unsubscribe = onSnapshot(
       ref,
-      (doc) => {
+      (snapshot) => {
         if (unsubscribed) return;
-        if (doc.exists()) {
-          setData({ ...doc.data(), id: doc.id } as T);
-        } else {
-          setData(null);
-        }
+        setData(snapshot.exists() ? ({ ...snapshot.data(), id: snapshot.id } as T) : null);
         setLoading(false);
       },
-      (err) => {
-        if (unsubscribed) return;
+      (err: Error) => {
         console.error('useDoc error:', err);
+
         const permissionError = new FirestorePermissionError({
           path: ref.path,
           operation: 'get',
         });
         errorEmitter.emit('permission-error', permissionError);
-        setError(err);
-        setLoading(false);
+
+        if (!unsubscribed) {
+          setError(err);
+          setLoading(false);
+        }
       }
     );
 
     return () => {
-        unsubscribed = true;
-        unsubscribe();
+      unsubscribed = true;
+      unsubscribe();
     };
   }, [ref]);
 
   return { data, loading, error };
-};
+}
