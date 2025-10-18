@@ -30,7 +30,6 @@ function LoginSkeleton() {
                 <Logo className="h-10 w-10 animate-pulse" />
                 <h1 className="font-headline text-3xl font-bold">VisitData Hub</h1>
             </div>
-            <p>Memuat sesi...</p>
         </div>
      );
 }
