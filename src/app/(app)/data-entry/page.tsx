@@ -386,14 +386,22 @@ export default function DataEntryPage() {
 
   const destinationsQuery = useMemo(() => {
     if (!firestore || !appUser) return null;
+
     let constraints = [where('status', '==', 'aktif')];
+    
     if (appUser.role === 'admin') {
       return query(collection(firestore, 'destinations'), ...constraints);
     }
-    if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+    
+    if (appUser.role === 'pengelola' && appUser.assignedLocations && appUser.assignedLocations.length > 0) {
       constraints.push(where('id', 'in', appUser.assignedLocations));
       return query(collection(firestore, 'destinations'), ...constraints);
     }
+
+    if (appUser.role === 'pengelola') {
+        return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
+    }
+
     return null;
   }, [firestore, appUser]);
 

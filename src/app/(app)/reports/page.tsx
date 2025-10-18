@@ -23,12 +23,19 @@ export default function ReportsPage() {
 
   const destinationsQuery = useMemo(() => {
     if (!firestore || !appUser) return null;
+    
     if (appUser.role === 'admin') {
         return collection(firestore, 'destinations');
     }
-    if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+    
+    if (appUser.role === 'pengelola' && appUser.assignedLocations && appUser.assignedLocations.length > 0) {
         return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
     }
+
+    if (appUser.role === 'pengelola') {
+        return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
+    }
+
     return null;
   }, [firestore, appUser]);
 
@@ -64,8 +71,6 @@ export default function ReportsPage() {
     if (!visitData || !destinations) return [];
 
     let data = visitData;
-
-    // Filter based on user role - data is already pre-filtered by the hook for 'pengelola'
     
     if (selectedDestination !== 'all') {
       data = data.filter(d => d.destinationId === selectedDestination);

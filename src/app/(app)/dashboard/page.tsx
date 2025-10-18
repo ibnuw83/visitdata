@@ -27,8 +27,13 @@ export default function DashboardPage() {
             return collection(firestore, 'destinations');
         }
 
-        if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+        if (appUser.role === 'pengelola' && appUser.assignedLocations && appUser.assignedLocations.length > 0) {
             return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
+        }
+
+        // Return a query that will yield no results if a manager has no assigned locations
+        if (appUser.role === 'pengelola') {
+            return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
         }
 
         return null;
@@ -51,12 +56,21 @@ export default function DashboardPage() {
     }, [destinationsLoading, visitsLoading]);
 
     const userVisitData = useMemo(() => {
-        if (!allVisitData || !appUser) return [];
-        if (appUser.role === 'admin') return allVisitData;
+        if (!allVisitData || !appUser || !destinations) return [];
+
+        const allowedDestinationIds = new Set(destinations.map(d => d.id));
+
+        if (appUser.role === 'admin') {
+            return allVisitData.filter(visit => allowedDestinationIds.has(visit.destinationId));
+        }
         
         const assigned = appUser.assignedLocations || [];
-        return allVisitData.filter(visit => assigned.includes(visit.destinationId));
-    }, [allVisitData, appUser]);
+        const assignedSet = new Set(assigned);
+        
+        return allVisitData.filter(visit => 
+            allowedDestinationIds.has(visit.destinationId) && assignedSet.has(visit.destinationId)
+        );
+    }, [allVisitData, appUser, destinations]);
 
     const availableYears = useMemo(() => {
         if (!userVisitData) return [new Date().getFullYear()];

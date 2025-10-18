@@ -33,6 +33,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFirestore } from '@/lib/firebase/client-provider';
+import { useUser } from '@/lib/firebase/auth/use-user';
 import { useCollection } from '@/lib/firebase/firestore/use-collection';
 import { errorEmitter } from '@/lib/firebase/error-emitter';
 import { FirestorePermissionError } from '@/lib/firebase/errors';
@@ -52,7 +53,11 @@ const colorPalette = [
 
 export default function CategoriesPage() {
   const firestore = useFirestore();
-  const categoriesQuery = useMemo(() => firestore ? collection(firestore, 'categories') : null, [firestore]);
+  const { appUser } = useUser();
+  const categoriesQuery = useMemo(() => {
+    if (!firestore || !appUser) return null;
+    return collection(firestore, 'categories');
+  }, [firestore, appUser]);
   const { data: categories, loading } = useCollection<Category>(categoriesQuery);
 
   const [newCategoryName, setNewCategoryName] = useState('');

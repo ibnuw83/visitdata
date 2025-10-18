@@ -21,7 +21,11 @@ import { collection, doc, updateDoc, writeBatch } from 'firebase/firestore';
 export default function UnlockRequestsPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
-  const requestsQuery = useMemo(() => firestore ? collection(firestore, 'unlock-requests') : null, [firestore]);
+  const requestsQuery = useMemo(() => {
+    if (!firestore || !appUser) return null;
+    return collection(firestore, 'unlock-requests');
+  }, [firestore, appUser]);
+  
   const { data: unlockRequests } = useCollection<UnlockRequest>(requestsQuery);
   const { toast } = useToast();
   
