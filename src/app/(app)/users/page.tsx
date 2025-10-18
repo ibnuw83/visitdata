@@ -272,7 +272,7 @@ export default function UsersPage() {
         role: newUserRole,
         assignedLocations: newUserRole === 'pengelola' ? newUserAssignedLocations : [],
         status: 'aktif',
-        avatarUrl: `https://i.pravatar.cc/150?u=${newAuthUser.uid}`
+        avatarUrl: 'https://i.pravatar.cc/150'
       };
       
       const userDocRef = doc(firestore, 'users', newAuthUser.uid);
