@@ -11,7 +11,7 @@ import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError, 
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import DestinationImageSettings from '@/components/settings/destination-image-settings';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
