@@ -11,8 +11,6 @@ import TopDestinationsCarousel from "@/components/dashboard/top-destinations-car
 import type { VisitData, Destination, AppSettings } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useUser } from '@/firebase/auth/use-user';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
@@ -139,7 +137,7 @@ function DashboardContent() {
     )
 }
 
-function PublicLandingPage() {
+export default function HomePage() {
     const firestore = useFirestore();
     const settingsRef = useMemo(() => firestore ? doc(firestore, 'settings/app') : null, [firestore]);
     const { data: settings } = useDoc<AppSettings>(settingsRef);
@@ -203,34 +201,4 @@ function PublicLandingPage() {
       </footer>
     </div>
   );
-}
-
-
-export default function HomePage() {
-  const { user, isLoading } = useUser();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (user) {
-      router.replace('/dashboard');
-    }
-  }, [user, router]);
-  
-  if(isLoading) {
-    return <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-            <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
-                <Logo className="h-10 w-10 animate-pulse" />
-            </div>
-        </div>
-  }
-
-  if (user) {
-    return <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-            <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
-                <Logo className="h-10 w-10 animate-pulse" />
-            </div>
-        </div>;
-  }
-
-  return <PublicLandingPage />;
 }
