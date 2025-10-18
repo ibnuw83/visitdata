@@ -7,8 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getDestinations, getVisitData } from "@/lib/local-data-service";
 import { Destination, VisitData } from "@/lib/types";
 import { useEffect, useState, useMemo } from "react";
-import { Download, VenetianMask } from "lucide-react";
+import { Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 
 export default function ReportsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -56,6 +58,9 @@ export default function ReportsPage() {
         });
         return;
     }
+    
+    // Get all unique countries from the filtered data
+    const allCountries = [...new Set(filteredData.flatMap(d => d.wismanDetails?.map(detail => detail.country) || []))];
 
     const csvHeader = [
       "ID Kunjungan",
@@ -64,20 +69,27 @@ export default function ReportsPage() {
       "Tahun",
       "Bulan",
       "Wisatawan Domestik",
-      "Wisatawan Asing",
+      "Total Wisatawan Asing",
+      ...allCountries, // Add country columns
       "Total Pengunjung"
     ];
     
-    const csvRows = filteredData.map(d => [
-      d.id,
-      d.destinationId,
-      `"${destinationMap.get(d.destinationId) || 'Tidak Dikenal'}"`,
-      d.year,
-      d.monthName,
-      d.wisnus,
-      d.wisman,
-      d.totalVisitors
-    ].join(','));
+    const csvRows = filteredData.map(d => {
+        const countryCounts = new Map(d.wismanDetails?.map(detail => [detail.country, detail.count]) || []);
+        const countryValues = allCountries.map(country => countryCounts.get(country) || 0);
+
+        return [
+          d.id,
+          d.destinationId,
+          `"${destinationMap.get(d.destinationId) || 'Tidak Dikenal'}"`,
+          d.year,
+          d.monthName,
+          d.wisnus,
+          d.wisman,
+          ...countryValues,
+          d.totalVisitors
+        ].join(',');
+    });
 
     const csvContent = [csvHeader.join(','), ...csvRows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -86,7 +98,7 @@ export default function ReportsPage() {
     const url = URL.createObjectURL(blob);
     link.href = url;
     const date = new Date().toISOString().split('T')[0];
-    link.setAttribute('download', `laporan-kunjungan-${date}.csv`);
+    link.setAttribute('download', `laporan-kunjungan-wisman-detailed-${date}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -177,7 +189,37 @@ export default function ReportsPage() {
                     <TableCell className="font-medium">{destinationMap.get(d.destinationId) || 'Tidak Dikenal'}</TableCell>
                     <TableCell>{d.monthName} {d.year}</TableCell>
                     <TableCell className="text-right">{d.wisnus.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{d.wisman.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">
+                       <Popover>
+                        <PopoverTrigger asChild>
+                           <span className="cursor-pointer underline decoration-dashed underline-offset-4 hover:decoration-solid">
+                            {d.wisman.toLocaleString()}
+                           </span>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80">
+                          <div className="grid gap-4">
+                            <div className="space-y-2">
+                              <h4 className="font-medium leading-none">Rincian Wisatawan Asing</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Pengunjung berdasarkan negara asal untuk {d.monthName} {d.year}.
+                              </p>
+                            </div>
+                            <div className="grid gap-2">
+                                {(d.wismanDetails && d.wismanDetails.length > 0) ? (
+                                    d.wismanDetails.map((detail, index) => (
+                                      <div key={index} className="grid grid-cols-2 items-center gap-4">
+                                        <span className="font-medium">{detail.country}</span>
+                                        <Badge variant="outline" className="justify-self-end">{detail.count.toLocaleString()}</Badge>
+                                      </div>
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">Tidak ada rincian.</p>
+                                )}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableCell>
                     <TableCell className="text-right font-semibold">{d.totalVisitors.toLocaleString()}</TableCell>
                   </TableRow>
                 ))
