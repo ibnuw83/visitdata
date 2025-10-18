@@ -1,8 +1,9 @@
 'use server';
 
-import { createSession, deleteSession, getCurrentUser } from '@/lib/session';
+import { createSession, deleteSession } from '@/lib/session';
 import { users } from '@/lib/mock-data';
 import { User } from '@/lib/types';
+import { getUsers } from '@/lib/local-data-service';
 
 export async function login(formData: FormData): Promise<User | null> {
   const email = formData.get('email') as string;
@@ -12,11 +13,13 @@ export async function login(formData: FormData): Promise<User | null> {
     return null;
   }
   
-  const user = users.find((u) => u.email === email);
+  // In a real app, always get the latest user data
+  const currentUsers = getUsers();
+  const user = currentUsers.find((u) => u.email === email);
   
-  // In a real app, you'd be hashing and comparing passwords.
   // For this demo, we'll use a simple string comparison.
-  if (user && password === 'password123') {
+  // In a real app, you'd be hashing and comparing passwords.
+  if (user && password === user.password) {
     await createSession(user.uid);
     return user;
   }

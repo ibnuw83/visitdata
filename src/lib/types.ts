@@ -2,6 +2,7 @@ export type User = {
   uid: string;
   name: string;
   email: string;
+  password?: string; // Added for user creation
   role: 'admin' | 'pengelola';
   assignedLocations: string[]; // Array of destination IDs
   status: 'aktif' | 'nonaktif';

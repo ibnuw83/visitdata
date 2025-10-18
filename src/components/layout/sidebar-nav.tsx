@@ -12,16 +12,16 @@ import {
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
-import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree, Lightbulb } from 'lucide-react';
+import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useEffect, useState } from 'react';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard, roles: ['admin', 'pengelola'] },
-  { href: '/categories', label: 'Kategori Wisata', icon: FolderTree, roles: ['admin'] },
-  { href: '/destinations', label: 'Destinasi', icon: Landmark, roles: ['admin'] },
   { href: '/data-entry', label: 'Input Data', icon: Edit, roles: ['pengelola', 'admin'] },
   { href: '/reports', label: 'Laporan', icon: FileText, roles: ['admin', 'pengelola'] },
+  { href: '/categories', label: 'Kategori Wisata', icon: FolderTree, roles: ['admin'] },
+  { href: '/destinations', label: 'Destinasi', icon: Landmark, roles: ['admin'] },
   { href: '/unlock-requests', label: 'Permintaan Revisi', icon: KeyRound, roles: ['admin'] },
   { href: '/users', label: 'Pengguna', icon: Users, roles: ['admin'] },
   { href: '/settings', label: 'Pengaturan', icon: Settings, roles: ['admin', 'pengelola'] },
@@ -58,6 +58,8 @@ export default function SidebarNav() {
   }
 
   const isUserInRole = (roles: string[]) => roles.includes(user.role);
+  
+  const accessibleMenuItems = menuItems.filter(item => isUserInRole(item.roles));
 
   return (
     <>
@@ -70,7 +72,7 @@ export default function SidebarNav() {
       <Separator />
       <SidebarContent>
         <SidebarMenu>
-          {menuItems.filter(item => isUserInRole(item.roles)).map((item) => (
+          {accessibleMenuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild

@@ -36,7 +36,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Combobox } from '@/components/ui/combobox';
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -150,6 +149,7 @@ export default function UsersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'pengelola'>('pengelola');
   const [newUserAssignedLocations, setNewUserAssignedLocations] = useState<string[]>([]);
   
@@ -211,16 +211,17 @@ export default function UsersPage() {
   const resetAddForm = () => {
     setNewUserName('');
     setNewUserEmail('');
+    setNewUserPassword('');
     setNewUserRole('pengelola');
     setNewUserAssignedLocations([]);
   };
 
   const handleAddNewUser = () => {
-    if (!newUserName.trim() || !newUserEmail.trim()) {
+    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
       toast({
         variant: "destructive",
         title: "Input tidak lengkap",
-        description: "Harap isi nama dan email pengguna.",
+        description: "Harap isi nama, email, dan kata sandi pengguna.",
       });
       return;
     }
@@ -239,6 +240,7 @@ export default function UsersPage() {
       uid: `user-${Date.now()}`,
       name: newUserName.trim(),
       email: newUserEmail.trim(),
+      password: newUserPassword.trim(),
       role: newUserRole,
       assignedLocations: newUserRole === 'pengelola' ? newUserAssignedLocations : [],
       status: 'aktif',
@@ -325,6 +327,19 @@ export default function UsersPage() {
                       onChange={(e) => setNewUserEmail(e.target.value)}
                       className="col-span-3"
                       placeholder="budi@example.com"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="user-password" className="text-right">
+                      Kata Sandi
+                    </Label>
+                    <Input
+                      id="user-password"
+                      type="password"
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      className="col-span-3"
+                      placeholder="Kata sandi awal"
                     />
                   </div>
                    <div className="grid grid-cols-4 items-center gap-4">
