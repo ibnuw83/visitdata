@@ -33,11 +33,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
             const serverSessionUser = await res.json();
             if (serverSessionUser && serverSessionUser.uid) {
+              // The session cookie is valid, now get the definitive user data from client-side storage.
               const allClientUsers = getUsers();
               const clientUser = allClientUsers.find(u => u.uid === serverSessionUser.uid);
               
               if (clientUser) {
-                setUser(clientUser);
+                setUser(clientUser); // Set user from localStorage
               } else {
                 // User exists in session but not in client storage, likely stale. Log them out.
                 await logoutAction();
@@ -47,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setUser(null);
             }
         } else {
-            // If the API call fails, assume no session
+            // If the API call fails (e.g. 404 if session is missing), assume no session
             setUser(null);
         }
       } catch (e) {
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
         }
         
-        // Client-side validation against localStorage data
+        // Client-side validation against localStorage data is the source of truth
         const allClientUsers = getUsers();
         const foundUser = allClientUsers.find(u => u.email === email);
 
@@ -87,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
     } catch (e: any) {
+      console.error("Login Error:", e);
       setError(e.message || 'Terjadi kesalahan saat login.');
     } finally {
       setIsLoading(false);
