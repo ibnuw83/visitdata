@@ -12,27 +12,47 @@ import { getVisitData, getDestinations } from "@/lib/local-data-service";
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/context/auth-context';
 
 export default function DashboardPage() {
+    const { user } = useAuth();
     const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
     const [destinations, setDestinations] = useState<Destination[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
     useEffect(() => {
-        const visitData = getVisitData();
-        const destinations = getDestinations();
-        setAllVisitData(visitData);
-        setDestinations(destinations);
-        
-        // Set default year to the latest year available in data if it exists
-        const availableYears = [...new Set(visitData.map(d => d.year))].sort((a,b) => b-a);
-        if (availableYears.length > 0) {
-            setSelectedYear(availableYears[0].toString());
+        if (!user) return;
+
+        const visitDataFromDb = getVisitData();
+        const destinationsFromDb = getDestinations();
+
+        if (user.role === 'pengelola') {
+            const assignedIds = user.assignedLocations;
+            const assignedDestinations = destinationsFromDb.filter(d => assignedIds.includes(d.id));
+            const assignedVisitData = visitDataFromDb.filter(vd => assignedIds.includes(vd.destinationId));
+            
+            setDestinations(assignedDestinations);
+            setAllVisitData(assignedVisitData);
+
+            const availableYears = [...new Set(assignedVisitData.map(d => d.year))].sort((a,b) => b-a);
+            if (availableYears.length > 0) {
+                setSelectedYear(availableYears[0].toString());
+            } else {
+                setSelectedYear(new Date().getFullYear().toString());
+            }
+        } else {
+            setDestinations(destinationsFromDb);
+            setAllVisitData(visitDataFromDb);
+            
+            const availableYears = [...new Set(visitDataFromDb.map(d => d.year))].sort((a,b) => b-a);
+            if (availableYears.length > 0) {
+                setSelectedYear(availableYears[0].toString());
+            }
         }
 
         setLoading(false);
-    }, []);
+    }, [user]);
     
     const availableYears = useMemo(() => {
         return [...new Set(allVisitData.map(d => d.year))].sort((a, b) => b - a);
@@ -45,9 +65,8 @@ export default function DashboardPage() {
     const totalVisitors = useMemo(() => yearlyData.reduce((sum, item) => sum + item.totalVisitors, 0), [yearlyData]);
     const totalWisnus = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisnus, 0), [yearlyData]);
     const totalWisman = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisman, 0), [yearlyData]);
-    const totalDestinations = destinations.length;
 
-    if (loading) {
+    if (loading || !user) {
         return (
              <div className="flex flex-col gap-8">
                 <div className="flex items-center justify-between">
@@ -83,7 +102,7 @@ export default function DashboardPage() {
                     <p className="text-muted-foreground">Ringkasan data pariwisata untuk tahun {selectedYear}.</p>
                 </div>
                 <div className="w-full sm:w-auto">
-                   <Select value={selectedYear} onValueChange={setSelectedYear}>
+                   <Select value={selectedYear} onValueChange={setSelectedYear} disabled={availableYears.length === 0}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Pilih Tahun" />
                     </SelectTrigger>
