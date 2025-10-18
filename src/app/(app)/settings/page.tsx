@@ -112,23 +112,23 @@ function AppSettingsCard() {
                 <div className="space-y-4">
                     <div className="grid gap-2">
                         <Label htmlFor="app-title">Judul Aplikasi</Label>
-                        <Input id="app-title" value={appTitle} onChange={(e) => setAppTitle(e.target.value)} />
+                        <Input id="app-title" value={appTitle || ''} onChange={(e) => setAppTitle(e.target.value)} />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="logo-url">URL Logo</Label>
-                        <Input id="logo-url" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://example.com/logo.png" />
+                        <Input id="logo-url" value={logoUrl || ''} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://example.com/logo.png" />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="footer-text">Teks Footer</Label>
-                        <Input id="footer-text" value={footerText} onChange={(e) => setFooterText(e.target.value)} />
+                        <Input id="footer-text" value={footerText || ''} onChange={(e) => setFooterText(e.target.value)} />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="hero-title">Judul Halaman Utama</Label>
-                        <Input id="hero-title" value={heroTitle} onChange={(e) => setHeroTitle(e.target.value)} />
+                        <Input id="hero-title" value={heroTitle || ''} onChange={(e) => setHeroTitle(e.target.value)} />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="hero-subtitle">Subjudul Halaman Utama</Label>
-                        <Textarea id="hero-subtitle" value={heroSubtitle} onChange={(e) => setHeroSubtitle(e.target.value)} />
+                        <Textarea id="hero-subtitle" value={heroSubtitle || ''} onChange={(e) => setHeroSubtitle(e.target.value)} />
                     </div>
                     <Button onClick={handleSaveAppSettings}>Simpan Pengaturan Tampilan</Button>
                 </div>
@@ -339,7 +339,7 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <Label htmlFor="name">Nama</Label>
               <div className="flex gap-2">
-                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                 <Input id="name" value={name || ''} onChange={(e) => setName(e.target.value)} />
                  <Button onClick={handleSaveChanges} variant="outline">Simpan Nama</Button>
               </div>
             </div>
@@ -350,11 +350,11 @@ export default function SettingsPage() {
              <div className="border-t pt-6 space-y-4">
                  <div className="space-y-2">
                      <Label htmlFor="current-password">Kata Sandi Saat Ini</Label>
-                     <Input id="current-password" type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+                     <Input id="current-password" type="password" value={currentPassword || ''} onChange={e => setCurrentPassword(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="new-password">Kata Sandi Baru</Label>
-                    <Input id="new-password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                    <Input id="new-password" type="password" value={newPassword || ''} onChange={e => setNewPassword(e.target.value)} />
                 </div>
                 <Button onClick={handlePasswordChange}>Ubah Kata Sandi</Button>
              </div>
@@ -369,3 +369,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
