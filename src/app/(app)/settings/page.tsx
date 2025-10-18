@@ -7,14 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuth } from '@/context/auth-context';
+import { useUser } from '@/firebase/auth/use-user';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import DestinationImageSettings from '@/components/settings/destination-image-settings';
-import { useFirestore } from '@/firebase';
+import { useFirestore } from '@/firebase/client-provider';
 import { doc, updateDoc } from 'firebase/firestore';
 
 function AppSettingsCard() {
@@ -158,7 +158,7 @@ function ChangePhotoDialog({ onSave }: { onSave: (newUrl: string) => void }) {
 }
 
 export default function SettingsPage() {
-  const { appUser } = useAuth();
+  const { appUser } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [name, setName] = useState('');

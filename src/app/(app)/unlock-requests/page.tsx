@@ -1,32 +1,28 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Destination, UnlockRequest, User as AppUser } from '@/lib/types';
+import type { UnlockRequest } from '@/lib/types';
 import { format } from 'date-fns';
 import { MoreHorizontal, CheckCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/auth-context';
-import { useCollection, useFirestore } from '@/firebase';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { useUser } from '@/firebase/auth/use-user';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirestore } from '@/firebase/client-provider';
+import { collection, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function UnlockRequestsPage() {
-  const { user, refreshPendingRequests } = useAuth();
+  const { appUser } = useUser();
   const firestore = useFirestore();
 
-  const { data: destinations } = useCollection<Destination>(firestore ? collection(firestore, 'destinations') : null);
-  const { data: users } = useCollection<AppUser>(firestore ? collection(firestore, 'users') : null);
   const { data: unlockRequests } = useCollection<UnlockRequest>(firestore ? collection(firestore, 'unlock-requests') : null);
 
   const { toast } = useToast();
-  
-  const destinationMap = useMemo(() => new Map(destinations?.map(d => [d.id, d.name])), [destinations]);
-  const userMap = useMemo(() => new Map(users?.map(u => [u.uid, u.name])), [users]);
   
   const statusVariant: { [key in UnlockRequest['status']]: "secondary" | "default" | "destructive" } = {
       pending: "secondary",
@@ -35,7 +31,7 @@ export default function UnlockRequestsPage() {
   };
 
   const handleAction = async (requestId: string, newStatus: 'approved' | 'rejected') => {
-    if (!user || !firestore || !unlockRequests) return;
+    if (!appUser || !firestore || !unlockRequests) return;
 
     const requestRef = doc(firestore, 'unlock-requests', requestId);
     const targetRequest = unlockRequests.find(req => req.id === requestId);
@@ -44,7 +40,7 @@ export default function UnlockRequestsPage() {
     try {
       await updateDoc(requestRef, {
         status: newStatus,
-        processedBy: user.uid,
+        processedBy: appUser.uid,
       });
 
       if (newStatus === 'approved') {
@@ -57,7 +53,6 @@ export default function UnlockRequestsPage() {
         title: `Permintaan ${newStatus === 'approved' ? 'Disetujui' : 'Ditolak'}`,
         description: `Status permintaan telah diperbarui.`,
       });
-      refreshPendingRequests();
     } catch (error) {
       console.error("Error updating request: ", error);
       toast({
@@ -70,7 +65,12 @@ export default function UnlockRequestsPage() {
 
   const sortedRequests = useMemo(() => {
     if (!unlockRequests) return [];
-    return [...unlockRequests].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return [...unlockRequests].sort((a, b) => {
+        // Sort by status first (pending comes first), then by timestamp
+        if (a.status === 'pending' && b.status !== 'pending') return -1;
+        if (a.status !== 'pending' && b.status === 'pending') return 1;
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    });
   }, [unlockRequests]);
 
   return (
@@ -100,15 +100,13 @@ export default function UnlockRequestsPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {sortedRequests.map(req => {
-                      const destinationName = destinationMap.get(req.destinationId) || 'Memuat...';
-                      const requesterName = userMap.get(req.requestedBy) || 'Memuat...';
+                    {(sortedRequests || []).map(req => {
                       const period = `${new Date(req.year, req.month -1).toLocaleString('id-ID', {month: 'long'})} ${req.year}`;
                       return (
                         <TableRow key={req.id}>
-                            <TableCell className="font-medium">{destinationName}</TableCell>
+                            <TableCell className="font-medium">{req.destinationName || req.destinationId}</TableCell>
                             <TableCell>{period}</TableCell>
-                            <TableCell className="text-muted-foreground">{requesterName}</TableCell>
+                            <TableCell className="text-muted-foreground">{req.requesterName || req.requestedBy}</TableCell>
                             <TableCell className="text-muted-foreground text-xs truncate max-w-xs">{req.reason}</TableCell>
                             <TableCell>
                                 <Badge variant={statusVariant[req.status]} className="capitalize">{req.status}</Badge>
@@ -139,7 +137,7 @@ export default function UnlockRequestsPage() {
                         </TableRow>
                       )
                     })}
-                     {sortedRequests.length === 0 && (
+                     {(!sortedRequests || sortedRequests.length === 0) && (
                         <TableRow>
                             <TableCell colSpan={7} className="h-24 text-center">
                                 Tidak ada permintaan revisi.

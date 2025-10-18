@@ -1,75 +1,37 @@
 
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
-
-import type { User, UnlockRequest } from '@/lib/types';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { useAuth as useFirebaseAuth } from '@/firebase/client-provider';
 
 interface AuthContextType {
   user: FirebaseUser | null;
-  appUser: User | null; // This will hold the firestore user data
   login: (formData: FormData) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
   error: string | null;
-  pendingRequestsCount: number;
-  refreshPendingRequests: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const auth = useFirebaseAuth();
+  
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [appUser, setAppUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const router = useRouter();
-  const firestore = useFirestore();
   
-  const auth = getAuth();
-
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
-      if (firebaseUser && firestore) {
-        const userDocRef = doc(firestore, 'users', firebaseUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-            const userDoc = userDocSnap.data() as User;
-            userDoc.uid = userDocSnap.id;
-            setAppUser(userDoc);
-        } else {
-            setAppUser(null);
-            console.warn(`User document not found for UID: ${firebaseUser.uid}`);
-        }
-      } else {
-        setAppUser(null);
-      }
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [auth, firestore]);
-
-  const refreshPendingRequests = useCallback(async () => {
-    if (appUser && appUser.role === 'admin' && firestore) {
-      const requestsQuery = query(collection(firestore, 'unlock-requests'), where('status', '==', 'pending'));
-      const snapshot = await getDocs(requestsQuery);
-      setPendingRequestsCount(snapshot.size);
-    } else {
-        setPendingRequestsCount(0);
-    }
-  }, [appUser, firestore]);
-
-  useEffect(() => {
-    refreshPendingRequests();
-  }, [refreshPendingRequests]);
-
+  }, [auth]);
 
   const login = async (formData: FormData) => {
     setIsLoading(true);
@@ -79,9 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // The onAuthStateChanged listener will handle setting the user and appUser states
-      // and then redirect.
-      router.push('/dashboard');
+      // onAuthStateChanged will handle setting the user state.
+      // Redirect will happen in the page/layout after user state is updated.
     } catch (e: any) {
       console.error("Login Error:", e);
       if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password') {
@@ -89,21 +50,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setError(e.message || 'Terjadi kesalahan saat login.');
       }
+    } finally {
        setIsLoading(false);
-    } 
-    // Do not set loading to false here, let the listener handle it
+    }
   };
 
   const logout = async () => {
     await signOut(auth);
-    setAppUser(null);
-    setUser(null);
-    setPendingRequestsCount(0);
     router.push('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ user, appUser, login, logout, isLoading, error, pendingRequestsCount, refreshPendingRequests }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading, error }}>
       {children}
     </AuthContext.Provider>
   );

@@ -44,10 +44,6 @@ export default function LoginPage() {
     if (!isLoading && user) {
       router.push('/dashboard');
     }
-    // Temp: Load app title from localStorage on client. This will be moved.
-    const savedTitle = localStorage.getItem('appTitle') || 'VisitData Hub';
-    setAppTitle(savedTitle);
-    
   }, [user, isLoading, router]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {

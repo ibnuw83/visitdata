@@ -2,10 +2,11 @@
 'use client';
 
 import React, { createContext, useContext, useMemo } from 'react';
-import { FirebaseApp } from 'firebase/app';
-import { Auth } from 'firebase/auth';
-import { Firestore } from 'firebase/firestore';
-import { FirebaseProvider, initializeFirebase } from '.';
+import { FirebaseApp, initializeApp } from 'firebase/app';
+import { Auth, getAuth } from 'firebase/auth';
+import { Firestore, getFirestore } from 'firebase/firestore';
+import { FirebaseProvider } from './provider';
+import { firebaseConfig } from './config';
 
 const FirebaseAppContext = createContext<FirebaseApp | undefined>(undefined);
 const FirestoreContext = createContext<Firestore | undefined>(undefined);
@@ -19,7 +20,12 @@ const AuthContext = createContext<Auth | undefined>(undefined);
  * It should be used as a wrapper around the root of your app.
  */
 export function FirebaseClientProvider({ children }: { children: React.ReactNode }) {
-  const { firebaseApp, auth, firestore } = useMemo(() => initializeFirebase(), []);
+  const { firebaseApp, auth, firestore } = useMemo(() => {
+    const app = initializeApp(firebaseConfig);
+    const a = getAuth(app);
+    const fs = getFirestore(app);
+    return { firebaseApp: app, auth: a, firestore: fs };
+  }, []);
 
   return (
     <FirebaseAppContext.Provider value={firebaseApp}>

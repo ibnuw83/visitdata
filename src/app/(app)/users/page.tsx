@@ -51,7 +51,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useCollection, useFirestore, useFirebaseApp } from '@/firebase';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirestore, useFirebaseApp } from '@/firebase/client-provider';
 import { collection, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 
@@ -198,7 +199,7 @@ export default function UsersPage() {
   }
 
   const handleDeleteUser = async (userId: string) => {
-    if (!firestore) return;
+    if (!firestore || !users) return;
     const userToDelete = users.find(u => u.uid === userId);
     if (!userToDelete) return;
 
@@ -207,7 +208,6 @@ export default function UsersPage() {
       await deleteDoc(userRef);
       // Note: Deleting the auth user is a separate, more complex operation
       // and is not handled here to prevent accidental user lockouts.
-      // The user will no longer be able to log in to the app, but their auth record remains.
       // The user will no longer be able to log in to the app, but their auth record remains.
       toast({
         title: "Pengguna Dihapus",
@@ -236,7 +236,7 @@ export default function UsersPage() {
       });
       return;
     }
-    if (!firestore || !firebaseApp) return;
+    if (!firestore || !firebaseApp || !users) return;
     
     // Check for duplicate email in Firestore
     if (users.some(user => user.email === newUserEmail.trim())) {
@@ -424,7 +424,7 @@ export default function UsersPage() {
                           Memuat data pengguna...
                         </TableCell>
                       </TableRow>
-                    ) : users.map(user => {
+                    ) : (users || []).map(user => {
                       return (
                         <TableRow key={user.uid}>
                             <TableCell className="font-medium">
@@ -562,5 +562,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    

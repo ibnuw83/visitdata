@@ -6,6 +6,7 @@ import Header from '@/components/layout/header';
 import SidebarNav from '@/components/layout/sidebar-nav';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import { useUser } from '@/firebase/auth/use-user';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -47,24 +48,31 @@ function AppLayoutSkeleton() {
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const { appUser, loading: isUserLoading } = useUser();
   const router = useRouter();
+
+  const isLoading = isAuthLoading || (user && isUserLoading);
 
   // Redirect if not logged in
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isAuthLoading && !user) {
       router.replace('/login');
     }
-  }, [user, isLoading, router]);
+  }, [user, isAuthLoading, router]);
 
-  // Show loading skeleton while checking the session. This is the first gate.
+  // Show loading skeleton while checking auth or fetching user data
   if (isLoading) {
     return <AppLayoutSkeleton />;
   }
 
-  // If there's a user, they can see the content.
-  // The useEffect above will handle redirection if the user logs out.
-  if (user) {
+  // If we have an authenticated user but no app user profile yet,
+  // it's an intermediate state, so we show the skeleton.
+  if (user && !appUser) {
+    return <AppLayoutSkeleton />;
+  }
+  
+  if (appUser) {
     return (
       <SidebarProvider>
         <Sidebar>
@@ -81,6 +89,5 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   // If loading is done and there's no user, render nothing while redirecting.
-  // The useEffect handles the router.replace.
   return null;
 }

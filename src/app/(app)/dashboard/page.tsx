@@ -11,12 +11,13 @@ import TopDestinationsCard from "@/components/dashboard/top-destinations-card";
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/context/auth-context';
-import { useCollection, useFirestore } from '@/firebase';
+import { useUser } from '@/firebase/auth/use-user';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirestore } from '@/firebase/client-provider';
 import { collection, query, where } from 'firebase/firestore';
 
 export default function DashboardPage() {
-    const { appUser } = useAuth();
+    const { appUser } = useUser();
     const firestore = useFirestore();
 
     const destinationsQuery = useMemo(() => {
@@ -30,19 +31,11 @@ export default function DashboardPage() {
         return null;
     }, [firestore, appUser]);
 
-    const visitsQuery = useMemo(() => {
-         if (!firestore || !appUser) return null;
-        if (appUser.role === 'admin') {
-            return collection(firestore, 'visits');
-        }
-        if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-            return query(collection(firestore, 'visits'), where('destinationId', 'in', appUser.assignedLocations));
-        }
-        return null;
-    }, [firestore, appUser]);
-
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
+    
+    // Query for all visits, will be filtered client-side based on user's destinations
+    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(firestore ? collection(firestore, 'visits') : null);
+
 
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
@@ -51,20 +44,27 @@ export default function DashboardPage() {
         setLoading(destinationsLoading || visitsLoading);
     }, [destinationsLoading, visitsLoading]);
 
+    const userVisitData = useMemo(() => {
+        if (!allVisitData || !appUser) return [];
+        if (appUser.role === 'admin') return allVisitData;
+        
+        return allVisitData.filter(visit => appUser.assignedLocations.includes(visit.destinationId));
+    }, [allVisitData, appUser]);
+
     const availableYears = useMemo(() => {
-        if (!allVisitData) return [new Date().getFullYear()];
-        const allYears = [...new Set(allVisitData.map(d => d.year))].sort((a, b) => b - a);
+        if (!userVisitData) return [new Date().getFullYear()];
+        const allYears = [...new Set(userVisitData.map(d => d.year))].sort((a, b) => b - a);
         const currentYear = new Date().getFullYear();
         if (!allYears.includes(currentYear)) {
             allYears.unshift(currentYear);
         }
         return allYears;
-    }, [allVisitData]);
+    }, [userVisitData]);
 
     const yearlyData = useMemo(() => {
-        if (!allVisitData) return [];
-        return allVisitData.filter(d => d.year === parseInt(selectedYear));
-    }, [allVisitData, selectedYear]);
+        if (!userVisitData) return [];
+        return userVisitData.filter(d => d.year === parseInt(selectedYear));
+    }, [userVisitData, selectedYear]);
     
     const totalVisitors = useMemo(() => yearlyData.reduce((sum, item) => sum + item.totalVisitors, 0), [yearlyData]);
     const totalWisnus = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisnus, 0), [yearlyData]);

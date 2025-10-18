@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,24 +12,25 @@ import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
-import { useAuth } from '@/context/auth-context';
-import { useCollection, useFirestore } from "@/firebase";
+import { useUser } from '@/firebase/auth/use-user';
+import { useCollection } from "@/firebase/firestore/use-collection";
+import { useFirestore } from "@/firebase/client-provider";
 import { collection, query, where, getDocs } from "firebase/firestore";
 
 export default function ReportsPage() {
-  const { user } = useAuth();
+  const { appUser } = useUser();
   const firestore = useFirestore();
 
   const destinationsQuery = useMemo(() => {
-    if (!firestore || !user) return null;
-    if (user.role === 'admin') {
+    if (!firestore || !appUser) return null;
+    if (appUser.role === 'admin') {
       return collection(firestore, 'destinations');
     }
-    if (user.assignedLocations && user.assignedLocations.length > 0) {
-      return query(collection(firestore, 'destinations'), where('id', 'in', user.assignedLocations));
+    if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+      return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
     }
     return null;
-  }, [firestore, user]);
+  }, [firestore, appUser]);
 
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
   const { data: visitData } = useCollection<VisitData>(firestore ? collection(firestore, 'visits') : null);
@@ -60,8 +62,8 @@ export default function ReportsPage() {
     let data = visitData;
 
     // Filter based on user role
-    if (user?.role === 'pengelola' && user.assignedLocations.length > 0) {
-      data = data.filter(d => user.assignedLocations.includes(d.destinationId));
+    if (appUser?.role === 'pengelola' && appUser.assignedLocations.length > 0) {
+      data = data.filter(d => appUser.assignedLocations.includes(d.destinationId));
     }
     
     if (selectedDestination !== 'all') {
@@ -77,7 +79,7 @@ export default function ReportsPage() {
         if (a.year !== b.year) return b.year - a.year;
         return a.month - b.month;
     });
-  }, [visitData, destinations, selectedDestination, selectedYear, selectedMonth, user]);
+  }, [visitData, destinations, selectedDestination, selectedYear, selectedMonth, appUser]);
 
 
   const handleDownload = () => {
@@ -152,7 +154,7 @@ export default function ReportsPage() {
     })
   }
 
-  if (!user || !destinations || !visitData) {
+  if (!appUser || !destinations || !visitData) {
     return null; // or a loading skeleton
   }
 
@@ -171,12 +173,12 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Select value={selectedDestination} onValueChange={setSelectedDestination} disabled={user.role === 'pengelola' && destinations.length === 1}>
+            <Select value={selectedDestination} onValueChange={setSelectedDestination} disabled={appUser.role === 'pengelola' && destinations.length === 1}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Destinasi" />
               </SelectTrigger>
               <SelectContent>
-                {user.role === 'admin' && <SelectItem value="all">Semua Destinasi</SelectItem>}
+                {appUser.role === 'admin' && <SelectItem value="all">Semua Destinasi</SelectItem>}
                 {destinations.map(d => (
                   <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                 ))}
@@ -215,7 +217,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Hasil Filter</CardTitle>
-          <CardDescription>Menampilkan {filteredData.length} dari total {visitData.length} data kunjungan.</CardDescription>
+          <CardDescription>Menampilkan {filteredData.length} dari total {(visitData || []).length} data kunjungan.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>

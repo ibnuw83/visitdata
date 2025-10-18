@@ -36,7 +36,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirestore } from '@/firebase/client-provider';
 import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 
 const colorPalette = [
@@ -117,7 +118,7 @@ export default function DestinationsPage() {
   };
 
   const handleToggleStatus = async (destinationId: string) => {
-    if (!firestore) return;
+    if (!firestore || !destinations) return;
     const dest = destinations.find(d => d.id === destinationId);
     if (!dest) return;
     const newStatus = dest.status === 'aktif' ? 'nonaktif' : 'aktif';
@@ -136,7 +137,7 @@ export default function DestinationsPage() {
   };
 
   const handleDelete = async (destinationId: string) => {
-    if (!firestore) return;
+    if (!firestore || !destinations) return;
     const destinationName = destinations.find(d => d.id === destinationId)?.name;
     try {
         await deleteDoc(doc(firestore, 'destinations', destinationId));
@@ -283,7 +284,7 @@ export default function DestinationsPage() {
                             <SelectValue placeholder="Pilih Kategori" />
                         </SelectTrigger>
                         <SelectContent>
-                            {categories.map(c => (
+                            {(categories || []).map(c => (
                                 <SelectItem key={c.id} value={c.name} className="capitalize">{c.name}</SelectItem>
                             ))}
                         </SelectContent>
@@ -350,7 +351,7 @@ export default function DestinationsPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {destinations.map((dest, index) => (
+                    {(destinations || []).map((dest, index) => (
                         <TableRow key={dest.id}>
                             <TableCell className="font-medium">
                                <div className="flex items-center gap-3">
@@ -417,7 +418,7 @@ export default function DestinationsPage() {
                             </TableCell>
                         </TableRow>
                     ))}
-                    {destinations.length === 0 && !loading && (
+                    {(!destinations || destinations.length === 0) && !loading && (
                         <TableRow>
                             <TableCell colSpan={6} className="h-24 text-center">
                                 Belum ada destinasi.
@@ -459,7 +460,7 @@ export default function DestinationsPage() {
                       <SelectValue placeholder="Pilih Kategori" />
                   </SelectTrigger>
                   <SelectContent>
-                      {categories.map(c => (
+                      {(categories || []).map(c => (
                           <SelectItem key={c.id} value={c.name} className="capitalize">{c.name}</SelectItem>
                       ))}
                   </SelectContent>

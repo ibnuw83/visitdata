@@ -10,7 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { Destination } from '@/lib/types';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirestore } from '@/firebase/client-provider';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
 export default function DestinationImageSettings() {
@@ -95,7 +96,7 @@ export default function DestinationImageSettings() {
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="space-y-4">
-                    {destinations.filter(d => d.status === 'aktif').map(dest => (
+                    {(destinations || []).filter(d => d.status === 'aktif').map(dest => (
                         <div key={dest.id} className="flex items-center gap-4">
                             <div className="relative h-16 w-16 rounded-md overflow-hidden shrink-0 bg-muted">
                                 {imageMap[dest.id] && (

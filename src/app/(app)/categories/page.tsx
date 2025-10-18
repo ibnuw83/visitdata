@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore } from '@/firebase';
+import { useFirestore } from '@/firebase/client-provider';
+import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 
 const colorPalette = [
@@ -81,7 +82,7 @@ export default function CategoriesPage() {
   }
 
   const handleDeleteCategory = async (categoryId: string) => {
-    if (!firestore) return;
+    if (!firestore || !categories) return;
     const categoryName = categories.find(c => c.id === categoryId)?.name;
     try {
         await deleteDoc(doc(firestore, 'categories', categoryId));
@@ -203,7 +204,7 @@ export default function CategoriesPage() {
         </CardHeader>
         <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {categories.map((category, index) => (
+                {(categories || []).map((category, index) => (
                     <div key={category.id} className={cn("group flex items-center justify-between p-3 pl-4 rounded-lg border", colorPalette[index % colorPalette.length])}>
                         <div className="flex items-center gap-3 font-medium text-secondary-foreground">
                            <FolderTree className="h-5 w-5" />
@@ -236,7 +237,7 @@ export default function CategoriesPage() {
                     </div>
                 ))}
             </div>
-             {categories.length === 0 && (
+             {(!categories || categories.length === 0) && (
                 <div className="text-center text-muted-foreground py-12">
                     <FolderTree className="mx-auto h-12 w-12" />
                     <p className="mt-4">Belum ada kategori.</p>

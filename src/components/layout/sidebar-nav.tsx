@@ -15,8 +15,13 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
 import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree } from 'lucide-react';
-import { useAuth } from '@/context/auth-context';
-import { useEffect, useState } from 'react';
+import { useUser } from '@/firebase/auth/use-user';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useEffect, useState, useMemo } from 'react';
+import { collection, query, where } from 'firebase/firestore';
+import type { UnlockRequest } from '@/lib/types';
+import { useFirestore } from '@/firebase/client-provider';
+
 
 const menuItems = [
   { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard, roles: ['admin', 'pengelola'] },
@@ -31,7 +36,17 @@ const menuItems = [
 
 export default function SidebarNav() {
   const pathname = usePathname();
-  const { appUser, pendingRequestsCount } = useAuth();
+  const { appUser } = useUser();
+  const firestore = useFirestore();
+
+  const requestsQuery = useMemo(() => {
+    if (!firestore || !appUser || appUser.role !== 'admin') return null;
+    return query(collection(firestore, 'unlock-requests'), where('status', '==', 'pending'));
+  }, [firestore, appUser]);
+  
+  const { data: pendingRequests } = useCollection<UnlockRequest>(requestsQuery);
+  const pendingRequestsCount = pendingRequests?.length || 0;
+
   const [appTitle, setAppTitle] = useState('VisitData Hub');
   const [footerText, setFooterText] = useState('© 2024 VisitData Hub');
 

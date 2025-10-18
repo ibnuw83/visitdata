@@ -19,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { PlusCircle, Trash2, Lock, Unlock, KeyRound } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import { Combobox } from '@/components/ui/combobox';
-import { useAuth } from '@/context/auth-context';
+import { useUser } from '@/firebase/auth/use-user';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,14 +36,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirestore } from '@/firebase/client-provider';
 import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
 
-function UnlockRequestDialog({ destination, monthData, onNewRequest }: { destination: Destination, monthData: VisitData, onNewRequest: (req: Omit<UnlockRequest, 'id'>) => void }) {
-    const { appUser } = useAuth();
+function UnlockRequestDialog({ destination, monthData, onNewRequest }: { destination: Destination, monthData: VisitData, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void }) {
+    const { appUser } = useUser();
     const [reason, setReason] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const { toast } = useToast();
@@ -55,14 +56,15 @@ function UnlockRequestDialog({ destination, monthData, onNewRequest }: { destina
         }
         if (!appUser) return;
 
-        const newRequest: Omit<UnlockRequest, 'id'> = {
+        const newRequest: Omit<UnlockRequest, 'id' | 'timestamp' | 'processedBy'> = {
             destinationId: destination.id,
+            destinationName: destination.name,
             month: monthData.month,
             year: monthData.year,
             reason: reason,
             status: 'pending',
             requestedBy: appUser.uid,
-            timestamp: new Date().toISOString(),
+            requesterName: appUser.name,
         };
 
         onNewRequest(newRequest);
@@ -118,10 +120,10 @@ const colorPalette = [
     "text-indigo-600",
 ];
 
-function DestinationDataEntry({ destination, initialData, onDataChange, onNewRequest, colorClass }: { destination: Destination, initialData: VisitData[], onDataChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id'>) => void, colorClass: string }) {
+function DestinationDataEntry({ destination, initialData, onDataChange, onNewRequest, colorClass }: { destination: Destination, initialData: VisitData[], onDataChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void, colorClass: string }) {
   const [data, setData] = useState<VisitData[]>(initialData);
   const { toast } = useToast();
-  const { appUser } = useAuth();
+  const { appUser } = useUser();
   const firestore = useFirestore();
 
   useEffect(() => {
@@ -258,7 +260,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
                                             <UnlockRequestDialog 
                                                 destination={destination}
                                                 monthData={monthData}
-                                                onNewRequest={onNewRequest}
+                                                onNewRequest={onNewRequest as any}
                                             />
                                         ) : (
                                            <div className="flex items-center justify-center text-sm text-green-600 gap-2">
@@ -379,7 +381,7 @@ function WismanPopover({ details, totalWisman, onSave, disabled }: { details: Wi
 }
 
 export default function DataEntryPage() {
-  const { appUser } = useAuth();
+  const { appUser } = useUser();
   const firestore = useFirestore();
 
   const destinationsQuery = useMemo(() => {
@@ -424,11 +426,14 @@ export default function DataEntryPage() {
     }
   }
 
-  const handleNewRequest = async (newRequest: Omit<UnlockRequest, 'id'>) => {
+  const handleNewRequest = async (newRequest: Omit<UnlockRequest, 'id' | 'timestamp'>) => {
     if (!firestore) return;
     try {
         const requestsCollection = collection(firestore, 'unlock-requests');
-        await addDoc(requestsCollection, newRequest);
+        await addDoc(requestsCollection, {
+            ...newRequest,
+            timestamp: serverTimestamp()
+        });
     } catch(e) {
         console.error("Error creating unlock request:", e);
         toast({ variant: 'destructive', title: 'Gagal Mengirim Permintaan'});
@@ -596,7 +601,7 @@ export default function DataEntryPage() {
                     destination={destination} 
                     initialData={data}
                     onDataChange={handleDataChange}
-                    onNewRequest={handleNewRequest}
+                    onNewRequest={handleNewRequest as any}
                     colorClass={colorPalette[index % colorPalette.length]}
                   />
               ))}
@@ -606,5 +611,3 @@ export default function DataEntryPage() {
     </div>
   );
 }
-
-    
