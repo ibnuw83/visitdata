@@ -157,23 +157,23 @@ function DashboardContent() {
 function PublicLandingPage() {
   const [appTitle, setAppTitle] = useState('VisitData Hub');
   const [appFooter, setAppFooter] = useState(`© ${new Date().getFullYear()} VisitData Hub`);
+  const [heroTitle, setHeroTitle] = useState('Pusat Data Pariwisata Modern Anda');
+  const [heroSubtitle, setHeroSubtitle] = useState('Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.');
+
 
   useEffect(() => {
-    const savedTitle = localStorage.getItem('appTitle');
-    const savedFooter = localStorage.getItem('appFooter');
-    if (savedTitle) setAppTitle(savedTitle);
-    if (savedFooter) setAppFooter(savedFooter);
+    const updateText = () => {
+        setAppTitle(localStorage.getItem('appTitle') || 'VisitData Hub');
+        setAppFooter(localStorage.getItem('appFooter') || `© ${new Date().getFullYear()} VisitData Hub`);
+        setHeroTitle(localStorage.getItem('heroTitle') || 'Pusat Data Pariwisata Modern Anda');
+        setHeroSubtitle(localStorage.getItem('heroSubtitle') || 'Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.');
+    }
+    
+    updateText(); // Initial load
 
-    const handleStorageChange = () => {
-      const newTitle = localStorage.getItem('appTitle');
-      const newFooter = localStorage.getItem('appFooter');
-      if (newTitle) setAppTitle(newTitle);
-      if (newFooter) setAppFooter(newFooter);
-    };
-
-    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('storage', updateText);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('storage', updateText);
     };
   }, []);
 
@@ -200,10 +200,10 @@ function PublicLandingPage() {
         <section className="container grid items-center gap-6 pb-8 pt-6 md:py-10">
           <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 text-center">
             <h1 className="font-headline text-4xl font-bold leading-tight tracking-tighter md:text-5xl lg:text-6xl">
-              Pusat Data Pariwisata Modern Anda
+              {heroTitle}
             </h1>
             <p className="max-w-2xl text-lg text-muted-foreground">
-              Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.
+              {heroSubtitle}
             </p>
              <Button asChild size="lg" className="mt-4">
                 <Link href="/login">

@@ -13,29 +13,36 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { getAllData, saveUsers, getUsers, saveAllData } from '@/lib/local-data-service';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 function AppSettingsCard() {
     const { toast } = useToast();
     const [appTitle, setAppTitle] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
     const [footerText, setFooterText] = useState('');
+    const [heroTitle, setHeroTitle] = useState('');
+    const [heroSubtitle, setHeroSubtitle] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         setAppTitle(localStorage.getItem('appTitle') || 'VisitData Hub');
         setLogoUrl(localStorage.getItem('logoUrl') || '');
         setFooterText(localStorage.getItem('appFooter') || `© ${new Date().getFullYear()} VisitData Hub`);
+        setHeroTitle(localStorage.getItem('heroTitle') || 'Pusat Data Pariwisata Modern Anda');
+        setHeroSubtitle(localStorage.getItem('heroSubtitle') || 'Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.');
     }, []);
 
     const handleSaveAppSettings = () => {
         localStorage.setItem('appTitle', appTitle);
         localStorage.setItem('logoUrl', logoUrl);
         localStorage.setItem('appFooter', footerText);
+        localStorage.setItem('heroTitle', heroTitle);
+        localStorage.setItem('heroSubtitle', heroSubtitle);
         // Dispatch a storage event to notify other components of the change
         window.dispatchEvent(new Event('storage'));
         toast({
             title: "Pengaturan Aplikasi Disimpan",
-            description: "Judul, logo, dan footer telah diperbarui.",
+            description: "Pengaturan tampilan aplikasi telah diperbarui.",
         });
     }
     
@@ -133,6 +140,14 @@ a.click();
                     <div className="grid gap-2">
                         <Label htmlFor="footer-text">Teks Footer</Label>
                         <Input id="footer-text" value={footerText} onChange={(e) => setFooterText(e.target.value)} />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="hero-title">Judul Halaman Utama</Label>
+                        <Input id="hero-title" value={heroTitle} onChange={(e) => setHeroTitle(e.target.value)} />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="hero-subtitle">Subjudul Halaman Utama</Label>
+                        <Textarea id="hero-subtitle" value={heroSubtitle} onChange={(e) => setHeroSubtitle(e.target.value)} />
                     </div>
                     <Button onClick={handleSaveAppSettings}>Simpan Pengaturan Tampilan</Button>
                 </div>
