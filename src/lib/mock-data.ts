@@ -4,6 +4,7 @@ import { PlaceHolderImages } from './placeholder-images';
 const userImage1 = PlaceHolderImages.find(p => p.id === 'user-1')?.imageUrl || '';
 const userImage2 = PlaceHolderImages.find(p => p.id === 'user-2')?.imageUrl || '';
 const userImage3 = PlaceHolderImages.find(p => p.id === 'user-3')?.imageUrl || '';
+const userImage4 = PlaceHolderImages.find(p => p.id === 'user-4')?.imageUrl || '';
 
 export const users: User[] = [
   {
@@ -35,6 +36,16 @@ export const users: User[] = [
     assignedLocations: ['dest-02', 'dest-03'],
     status: 'aktif',
     avatarUrl: userImage3
+  },
+  {
+    uid: 'pengelola-03',
+    name: 'Pengelola Baru',
+    email: 'pl@visitdata.com',
+    password: 'password123',
+    role: 'pengelola',
+    assignedLocations: ['dest-05'],
+    status: 'aktif',
+    avatarUrl: userImage4
   },
 ];
 
