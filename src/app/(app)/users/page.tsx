@@ -62,7 +62,7 @@ function MultiSelect({
 }: {
   options: { value: string; label: string }[];
   selected: string[];
-  onChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onChange: (selected: string[]) => void;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -458,7 +458,7 @@ export default function UsersPage() {
                                 <Badge variant={roleVariant[user.role]} className="capitalize">{user.role}</Badge>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate">
-                              {user.role === 'admin' ? 'Semua Destinasi' : getAssignedLocationsNames(user.assignedLocations)}
+                              {user.role === 'admin' ? 'Semua Destinasi' : getAssignedLocationsNames(user.assignedLocations || [])}
                             </TableCell>
                             <TableCell>
                                 <Badge variant={statusVariant[user.status]} className="capitalize">{user.status}</Badge>
