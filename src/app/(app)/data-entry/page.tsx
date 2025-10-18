@@ -470,6 +470,7 @@ export default function DataEntryPage() {
     const newYear = (availableYears[0] || new Date().getFullYear()) + 1;
     if (!availableYears.includes(newYear) && firestore && destinations) {
       const batch = writeBatch(firestore);
+      const batchData: Record<string, VisitData> = {};
       destinations.forEach(dest => {
         months.forEach((monthName, index) => {
           const monthIndex = index + 1;
@@ -485,14 +486,26 @@ export default function DataEntryPage() {
               locked: true,
           };
           batch.set(visitDocRef, newVisitData);
+          batchData[visitDocRef.path] = newVisitData;
         });
       });
-      await batch.commit();
-      setSelectedYear(newYear);
-      toast({
-        title: "Tahun Ditambahkan",
-        description: `Tahun ${newYear} telah ditambahkan. Anda sekarang dapat mengelola data untuk tahun tersebut.`
-      });
+      
+      batch.commit()
+        .then(() => {
+            setSelectedYear(newYear);
+            toast({
+                title: "Tahun Ditambahkan",
+                description: `Tahun ${newYear} telah ditambahkan. Anda sekarang dapat mengelola data untuk tahun tersebut.`
+            });
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: 'destinations/{destId}/visits',
+                operation: 'create',
+                requestResourceData: batchData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
     }
   };
 
@@ -509,19 +522,32 @@ export default function DataEntryPage() {
     if (!firestore || !destinations) return;
     
     const batch = writeBatch(firestore);
+    const pathsToDelete: string[] = [];
     for (const dest of destinations) {
         const visitsRef = collection(firestore, 'destinations', dest.id, 'visits');
         const q = query(visitsRef, where('year', '==', selectedYear));
         const snapshot = await getDocs(q);
-        snapshot.docs.forEach(d => batch.delete(d.ref));
+        snapshot.docs.forEach(d => {
+            batch.delete(d.ref);
+            pathsToDelete.push(d.ref.path);
+        });
     }
     
-    await batch.commit();
-
-    toast({
-        title: "Tahun Dihapus",
-        description: `Semua data untuk tahun ${selectedYear} telah dihapus.`,
-    });
+    batch.commit()
+      .then(() => {
+        toast({
+            title: "Tahun Dihapus",
+            description: `Semua data untuk tahun ${selectedYear} telah dihapus.`,
+        });
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: `destinations/{destId}/visits`,
+            operation: 'delete',
+            requestResourceData: { year: selectedYear, paths: pathsToDelete }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   }
 
   const dataByDestination = useMemo(() => {
@@ -639,3 +665,5 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+    

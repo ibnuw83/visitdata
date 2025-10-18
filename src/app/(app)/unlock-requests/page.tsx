@@ -16,14 +16,14 @@ import { useFirestore } from '@/lib/firebase/client-provider';
 import { useCollection } from '@/lib/firebase/firestore/use-collection';
 import { errorEmitter } from '@/lib/firebase/error-emitter';
 import { FirestorePermissionError } from '@/lib/firebase/errors';
-import { collection, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch, query } from 'firebase/firestore';
 
 export default function UnlockRequestsPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
   const requestsQuery = useMemo(() => {
     if (!firestore || !appUser || appUser.role !== 'admin') return null;
-    return collection(firestore, 'unlock-requests');
+    return query(collection(firestore, 'unlock-requests'));
   }, [firestore, appUser]);
   
   const { data: unlockRequests } = useCollection<UnlockRequest>(requestsQuery);
@@ -50,10 +50,12 @@ export default function UnlockRequestsPage() {
     };
     batch.update(requestRef, requestUpdateData);
 
+    let visitDataUpdate: {locked: boolean} | null = null;
     if (newStatus === 'approved') {
         const visitDataId = `${targetRequest.destinationId}-${targetRequest.year}-${targetRequest.month}`;
         const visitDocRef = doc(firestore, 'destinations', targetRequest.destinationId, 'visits', visitDataId);
-        batch.update(visitDocRef, { locked: false });
+        visitDataUpdate = { locked: false };
+        batch.update(visitDocRef, visitDataUpdate);
     }
 
     batch.commit()
@@ -67,7 +69,7 @@ export default function UnlockRequestsPage() {
         const permissionError = new FirestorePermissionError({
           path: `unlock-requests/${requestId}`, // Or a more generic path if the batch fails
           operation: 'update',
-          requestResourceData: { requestUpdate: requestUpdateData, visitDataUpdate: { locked: false } },
+          requestResourceData: { requestUpdate: requestUpdateData, visitDataUpdate },
         });
         errorEmitter.emit('permission-error', permissionError);
       });
@@ -177,3 +179,5 @@ export default function UnlockRequestsPage() {
     </div>
   );
 }
+
+    
