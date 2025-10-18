@@ -8,67 +8,61 @@ import StatCard from "@/components/dashboard/stat-card";
 import MonthlyVisitorsChart from "@/components/dashboard/monthly-visitors-chart";
 import VisitorBreakdownChart from "@/components/dashboard/visitor-breakdown-chart";
 import TopDestinationsCard from "@/components/dashboard/top-destinations-card";
-// Removed local-data-service imports
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
+import { useCollection, useFirestore } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 
 export default function DashboardPage() {
-    const { user } = useAuth();
-    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
-    const [destinations, setDestinations] = useState<Destination[]>([]);
+    const { appUser } = useAuth();
+    const firestore = useFirestore();
+
+    const destinationsQuery = useMemo(() => {
+        if (!firestore || !appUser) return null;
+        if (appUser.role === 'admin') {
+            return collection(firestore, 'destinations');
+        }
+        if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+            return query(collection(firestore, 'destinations'), where('id', 'in', appUser.assignedLocations));
+        }
+        return null;
+    }, [firestore, appUser]);
+
+    const visitsQuery = useMemo(() => {
+         if (!firestore || !appUser) return null;
+        if (appUser.role === 'admin') {
+            return collection(firestore, 'visits');
+        }
+        if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
+            return query(collection(firestore, 'visits'), where('destinationId', 'in', appUser.assignedLocations));
+        }
+        return null;
+    }, [firestore, appUser]);
+
+    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
+    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
+
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
-    const fetchData = useCallback(() => {
-        if (!user) return;
-
-        setLoading(true);
-        // This data will come from Firestore
-        const visitDataFromDb: VisitData[] = [];
-        const destinationsFromDb: Destination[] = [];
-
-        let userDestinations = destinationsFromDb;
-        let userVisitData = visitDataFromDb;
-
-        if (user.role === 'pengelola') {
-            const assignedIds = user.assignedLocations;
-            userDestinations = destinationsFromDb.filter(d => assignedIds.includes(d.id));
-            userVisitData = visitDataFromDb.filter(vd => assignedIds.includes(vd.destinationId));
-        }
-
-        setDestinations(userDestinations);
-        setAllVisitData(userVisitData);
-        
-        const availableYears = [...new Set(userVisitData.map(d => d.year))].sort((a,b) => b-a);
-        if (availableYears.length > 0) {
-             if (!availableYears.includes(parseInt(selectedYear))) {
-                setSelectedYear(availableYears[0].toString());
-             }
-        } else {
-             setSelectedYear(new Date().getFullYear().toString());
-        }
-
-        setLoading(false);
-    }, [user, selectedYear]);
-
     useEffect(() => {
-        fetchData();
-        // The 'storage' event listener is no longer needed
-    }, [fetchData]);
-    
+        setLoading(destinationsLoading || visitsLoading);
+    }, [destinationsLoading, visitsLoading]);
+
     const availableYears = useMemo(() => {
-        // This will be populated from Firestore data
-        const allYears = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
+        if (!allVisitData) return [new Date().getFullYear()];
+        const allYears = [...new Set(allVisitData.map(d => d.year))].sort((a, b) => b - a);
         const currentYear = new Date().getFullYear();
-        if(!allYears.includes(currentYear)) {
+        if (!allYears.includes(currentYear)) {
             allYears.unshift(currentYear);
         }
         return allYears;
     }, [allVisitData]);
 
     const yearlyData = useMemo(() => {
+        if (!allVisitData) return [];
         return allVisitData.filter(d => d.year === parseInt(selectedYear));
     }, [allVisitData, selectedYear]);
     
@@ -77,12 +71,12 @@ export default function DashboardPage() {
     const totalWisman = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisman, 0), [yearlyData]);
 
     const dashboardTitle = useMemo(() => {
-        if (user?.role === 'pengelola' && destinations.length > 0) {
+        if (appUser?.role === 'pengelola' && destinations && destinations.length > 0) {
             const destinationNames = destinations.map(d => d.name).join(', ');
             return `Dasbor: ${destinationNames}`;
         }
         return 'Dasbor';
-    }, [user, destinations]);
+    }, [appUser, destinations]);
 
     if (loading) {
         return (
@@ -138,7 +132,7 @@ export default function DashboardPage() {
                 <StatCard title="Total Pengunjung" value={totalVisitors.toLocaleString()} icon={<Users />} className="bg-blue-600 text-white" />
                 <StatCard title="Wisatawan Nusantara" value={totalWisnus.toLocaleString()} icon={<Globe />} className="bg-green-600 text-white" />
                 <StatCard title="Wisatawan Mancanegara" value={totalWisman.toLocaleString()} icon={<Plane />} className="bg-orange-500 text-white" />
-                <StatCard title="Total Destinasi Aktif" value={destinations.filter(d => d.status === 'aktif').length.toString()} icon={<Landmark />} className="bg-purple-600 text-white"/>
+                <StatCard title="Total Destinasi Aktif" value={(destinations || []).filter(d => d.status === 'aktif').length.toString()} icon={<Landmark />} className="bg-purple-600 text-white"/>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-5">
@@ -163,7 +157,7 @@ export default function DashboardPage() {
             </div>
             
              <div className="grid gap-4">
-                <TopDestinationsCard data={yearlyData} destinations={destinations} />
+                <TopDestinationsCard data={yearlyData} destinations={destinations || []} />
             </div>
         </div>
     )

@@ -18,7 +18,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-// Removed local-data-service
 import { Category } from '@/lib/types';
 import {
   AlertDialog,
@@ -33,6 +32,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCollection, useFirestore } from '@/firebase';
+import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 
 const colorPalette = [
     "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800/50",
@@ -46,57 +47,52 @@ const colorPalette = [
 ];
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const firestore = useFirestore();
+  const { data: categories, loading } = useCollection<Category>(firestore ? collection(firestore, 'categories') : null);
+
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editedCategoryName, setEditedCategoryName] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
-  
-  const fetchCategories = useCallback(() => {
-    setLoading(true);
-    // This will be replaced with a Firestore query
-    setCategories([]);
-    setLoading(false);
-  }, []);
 
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
-
-  const handleAddCategory = () => {
-    if (!newCategoryName.trim()) {
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim() || !firestore) {
         toast({
             variant: "destructive",
             title: "Nama kategori tidak boleh kosong.",
         });
         return;
     }
-    // This will be replaced with a Firestore `addDoc` call
-    const newCategory: Category = {
-        id: `cat-${Date.now()}`,
-        name: newCategoryName.trim().toLowerCase(),
-    };
-    
-    setCategories(prev => [...prev, newCategory]); // Optimistic update
-    setNewCategoryName('');
-    setIsAddDialogOpen(false);
-    toast({
-        title: "Kategori Ditambahkan",
-        description: `Kategori "${newCategory.name}" berhasil dibuat.`,
-    });
+    const categoryName = newCategoryName.trim().toLowerCase();
+    try {
+        await addDoc(collection(firestore, 'categories'), { name: categoryName });
+        setNewCategoryName('');
+        setIsAddDialogOpen(false);
+        toast({
+            title: "Kategori Ditambahkan",
+            description: `Kategori "${categoryName}" berhasil dibuat.`,
+        });
+    } catch (e) {
+        console.error("Error adding category:", e);
+        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat menambahkan kategori."});
+    }
   }
 
-  const handleDeleteCategory = (categoryId: string) => {
-    // This will be replaced with a Firestore `deleteDoc` call
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!firestore) return;
     const categoryName = categories.find(c => c.id === categoryId)?.name;
-    setCategories(prev => prev.filter(c => c.id !== categoryId)); // Optimistic update
-    toast({
-        title: "Kategori Dihapus",
-        description: `Kategori "${categoryName}" telah dihapus.`,
-    });
+    try {
+        await deleteDoc(doc(firestore, 'categories', categoryId));
+        toast({
+            title: "Kategori Dihapus",
+            description: `Kategori "${categoryName}" telah dihapus.`,
+        });
+    } catch (e) {
+        console.error("Error deleting category:", e);
+        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat menghapus kategori."});
+    }
   }
 
   const openEditDialog = (category: Category) => {
@@ -105,27 +101,28 @@ export default function CategoriesPage() {
     setIsEditDialogOpen(true);
   }
 
-  const handleUpdateCategory = () => {
-    if (!editedCategoryName.trim() || !editingCategory) {
+  const handleUpdateCategory = async () => {
+    if (!editedCategoryName.trim() || !editingCategory || !firestore) {
         toast({
             variant: "destructive",
             title: "Nama kategori tidak boleh kosong.",
         });
         return;
     }
-
-    // This will be replaced with a Firestore `updateDoc` call
-    setCategories(prev => prev.map(c => 
-        c.id === editingCategory.id ? { ...c, name: editedCategoryName.trim().toLowerCase() } : c
-    )); // Optimistic update
-
-    setIsEditDialogOpen(false);
-    setEditingCategory(null);
-    
-    toast({
-        title: "Kategori Diperbarui",
-        description: `Kategori "${editingCategory.name}" telah diubah menjadi "${editedCategoryName}".`,
-    });
+    const categoryRef = doc(firestore, 'categories', editingCategory.id);
+    const newName = editedCategoryName.trim().toLowerCase();
+    try {
+        await updateDoc(categoryRef, { name: newName });
+        setIsEditDialogOpen(false);
+        setEditingCategory(null);
+        toast({
+            title: "Kategori Diperbarui",
+            description: `Kategori "${editingCategory.name}" telah diubah menjadi "${newName}".`,
+        });
+    } catch (e) {
+        console.error("Error updating category:", e);
+        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat memperbarui kategori."});
+    }
   }
   
   if(loading) {

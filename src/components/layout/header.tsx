@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -17,10 +18,16 @@ import { useAuth } from "@/context/auth-context";
 import { ThemeToggle } from "./theme-toggle";
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const { appUser, logout } = useAuth();
 
-  if (!user) {
-    return null;
+  if (!appUser) {
+    return (
+      <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+         <div className="md:hidden">
+          <SidebarTrigger />
+        </div>
+      </header>
+    );
   }
 
   const roleVariant = {
@@ -47,16 +54,16 @@ export default function Header() {
               className="overflow-hidden rounded-full"
             >
               <Avatar>
-                <AvatarImage src={user.avatarUrl} alt={user.name} />
-                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                <AvatarImage src={appUser.avatarUrl} alt={appUser.name} />
+                <AvatarFallback>{appUser.name.charAt(0)}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground capitalize">{user.role}</p>
+                    <p className="text-sm font-medium leading-none">{appUser.name}</p>
+                    <p className="text-xs leading-none text-muted-foreground capitalize">{appUser.role}</p>
                 </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

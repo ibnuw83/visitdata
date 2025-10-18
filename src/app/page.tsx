@@ -8,43 +8,39 @@ import StatCard from "@/components/dashboard/stat-card";
 import MonthlyVisitorsChart from "@/components/dashboard/monthly-visitors-chart";
 import VisitorBreakdownChart from "@/components/dashboard/visitor-breakdown-chart";
 import TopDestinationsCarousel from "@/components/dashboard/top-destinations-carousel";
-// Removed local-data-service imports
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/context/auth-context';
+import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
+import { useCollection, useFirestore } from '@/firebase';
+import { collection, getDocs, query, where } from "firebase/firestore";
 
 function DashboardContent() {
-    const { user } = useAuth();
-    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
-    const [destinations, setDestinations] = useState<Destination[]>([]);
+    const firestore = useFirestore();
+    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(firestore ? collection(firestore, 'destinations') : null);
+    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(firestore ? collection(firestore, 'visits') : null);
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
-    const fetchData = useCallback(() => {
-        setLoading(true);
-        // This will be replaced by Firestore queries
-        setDestinations([]);
-        setAllVisitData([]);
-        setSelectedYear(new Date().getFullYear().toString());
-        setLoading(false);
-    }, []);
-
     useEffect(() => {
-        fetchData();
-        // The 'storage' event listener is no longer needed
-    }, [fetchData]);
+        setLoading(destinationsLoading || visitsLoading);
+    }, [destinationsLoading, visitsLoading]);
     
     const availableYears = useMemo(() => {
-        // This will be replaced by a query to get distinct years from Firestore
-        return [new Date().getFullYear()];
-    }, []);
+        if (!allVisitData) return [new Date().getFullYear()];
+        const allYears = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
+        if (!allYears.includes(new Date().getFullYear())) {
+            allYears.unshift(new Date().getFullYear());
+        }
+        return allYears;
+    }, [allVisitData]);
 
     const yearlyData = useMemo(() => {
+        if (!allVisitData) return [];
         return allVisitData.filter(d => d.year === parseInt(selectedYear));
     }, [allVisitData, selectedYear]);
     
@@ -106,7 +102,7 @@ function DashboardContent() {
                 <StatCard title="Total Pengunjung" value={totalVisitors.toLocaleString()} icon={<Users />} className="bg-blue-600 text-white" />
                 <StatCard title="Wisatawan Nusantara" value={totalWisnus.toLocaleString()} icon={<Globe />} className="bg-green-600 text-white" />
                 <StatCard title="Wisatawan Mancanegara" value={totalWisman.toLocaleString()} icon={<Plane />} className="bg-orange-500 text-white" />
-                <StatCard title="Total Destinasi Aktif" value={destinations.filter(d => d.status === 'aktif').length.toString()} icon={<Landmark />} className="bg-purple-600 text-white"/>
+                <StatCard title="Total Destinasi Aktif" value={destinations?.filter(d => d.status === 'aktif').length.toString() || '0'} icon={<Landmark />} className="bg-purple-600 text-white"/>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-5">
@@ -131,7 +127,7 @@ function DashboardContent() {
             </div>
             
              <div className="grid gap-4">
-                <TopDestinationsCarousel data={yearlyData} destinations={destinations} />
+                <TopDestinationsCarousel data={yearlyData} destinations={destinations || []} />
             </div>
         </div>
     )
@@ -146,19 +142,6 @@ function PublicLandingPage() {
 
   useEffect(() => {
     // This will be replaced with data from a settings collection in Firestore
-    const updateText = () => {
-        setAppTitle(localStorage.getItem('appTitle') || 'VisitData Hub');
-        setAppFooter(localStorage.getItem('appFooter') || `© ${new Date().getFullYear()} VisitData Hub`);
-        setHeroTitle(localStorage.getItem('heroTitle') || 'Pusat Data Pariwisata Modern Anda');
-        setHeroSubtitle(localStorage.getItem('heroSubtitle') || 'Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.');
-    }
-    
-    updateText();
-
-    window.addEventListener('storage', updateText);
-    return () => {
-      window.removeEventListener('storage', updateText);
-    };
   }, []);
 
   return (
@@ -212,7 +195,7 @@ function PublicLandingPage() {
 
 
 export default function HomePage() {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
@@ -221,7 +204,7 @@ export default function HomePage() {
     }
   }, [user, router]);
   
-  if(isLoading) {
+  if(loading) {
     return <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
             <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
                 <Logo className="h-10 w-10 animate-pulse" />

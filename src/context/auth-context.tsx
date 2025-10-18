@@ -1,17 +1,17 @@
 
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect, Dispatch, SetStateAction, useCallback } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { useUser, useFirestore, useFirebaseApp } from '@/firebase';
+import { useFirestore, useFirebaseApp } from '@/firebase';
 
 import type { User, UnlockRequest } from '@/lib/types';
 
 interface AuthContextType {
-  user: User | null;
-  setUser: Dispatch<SetStateAction<User | null>>;
+  user: FirebaseUser | null;
+  appUser: User | null; // This will hold the firestore user data
   login: (formData: FormData) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
@@ -23,8 +23,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { user: appUser, loading: userLoading } = useUser();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [appUser, setAppUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
@@ -33,17 +33,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const firebaseApp = useFirebaseApp();
 
   useEffect(() => {
-    setUser(appUser);
-    setIsLoading(userLoading);
-  }, [appUser, userLoading]);
-  
+    const auth = getAuth(firebaseApp);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser && firestore) {
+        const userDocRef = collection(firestore, 'users');
+        const q = query(userDocRef, where('uid', '==', firebaseUser.uid));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const userDoc = querySnapshot.docs[0].data() as User;
+            userDoc.uid = querySnapshot.docs[0].id;
+            setAppUser(userDoc);
+        } else {
+            setAppUser(null);
+        }
+      } else {
+        setAppUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [firebaseApp, firestore]);
+
   const refreshPendingRequests = useCallback(async () => {
-    if (user && user.role === 'admin' && firestore) {
+    if (appUser && appUser.role === 'admin' && firestore) {
       const requestsQuery = query(collection(firestore, 'unlock-requests'), where('status', '==', 'pending'));
       const snapshot = await getDocs(requestsQuery);
       setPendingRequestsCount(snapshot.size);
+    } else {
+        setPendingRequestsCount(0);
     }
-  }, [user, firestore]);
+  }, [appUser, firestore]);
 
   useEffect(() => {
     refreshPendingRequests();
@@ -75,13 +96,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     const auth = getAuth(firebaseApp);
     await signOut(auth);
-    setUser(null);
+    setAppUser(null);
     setPendingRequestsCount(0);
     router.push('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, login, logout, isLoading, error, pendingRequestsCount, refreshPendingRequests }}>
+    <AuthContext.Provider value={{ user, appUser, login, logout, isLoading, error, pendingRequestsCount, refreshPendingRequests }}>
       {children}
     </AuthContext.Provider>
   );

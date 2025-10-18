@@ -7,23 +7,9 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import Image from "next/image";
 import { useMemo, useState, useEffect } from "react";
 import Autoplay from "embla-carousel-autoplay";
-// Removed local-data-service
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function TopDestinationsCarousel({ data, destinations }: { data: VisitData[], destinations: Destination[] }) {
-    // imageMap will be fetched from firestore or passed as a prop
-    const [imageMap, setImageMap] = useState<Record<string, string>>({});
-
-    useEffect(() => {
-        // This will be replaced with Firestore data
-        const map: Record<string, string> = {};
-        destinations.forEach(dest => {
-            if(dest.imageUrl) {
-                map[dest.id] = dest.imageUrl;
-            }
-        });
-        setImageMap(map);
-    }, [destinations]);
     
     const destinationTotals = useMemo(() => destinations.map(dest => {
         const totalVisitors = data

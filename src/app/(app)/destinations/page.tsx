@@ -4,7 +4,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-// Removed local-data-service
 import type { Destination, Category } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Landmark, MoreHorizontal, FilePenLine, Trash2, ToggleLeft, ToggleRight, PlusCircle, Building, Mountain } from 'lucide-react';
@@ -37,6 +36,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCollection, useFirestore } from '@/firebase';
+import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 
 const colorPalette = [
     "text-blue-600",
@@ -50,9 +51,11 @@ const colorPalette = [
 ];
 
 export default function DestinationsPage() {
-  const [destinations, setDestinations] = useState<Destination[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const firestore = useFirestore();
+  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(firestore ? collection(firestore, 'destinations') : null);
+  const { data: categories, loading: categoriesLoading } = useCollection<Category>(firestore ? collection(firestore, 'categories') : null);
+  const loading = destinationsLoading || categoriesLoading;
+  
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
   const [newDestinationName, setNewDestinationName] = useState('');
@@ -70,18 +73,6 @@ export default function DestinationsPage() {
   const [editedDestinationImageUrl, setEditedDestinationImageUrl] = useState('');
 
   const { toast } = useToast();
-  
-  const fetchData = useCallback(() => {
-    setLoading(true);
-    // Data will be fetched from Firestore
-    setDestinations([]);
-    setCategories([]);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   const resetAddForm = () => {
     setNewDestinationName('');
@@ -91,8 +82,8 @@ export default function DestinationsPage() {
     setNewDestinationImageUrl('');
   }
 
-  const handleAddNewDestination = () => {
-    if (!newDestinationName.trim() || !newDestinationCategory.trim() || !newDestinationLocation.trim() || !newDestinationManagement) {
+  const handleAddNewDestination = async () => {
+    if (!newDestinationName.trim() || !newDestinationCategory.trim() || !newDestinationLocation.trim() || !newDestinationManagement || !firestore) {
       toast({
         variant: "destructive",
         title: "Input tidak lengkap",
@@ -101,36 +92,62 @@ export default function DestinationsPage() {
       return;
     }
 
-    // Logic to add to Firestore will be implemented here
-    toast({
-      title: "Destinasi Ditambahkan",
-      description: `Destinasi "${newDestinationName}" berhasil dibuat.`,
-    });
-    
-    setIsAddDialogOpen(false);
-    resetAddForm();
+    try {
+        const docRef = await addDoc(collection(firestore, 'destinations'), {
+            name: newDestinationName,
+            category: newDestinationCategory,
+            location: newDestinationLocation,
+            managementType: newDestinationManagement,
+            imageUrl: newDestinationImageUrl,
+            status: 'aktif'
+        });
+        await updateDoc(docRef, { id: docRef.id });
+
+        toast({
+          title: "Destinasi Ditambahkan",
+          description: `Destinasi "${newDestinationName}" berhasil dibuat.`,
+        });
+        
+        setIsAddDialogOpen(false);
+        resetAddForm();
+    } catch(e) {
+        console.error("Error adding destination:", e);
+        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat menambahkan destinasi."});
+    }
   };
 
-  const handleToggleStatus = (destinationId: string) => {
-    // Logic to update status in Firestore
+  const handleToggleStatus = async (destinationId: string) => {
+    if (!firestore) return;
     const dest = destinations.find(d => d.id === destinationId);
     if (!dest) return;
     const newStatus = dest.status === 'aktif' ? 'nonaktif' : 'aktif';
-    setDestinations(destinations.map(d => d.id === destinationId ? { ...d, status: newStatus } : d)); // Optimistic update
-    toast({
-      title: "Status Diperbarui",
-      description: `Status destinasi "${dest.name}" sekarang ${newStatus}.`,
-    });
+    
+    try {
+        const destRef = doc(firestore, 'destinations', destinationId);
+        await updateDoc(destRef, { status: newStatus });
+        toast({
+          title: "Status Diperbarui",
+          description: `Status destinasi "${dest.name}" sekarang ${newStatus}.`,
+        });
+    } catch(e) {
+        console.error("Error toggling status:", e);
+        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat mengubah status."});
+    }
   };
 
-  const handleDelete = (destinationId: string) => {
-    // Logic to delete from Firestore
+  const handleDelete = async (destinationId: string) => {
+    if (!firestore) return;
     const destinationName = destinations.find(d => d.id === destinationId)?.name;
-    setDestinations(destinations.filter(d => d.id !== destinationId)); // Optimistic update
-    toast({
-      title: "Destinasi Dihapus",
-      description: `Destinasi "${destinationName}" telah dihapus.`,
-    });
+    try {
+        await deleteDoc(doc(firestore, 'destinations', destinationId));
+        toast({
+          title: "Destinasi Dihapus",
+          description: `Destinasi "${destinationName}" telah dihapus.`,
+        });
+    } catch(e) {
+        console.error("Error deleting destination:", e);
+        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat menghapus destinasi."});
+    }
   };
   
  const openEditDialog = (destination: Destination) => {
@@ -143,8 +160,8 @@ export default function DestinationsPage() {
     setIsEditDialogOpen(true);
   }
 
-  const handleUpdateDestination = () => {
-    if (!editedDestinationName.trim() || !editedDestinationCategory.trim() || !editedDestinationLocation.trim() || !editingDestination) {
+  const handleUpdateDestination = async () => {
+    if (!editedDestinationName.trim() || !editedDestinationCategory.trim() || !editedDestinationLocation.trim() || !editingDestination || !firestore) {
       toast({
         variant: "destructive",
         title: "Input tidak lengkap",
@@ -153,14 +170,25 @@ export default function DestinationsPage() {
       return;
     }
 
-    // Logic to update in Firestore
-    setIsEditDialogOpen(false);
-    setEditingDestination(null);
-    
-    toast({
-        title: "Destinasi Diperbarui",
-        description: `Data untuk destinasi "${editedDestinationName}" telah diperbarui.`,
-    });
+    try {
+        const destRef = doc(firestore, 'destinations', editingDestination.id);
+        await updateDoc(destRef, {
+            name: editedDestinationName,
+            category: editedDestinationCategory,
+            location: editedDestinationLocation,
+            managementType: editedDestinationManagement,
+            imageUrl: editedDestinationImageUrl,
+        });
+        setIsEditDialogOpen(false);
+        setEditingDestination(null);
+        toast({
+            title: "Destinasi Diperbarui",
+            description: `Data untuk destinasi "${editedDestinationName}" telah diperbarui.`,
+        });
+    } catch(e) {
+        console.error("Error updating destination:", e);
+        toast({ variant: 'destructive', title: "Gagal", description: "Tidak dapat memperbarui destinasi."});
+    }
   }
 
   const statusVariant: { [key in 'aktif' | 'nonaktif']: "default" | "destructive" } = {

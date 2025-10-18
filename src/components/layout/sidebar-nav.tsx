@@ -17,7 +17,6 @@ import { Logo } from '@/components/logo';
 import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useEffect, useState } from 'react';
-import { getUnlockRequests } from '@/lib/local-data-service';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard, roles: ['admin', 'pengelola'] },
@@ -32,35 +31,19 @@ const menuItems = [
 
 export default function SidebarNav() {
   const pathname = usePathname();
-  const { user, pendingRequestsCount } = useAuth();
+  const { appUser, pendingRequestsCount } = useAuth();
   const [appTitle, setAppTitle] = useState('VisitData Hub');
   const [footerText, setFooterText] = useState('© 2024 VisitData Hub');
 
   useEffect(() => {
-    // Ensure this runs only on the client
-    const savedTitle = localStorage.getItem('appTitle');
-    const savedFooter = localStorage.getItem('appFooter');
-    if (savedTitle) setAppTitle(savedTitle);
-    if (savedFooter) setFooterText(savedFooter);
-
-    const handleStorageChange = () => {
-      const newTitle = localStorage.getItem('appTitle');
-      const newFooter = localStorage.getItem('appFooter');
-      if (newTitle) setAppTitle(newTitle);
-      if (newFooter) setFooterText(newFooter);
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    // This will be replaced with data from Firestore
   }, []);
 
-  if (!user) {
+  if (!appUser) {
     return null;
   }
 
-  const isUserInRole = (roles: string[]) => roles.includes(user.role);
+  const isUserInRole = (roles: string[]) => roles.includes(appUser.role);
   
   const accessibleMenuItems = menuItems.filter(item => isUserInRole(item.roles));
 

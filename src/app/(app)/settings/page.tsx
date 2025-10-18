@@ -11,10 +11,11 @@ import { useAuth } from '@/context/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-// Removed local-data-service
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import DestinationImageSettings from '@/components/settings/destination-image-settings';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 function AppSettingsCard() {
     const { toast } = useToast();
@@ -157,35 +158,45 @@ function ChangePhotoDialog({ onSave }: { onSave: (newUrl: string) => void }) {
 }
 
 export default function SettingsPage() {
-  const { user, setUser } = useAuth();
+  const { appUser } = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
   const [name, setName] = useState('');
 
   useEffect(() => {
-    if (user) {
-      setName(user.name);
+    if (appUser) {
+      setName(appUser.name);
     }
-  }, [user]);
+  }, [appUser]);
 
-  const handleSaveChanges = () => {
-    if (!user) return;
-    // This will be replaced by an update to the user's document in Firestore
-    setUser({...user, name: name});
-
-    toast({
-      title: "Perubahan Disimpan",
-      description: "Pengaturan profil Anda telah berhasil diperbarui.",
-    });
+  const handleSaveChanges = async () => {
+    if (!appUser || !firestore) return;
+    const userRef = doc(firestore, 'users', appUser.uid);
+    try {
+        await updateDoc(userRef, { name });
+        toast({
+          title: "Perubahan Disimpan",
+          description: "Pengaturan profil Anda telah berhasil diperbarui.",
+        });
+    } catch(e) {
+        console.error("Error updating profile:", e);
+        toast({ variant: 'destructive', title: 'Gagal', description: 'Gagal menyimpan perubahan.'});
+    }
   };
 
-  const handlePhotoChange = (newUrl: string) => {
-    if (!user) return;
-    // This will be replaced by an update to the user's document in Firestore
-    setUser({...user, avatarUrl: newUrl});
-    toast({
-        title: "Foto Profil Diperbarui",
-        description: "Foto profil Anda telah berhasil diubah.",
-    })
+  const handlePhotoChange = async (newUrl: string) => {
+    if (!appUser || !firestore) return;
+    const userRef = doc(firestore, 'users', appUser.uid);
+    try {
+        await updateDoc(userRef, { avatarUrl: newUrl });
+        toast({
+            title: "Foto Profil Diperbarui",
+            description: "Foto profil Anda telah berhasil diubah.",
+        })
+    } catch(e) {
+        console.error("Error updating avatar:", e);
+        toast({ variant: 'destructive', title: 'Gagal', description: 'Gagal mengubah foto profil.'});
+    }
   }
   
   const roleVariant = {
@@ -193,7 +204,7 @@ export default function SettingsPage() {
       pengelola: "outline",
   } as const;
 
-  if (!user) {
+  if (!appUser) {
     return (
       <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-2">
@@ -238,14 +249,14 @@ export default function SettingsPage() {
         <CardContent className="space-y-6">
             <div className="flex items-center gap-4">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={user.avatarUrl} alt={user.name} />
+                <AvatarImage src={appUser.avatarUrl} alt={appUser.name} />
                 <AvatarFallback className="text-3xl">{name.charAt(0)}</AvatarFallback>
               </Avatar>
                <div>
                 <ChangePhotoDialog onSave={handlePhotoChange} />
                 <div className="mt-2 text-sm text-muted-foreground">
                     <span>Masuk sebagai: </span>
-                    <Badge variant={roleVariant[user.role]} className="capitalize">{user.role}</Badge>
+                    <Badge variant={roleVariant[appUser.role]} className="capitalize">{appUser.role}</Badge>
                 </div>
               </div>
             </div>
@@ -255,7 +266,7 @@ export default function SettingsPage() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue={user.email} disabled />
+              <Input id="email" type="email" defaultValue={appUser.email} disabled />
             </div>
              <div className="grid gap-2">
               <Label htmlFor="current-password">Kata Sandi Saat Ini</Label>
@@ -268,7 +279,7 @@ export default function SettingsPage() {
             <Button onClick={handleSaveChanges}>Simpan Perubahan</Button>
         </CardContent>
       </Card>
-      {user.role === 'admin' && (
+      {appUser.role === 'admin' && (
         <>
             <AppSettingsCard />
             <DestinationImageSettings />

@@ -7,28 +7,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-// Removed local-data-service
 import type { Destination } from '@/lib/types';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCollection, useFirestore } from '@/firebase';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 
 export default function DestinationImageSettings() {
     const { toast } = useToast();
-    const [destinations, setDestinations] = useState<Destination[]>([]);
+    const firestore = useFirestore();
+    const { data: destinations, loading } = useCollection<Destination>(firestore ? collection(firestore, 'destinations') : null);
     const [imageMap, setImageMap] = useState<Record<string, string>>({});
-    const [loading, setLoading] = useState(true);
-
-    const fetchData = useCallback(() => {
-        setLoading(true);
-        // This will be replaced with a Firestore query
-        setDestinations([]);
-        setImageMap({});
-        setLoading(false);
-    }, []);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if(destinations) {
+            const map: Record<string, string> = {};
+            destinations.forEach(dest => {
+                if(dest.imageUrl) {
+                    map[dest.id] = dest.imageUrl;
+                }
+            });
+            setImageMap(map);
+        }
+    }, [destinations]);
 
 
     const handleImageUrlChange = (destinationId: string, url: string) => {
@@ -38,12 +39,25 @@ export default function DestinationImageSettings() {
         }));
     };
 
-    const handleSaveChanges = () => {
-        // This will be replaced with batched Firestore updates
-        toast({
-            title: "Pengaturan Gambar Disimpan",
-            description: "URL gambar untuk destinasi unggulan telah diperbarui.",
+    const handleSaveChanges = async () => {
+        if (!firestore || !destinations) return;
+        const batch = writeBatch(firestore);
+        destinations.forEach(dest => {
+            if(imageMap[dest.id] !== (dest.imageUrl || '')) {
+                const destRef = doc(firestore, 'destinations', dest.id);
+                batch.update(destRef, { imageUrl: imageMap[dest.id] || '' });
+            }
         });
+        try {
+            await batch.commit();
+            toast({
+                title: "Pengaturan Gambar Disimpan",
+                description: "URL gambar untuk destinasi unggulan telah diperbarui.",
+            });
+        } catch(e) {
+            console.error("Error saving image URLs:", e);
+            toast({ variant: 'destructive', title: 'Gagal', description: 'Gagal menyimpan perubahan.'});
+        }
     }
 
     if(loading) {
