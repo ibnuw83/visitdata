@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         } else {
                             console.log(`User ${userData.email} already exists in Auth, skipping Auth creation.`);
                              // If user exists in Auth but not Firestore, maybe add them to Firestore.
-                            const existingUser = users.find(u => u.email === userData.email);
+                            const existingUser = seedUsers.find(u => u.email === userData.email);
                             if (existingUser) {
                                await setDoc(doc(firestore, 'users', existingUser.uid), {
                                 name: userData.name,
