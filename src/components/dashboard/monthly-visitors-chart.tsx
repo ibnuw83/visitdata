@@ -1,8 +1,9 @@
+
 'use client'
 
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { VisitData } from "@/lib/types"
-import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts"
+import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Area, AreaChart } from "recharts"
 
 const chartConfig = {
   visitors: {
@@ -21,30 +22,38 @@ export default function MonthlyVisitorsChart({ data }: { data: VisitData[] }) {
 
   return (
     <ChartContainer config={chartConfig} className="h-[250px] w-full">
-      <LineChart data={monthlyTotals} margin={{ top: 5, right: 20, left: -10, bottom: 0 }}>
+      <AreaChart data={monthlyTotals} margin={{ top: 5, right: 20, left: -10, bottom: 0 }}>
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey="month"
           tickLine={false}
           axisLine={false}
           tickMargin={8}
+          fontSize={12}
         />
         <YAxis
           tickFormatter={(value) => (Number(value) / 1000).toLocaleString() + 'K'}
         />
         <Tooltip
           cursor={false}
-          content={<ChartTooltipContent indicator="line" />}
+          content={<ChartTooltipContent indicator="dot" />}
         />
-        <Line
+        <defs>
+            <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--color-visitors)" stopOpacity={0.8}/>
+                <stop offset="95%" stopColor="var(--color-visitors)" stopOpacity={0.1}/>
+            </linearGradient>
+        </defs>
+        <Area
           dataKey="totalVisitors"
           type="monotone"
+          fill="url(#fillTotal)"
           stroke="var(--color-visitors)"
           strokeWidth={2}
           dot={false}
-          name="Pengunjung"
+          name="Total Pengunjung"
         />
-      </LineChart>
+      </AreaChart>
     </ChartContainer>
   )
 }

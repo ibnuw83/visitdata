@@ -109,7 +109,7 @@ export default function DashboardPage() {
                 <Card className="lg:col-span-3">
                     <CardHeader>
                         <CardTitle>Tren Pengunjung Bulanan</CardTitle>
-                        <CardDescription>Total pengunjung di semua destinasi selama tahun {selectedYear}.</CardDescription>
+                        <CardDescription>Total pengunjung (domestik & asing) selama tahun {selectedYear}.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <MonthlyVisitorsChart data={yearlyData} />
@@ -118,10 +118,10 @@ export default function DashboardPage() {
                 <Card className="lg:col-span-2">
                     <CardHeader>
                         <CardTitle>Komposisi Pengunjung</CardTitle>
-                         <CardDescription>Perbandingan antara wisatawan nusantara dan mancanegara.</CardDescription>
+                         <CardDescription>Perbandingan wisatawan nusantara dan mancanegara per bulan.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <VisitorBreakdownChart wisnus={totalWisnus} wisman={totalWisman} />
+                        <VisitorBreakdownChart data={yearlyData} />
                     </CardContent>
                 </Card>
             </div>
