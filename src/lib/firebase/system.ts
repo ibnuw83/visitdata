@@ -1,25 +1,23 @@
 'use client';
 
 import { useEffect } from 'react';
-import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { errorEmitter } from './error-emitter';
 import { useToast } from '@/hooks/use-toast';
-import { handleFirestoreError } from '@/lib/firebase/listeners/firestore-error-handler';
-import { handleAuthError } from '@/lib/firebase/listeners/auth-error-handler';
-import { handleGenericError } from '@/lib/firebase/listeners/generic-error-handler';
+import { handleFirestoreError } from './listeners/firestore-error-handler';
+import { handleAuthError } from './listeners/auth-error-handler';
+import { handleGenericError } from './listeners/generic-error-handler';
 import {
   FirestorePermissionError,
   FirestoreGenericError,
   AuthError,
   NetworkError,
-} from '@/lib/firebase/errors';
-
+} from './errors';
 
 /**
- * 🔥 Global Firebase Error Listener
- * Dipasang di dalam FirebaseClientProvider untuk menangkap semua event error
- * dari `errorEmitter` dan menampilkannya sebagai notifikasi toast.
+ * FirebaseSystemListener — aktifkan sistem global untuk notifikasi error Firebase.
+ * Hanya perlu di-import sekali di layout root.
  */
-export function FirebaseErrorListener() {
+export function FirebaseSystemListener() {
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,11 +31,15 @@ export function FirebaseErrorListener() {
     errorEmitter.on('auth-error', onAuthError);
     errorEmitter.on('network-error', onNetworkError);
 
+    const handleOffline = () => errorEmitter.emit('network-error', new NetworkError());
+    window.addEventListener('offline', handleOffline);
+
     return () => {
       errorEmitter.off('permission-error', onPermissionError);
       errorEmitter.off('firestore-error', onGenericFirestoreError);
       errorEmitter.off('auth-error', onAuthError);
       errorEmitter.off('network-error', onNetworkError);
+      window.removeEventListener('offline', handleOffline);
     };
   }, [toast]);
 

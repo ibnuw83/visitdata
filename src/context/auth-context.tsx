@@ -5,7 +5,6 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { useAuth as useFirebaseAuth } from '@/lib/firebase/client-provider';
-import { useToast } from '@/hooks/use-toast';
 import { AuthError } from '@/lib/firebase/errors';
 import { errorEmitter } from '@/lib/firebase/error-emitter';
 
@@ -22,7 +21,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useFirebaseAuth();
-  const { toast } = useToast();
   
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(false);

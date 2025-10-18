@@ -6,7 +6,7 @@ import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { firebaseConfig } from './config';
-import { FirebaseErrorListener } from '@/components/firebase-error-listener';
+import { FirebaseSystemListener } from './system';
 
 /**
  * Context untuk menyediakan instance Firebase di sisi client.
@@ -31,7 +31,7 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
       <FirestoreContext.Provider value={firestore}>
         <AuthContext.Provider value={auth}>
           {children}
-          <FirebaseErrorListener />
+          <FirebaseSystemListener />
         </AuthContext.Provider>
       </FirestoreContext.Provider>
     </FirebaseAppContext.Provider>
