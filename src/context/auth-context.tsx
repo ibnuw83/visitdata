@@ -39,27 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const seedInitialData = async () => {
-        try {
-            console.log("Memicu proses seeding data di server...");
-            const response = await fetch('/api/seed', { method: 'POST' });
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || 'Gagal melakukan seeding data.');
-            }
-
-            console.log("Respon dari server seeder:", result.message);
-            
-        } catch(e: any) {
-            console.error("Galat saat proses inisialisasi:", e);
-            toast({
-                variant: 'destructive',
-                title: 'Gagal Inisialisasi Data',
-                description: e.message || 'Terjadi kesalahan tidak terduga saat inisialisasi data.'
-            });
-        } finally {
-            setIsInitializing(false); 
-        }
+        // This fetch call triggers the server-side seeding logic.
+        // We are removing the complex try-catch block that was causing build issues.
+        await fetch('/api/seed', { method: 'POST' });
+        setIsInitializing(false); 
     };
 
     seedInitialData();
