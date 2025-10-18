@@ -27,18 +27,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
     const restoreAndVerifySession = async () => {
-      setIsLoading(true);
+      // Don't set loading to true here to prevent skeleton on every navigation
       try {
-        // First, try restoring from localStorage for an instant UI update.
         const storedUserJson = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (storedUserJson) {
-          const storedUser = JSON.parse(storedUserJson);
-           if (isMounted) {
-             setUser(storedUser);
-           }
+            const storedUser = JSON.parse(storedUserJson);
+            if (isMounted) setUser(storedUser);
         }
         
-        // Then, verify with the server in the background to ensure session is still valid.
         const sessionUser = await getSessionUser();
         if (isMounted) {
           if (sessionUser) {

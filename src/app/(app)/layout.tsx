@@ -3,7 +3,7 @@
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import Header from '@/components/layout/header';
 import SidebarNav from '@/components/layout/sidebar-nav';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -52,13 +52,14 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   const { user, isLoading } = useAuth();
+  const router = useRouter();
   
   useEffect(() => {
     // If loading is finished and there's still no user, redirect to login.
     if (!isLoading && !user) {
-      redirect('/');
+      router.push('/');
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, router]);
 
   // While loading or if there's no user (before redirect happens), show a skeleton.
   if (isLoading || !user) {
