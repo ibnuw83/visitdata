@@ -1,10 +1,10 @@
 
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
+import { getSession } from '@/lib/session';
 
 export async function GET() {
   try {
-    const userSession = await getCurrentUser();
+    const userSession = await getSession();
     if (!userSession) {
       return new NextResponse(
         JSON.stringify({ error: 'No active session' }),
