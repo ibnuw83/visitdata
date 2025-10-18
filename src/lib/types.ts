@@ -11,9 +11,14 @@ export type User = {
 export type Destination = {
   id: string;
   name: string;
-  category: 'alam' | 'budaya' | 'sejarah' | 'event' | 'buatan';
+  category: string; // Now a string to allow dynamic categories
   manager: string; // uid of pengelola
   location: string;
+};
+
+export type Category = {
+  id: string;
+  name: string;
 };
 
 export type WismanDetail = {

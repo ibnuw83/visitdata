@@ -1,4 +1,4 @@
-import { User, Destination, VisitData, UnlockRequest } from './types';
+import { User, Destination, VisitData, UnlockRequest, Category } from './types';
 
 export const users: User[] = [
   {
@@ -67,6 +67,13 @@ export const destinations: Destination[] = [
     location: 'Karangsambung, Kebumen'
     }
 ];
+
+const uniqueCategories = [...new Set(destinations.map(d => d.category))];
+export const categories: Category[] = uniqueCategories.map((cat, index) => ({
+  id: `cat-${index + 1}`,
+  name: cat,
+}));
+
 
 const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 

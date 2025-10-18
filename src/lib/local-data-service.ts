@@ -1,7 +1,13 @@
 'use client';
 
-import { users as mockUsers, destinations as mockDestinations, visitData as mockVisitData, unlockRequests as mockUnlockRequests } from './mock-data';
-import type { User, Destination, VisitData, UnlockRequest } from './types';
+import { 
+    users as mockUsers, 
+    destinations as mockDestinations, 
+    visitData as mockVisitData, 
+    unlockRequests as mockUnlockRequests,
+    categories as mockCategories
+} from './mock-data';
+import type { User, Destination, VisitData, UnlockRequest, Category } from './types';
 
 function initializeData<T>(key: string, mockData: T[]): T[] {
   try {
@@ -36,6 +42,18 @@ export function getUnlockRequests(): UnlockRequest[] {
     return initializeData('unlockRequests', mockUnlockRequests);
 }
 
+export function getCategories(): Category[] {
+  return initializeData('categories', mockCategories);
+}
+
+export function saveCategories(categories: Category[]): void {
+  try {
+    localStorage.setItem('categories', JSON.stringify(categories));
+  } catch (error) {
+    console.error(`Error saving categories to localStorage`, error);
+  }
+}
+
 // --- Combined Function for Server Actions ---
 
 export function getAllData() {
@@ -45,7 +63,8 @@ export function getAllData() {
         users: getUsers(),
         destinations: getDestinations(),
         visitData: getVisitData(),
-        unlockRequests: getUnlockRequests()
+        unlockRequests: getUnlockRequests(),
+        categories: getCategories()
     };
 }
 
