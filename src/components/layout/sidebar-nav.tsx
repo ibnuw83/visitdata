@@ -13,8 +13,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
 import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree, Lightbulb } from 'lucide-react';
-import { User } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
+import { useEffect, useState } from 'react';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard, roles: ['admin', 'pengelola'] },
@@ -33,6 +33,28 @@ const bottomMenuItems = [
 export default function SidebarNav() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const [appTitle, setAppTitle] = useState('VisitData Hub');
+  const [footerText, setFooterText] = useState('© 2024 VisitData Hub');
+
+  useEffect(() => {
+    // Ensure this runs only on the client
+    const savedTitle = localStorage.getItem('appTitle');
+    const savedFooter = localStorage.getItem('appFooter');
+    if (savedTitle) setAppTitle(savedTitle);
+    if (savedFooter) setFooterText(savedFooter);
+
+    const handleStorageChange = () => {
+      const newTitle = localStorage.getItem('appTitle');
+      const newFooter = localStorage.getItem('appFooter');
+      if (newTitle) setAppTitle(newTitle);
+      if (newFooter) setFooterText(newFooter);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   if (!user) {
     return null;
@@ -45,7 +67,7 @@ export default function SidebarNav() {
       <SidebarHeader>
         <div className="flex items-center gap-2">
             <Logo className="h-8 w-8 text-primary" />
-            <span className="text-lg font-semibold font-headline">VisitData Hub</span>
+            <span className="text-lg font-semibold font-headline">{appTitle}</span>
         </div>
       </SidebarHeader>
       <Separator />
@@ -70,6 +92,9 @@ export default function SidebarNav() {
       </SidebarContent>
       <Separator />
       <SidebarFooter>
+         <div className="px-4 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+            {footerText}
+        </div>
         <SidebarMenu>
             {bottomMenuItems.filter(item => isUserInRole(item.roles)).map((item) => (
                 <SidebarMenuItem key={item.href}>

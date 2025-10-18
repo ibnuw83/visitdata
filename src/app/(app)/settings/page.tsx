@@ -11,6 +11,87 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { getAllData } from '@/lib/local-data-service';
+
+function AppSettingsCard() {
+    const { toast } = useToast();
+    const [appTitle, setAppTitle] = useState('');
+    const [logoUrl, setLogoUrl] = useState('');
+    const [footerText, setFooterText] = useState('');
+
+    useEffect(() => {
+        setAppTitle(localStorage.getItem('appTitle') || 'VisitData Hub');
+        setLogoUrl(localStorage.getItem('logoUrl') || '');
+        setFooterText(localStorage.getItem('appFooter') || `© ${new Date().getFullYear()} VisitData Hub`);
+    }, []);
+
+    const handleSaveAppSettings = () => {
+        localStorage.setItem('appTitle', appTitle);
+        localStorage.setItem('logoUrl', logoUrl);
+        localStorage.setItem('appFooter', footerText);
+        // Dispatch a storage event to notify other components of the change
+        window.dispatchEvent(new Event('storage'));
+        toast({
+            title: "Pengaturan Aplikasi Disimpan",
+            description: "Judul, logo, dan footer telah diperbarui.",
+        });
+    }
+    
+    const handleBackupData = () => {
+        try {
+            const allData = getAllData();
+            const jsonString = JSON.stringify(allData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `visitdata-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast({
+                title: "Pencadangan Berhasil",
+                description: "Semua data telah diunduh sebagai file JSON.",
+            });
+        } catch (error) {
+            console.error("Backup failed", error);
+            toast({
+                variant: 'destructive',
+                title: "Pencadangan Gagal",
+                description: "Terjadi kesalahan saat mencoba mencadangkan data.",
+            });
+        }
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Pengaturan Aplikasi</CardTitle>
+                <CardDescription>Sesuaikan tampilan global dan cadangkan data aplikasi.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="grid gap-2">
+                    <Label htmlFor="app-title">Judul Aplikasi</Label>
+                    <Input id="app-title" value={appTitle} onChange={(e) => setAppTitle(e.target.value)} />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="logo-url">URL Logo</Label>
+                    <Input id="logo-url" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://example.com/logo.png" />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="footer-text">Teks Footer</Label>
+                    <Input id="footer-text" value={footerText} onChange={(e) => setFooterText(e.target.value)} />
+                </div>
+                <div className='flex justify-between items-center pt-2'>
+                    <Button onClick={handleSaveAppSettings}>Simpan Pengaturan Aplikasi</Button>
+                    <Button variant="outline" onClick={handleBackupData}>Cadangkan Semua Data (JSON)</Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -96,8 +177,9 @@ export default function SettingsPage() {
               </Avatar>
                <div>
                 <Button variant="outline" onClick={handlePhotoChange}>Ubah Foto</Button>
-                <div className="text-sm text-muted-foreground mt-2">
-                    Masuk sebagai: <Badge variant={roleVariant[user.role]} className="capitalize">{user.role}</Badge>
+                <div className="mt-2">
+                    <span className="text-sm text-muted-foreground">Masuk sebagai: </span>
+                    <Badge variant={roleVariant[user.role]} className="capitalize">{user.role}</Badge>
                 </div>
               </div>
             </div>
@@ -120,6 +202,7 @@ export default function SettingsPage() {
             <Button onClick={handleSaveChanges}>Simpan Perubahan</Button>
         </CardContent>
       </Card>
+      {user.role === 'admin' && <AppSettingsCard />}
     </div>
   );
 }

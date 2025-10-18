@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/context/auth-context';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 
@@ -37,11 +37,17 @@ function LoginSkeleton() {
 export default function LoginPage() {
   const { login, error, user, isLoading } = useAuth();
   const router = useRouter();
+  const [appTitle, setAppTitle] = useState('VisitData Hub');
 
   useEffect(() => {
     // Redirect if user is already logged in and loading is complete
     if (!isLoading && user) {
       router.push('/dashboard');
+    }
+    // Load app title from localStorage on client
+    const savedTitle = localStorage.getItem('appTitle');
+    if (savedTitle) {
+      setAppTitle(savedTitle);
     }
   }, [user, isLoading, router]);
 
@@ -61,7 +67,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">
         <Logo className="h-10 w-10" />
-        <h1 className="font-headline text-3xl font-bold">VisitData Hub</h1>
+        <h1 className="font-headline text-3xl font-bold">{appTitle}</h1>
       </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
