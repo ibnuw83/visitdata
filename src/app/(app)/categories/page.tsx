@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FolderTree, PlusCircle, Trash2, FilePenLine } from "lucide-react";
 import { Button } from '@/components/ui/button';
@@ -53,9 +53,17 @@ export default function CategoriesPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
   
-  useEffect(() => {
+  const fetchCategories = useCallback(() => {
     setCategories(getCategories());
   }, []);
+
+  useEffect(() => {
+    fetchCategories();
+    window.addEventListener('storage', fetchCategories);
+    return () => {
+      window.removeEventListener('storage', fetchCategories);
+    };
+  }, [fetchCategories]);
 
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) {
@@ -65,12 +73,12 @@ export default function CategoriesPage() {
         });
         return;
     }
+    const currentCategories = getCategories();
     const newCategory: Category = {
         id: `cat-${Date.now()}`,
         name: newCategoryName.trim().toLowerCase(),
     };
-    const updatedCategories = [...categories, newCategory];
-    setCategories(updatedCategories);
+    const updatedCategories = [...currentCategories, newCategory];
     saveCategories(updatedCategories);
     setNewCategoryName('');
     setIsAddDialogOpen(false);
@@ -81,9 +89,9 @@ export default function CategoriesPage() {
   }
 
   const handleDeleteCategory = (categoryId: string) => {
-    const categoryName = categories.find(c => c.id === categoryId)?.name;
-    const updatedCategories = categories.filter(c => c.id !== categoryId);
-    setCategories(updatedCategories);
+    const currentCategories = getCategories();
+    const categoryName = currentCategories.find(c => c.id === categoryId)?.name;
+    const updatedCategories = currentCategories.filter(c => c.id !== categoryId);
     saveCategories(updatedCategories);
     toast({
         title: "Kategori Dihapus",
@@ -106,11 +114,11 @@ export default function CategoriesPage() {
         return;
     }
 
-    const updatedCategories = categories.map(c => 
+    const currentCategories = getCategories();
+    const updatedCategories = currentCategories.map(c => 
         c.id === editingCategory.id ? { ...c, name: editedCategoryName.trim().toLowerCase() } : c
     );
 
-    setCategories(updatedCategories);
     saveCategories(updatedCategories);
     setIsEditDialogOpen(false);
     setEditingCategory(null);
@@ -243,5 +251,3 @@ export default function CategoriesPage() {
     </div>
   );
 }
-
-    

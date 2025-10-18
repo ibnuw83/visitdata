@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Users, Landmark, Plane, Globe } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-card";
@@ -25,40 +25,50 @@ function DashboardContent() {
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
-    useEffect(() => {
+    const fetchData = useCallback(() => {
+        setLoading(true);
         const visitDataFromDb = getVisitData();
         const destinationsFromDb = getDestinations();
 
+        let userDestinations = destinationsFromDb;
+        let userVisitData = visitDataFromDb;
+
         if (user && user.role === 'pengelola') {
             const assignedIds = user.assignedLocations;
-            const assignedDestinations = destinationsFromDb.filter(d => assignedIds.includes(d.id));
-            const assignedVisitData = visitDataFromDb.filter(vd => assignedIds.includes(vd.destinationId));
-            
-            setDestinations(assignedDestinations);
-            setAllVisitData(assignedVisitData);
-
-            const availableYears = [...new Set(assignedVisitData.map(d => d.year))].sort((a,b) => b-a);
-            if (availableYears.length > 0) {
-                setSelectedYear(availableYears[0].toString());
-            } else {
-                setSelectedYear(new Date().getFullYear().toString());
-            }
-        } else { // For admin or logged-out users
-            setDestinations(destinationsFromDb);
-            setAllVisitData(visitDataFromDb);
-            
-            const availableYears = [...new Set(visitDataFromDb.map(d => d.year))].sort((a,b) => b-a);
-            if (availableYears.length > 0) {
-                setSelectedYear(availableYears[0].toString());
-            }
+            userDestinations = destinationsFromDb.filter(d => assignedIds.includes(d.id));
+            userVisitData = visitDataFromDb.filter(vd => assignedIds.includes(vd.destinationId));
         }
-
+        
+        setDestinations(userDestinations);
+        setAllVisitData(userVisitData);
+        
+        const availableYears = [...new Set(userVisitData.map(d => d.year))].sort((a,b) => b-a);
+        if (availableYears.length > 0) {
+            if (!availableYears.includes(parseInt(selectedYear))) {
+                setSelectedYear(availableYears[0].toString());
+            }
+        } else {
+            setSelectedYear(new Date().getFullYear().toString());
+        }
         setLoading(false);
-    }, [user]);
+    }, [user, selectedYear]);
+
+    useEffect(() => {
+        fetchData();
+        window.addEventListener('storage', fetchData);
+        return () => {
+            window.removeEventListener('storage', fetchData);
+        };
+    }, [fetchData]);
     
     const availableYears = useMemo(() => {
-        return [...new Set(allVisitData.map(d => d.year))].sort((a, b) => b - a);
-    }, [allVisitData]);
+        const allYears = [...new Set(getVisitData().map(d => d.year))].sort((a,b) => b-a);
+        const currentYear = new Date().getFullYear();
+        if(!allYears.includes(currentYear)) {
+            allYears.unshift(currentYear);
+        }
+        return allYears;
+    }, []);
 
     const yearlyData = useMemo(() => {
         return allVisitData.filter(d => d.year === parseInt(selectedYear));
@@ -88,8 +98,7 @@ function DashboardContent() {
                     <Skeleton className="lg:col-span-3 h-80" />
                     <Skeleton className="lg:col-span-2 h-80" />
                 </div>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    <Skeleton className="lg:col-span-2 h-96" />
+                <div className="grid gap-4">
                     <Skeleton className="h-96" />
                 </div>
             </div>

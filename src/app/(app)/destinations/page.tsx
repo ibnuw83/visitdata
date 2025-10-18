@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getDestinations, saveDestinations, getCategories, getDestinationImageMap, saveDestinationImageMap } from "@/lib/local-data-service";
@@ -52,7 +52,6 @@ export default function DestinationsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [imageMap, setImageMap] = useState<Record<string, string>>({});
   
   // State for new destination form
   const [newDestinationName, setNewDestinationName] = useState('');
@@ -73,12 +72,19 @@ export default function DestinationsPage() {
 
   const { toast } = useToast();
   
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     const allDestinations = getDestinations();
     setDestinations(allDestinations);
     setCategories(getCategories());
-    setImageMap(getDestinationImageMap(allDestinations));
   }, []);
+
+  useEffect(() => {
+    fetchData();
+    window.addEventListener('storage', fetchData);
+    return () => {
+      window.removeEventListener('storage', fetchData);
+    };
+  }, [fetchData]);
 
   const resetAddForm = () => {
     setNewDestinationName('');
@@ -98,6 +104,7 @@ export default function DestinationsPage() {
       return;
     }
 
+    const currentDestinations = getDestinations();
     const newDestinationId = `dest-${Date.now()}`;
     const newDestination: Destination = {
       id: newDestinationId,
@@ -109,13 +116,12 @@ export default function DestinationsPage() {
       manager: 'pengelola-01', // Default manager for new destination
     };
 
-    const updatedDestinations = [...destinations, newDestination];
-    setDestinations(updatedDestinations);
+    const updatedDestinations = [...currentDestinations, newDestination];
     saveDestinations(updatedDestinations);
     
     // Update and save the image map
+    const imageMap = getDestinationImageMap(currentDestinations);
     const newImageMap = { ...imageMap, [newDestinationId]: newDestinationImageUrl };
-    setImageMap(newImageMap);
     saveDestinationImageMap(newImageMap);
 
 
@@ -129,13 +135,13 @@ export default function DestinationsPage() {
   };
 
   const handleToggleStatus = (destinationId: string) => {
-    const updatedDestinations = destinations.map(dest => {
+    const currentDestinations = getDestinations();
+    const updatedDestinations = currentDestinations.map(dest => {
       if (dest.id === destinationId) {
         return { ...dest, status: dest.status === 'aktif' ? 'nonaktif' : 'aktif' };
       }
       return dest;
     });
-    setDestinations(updatedDestinations);
     saveDestinations(updatedDestinations);
     const updatedDest = updatedDestinations.find(d => d.id === destinationId);
     toast({
@@ -145,15 +151,15 @@ export default function DestinationsPage() {
   };
 
   const handleDelete = (destinationId: string) => {
-    const destinationName = destinations.find(d => d.id === destinationId)?.name;
-    const updatedDestinations = destinations.filter(dest => dest.id !== destinationId);
-    setDestinations(updatedDestinations);
+    const currentDestinations = getDestinations();
+    const destinationName = currentDestinations.find(d => d.id === destinationId)?.name;
+    const updatedDestinations = currentDestinations.filter(dest => dest.id !== destinationId);
     saveDestinations(updatedDestinations);
 
     // Also remove from imageMap
+    const imageMap = getDestinationImageMap(currentDestinations);
     const newImageMap = { ...imageMap };
     delete newImageMap[destinationId];
-    setImageMap(newImageMap);
     saveDestinationImageMap(newImageMap);
 
     toast({
@@ -168,6 +174,8 @@ export default function DestinationsPage() {
     setEditedDestinationCategory(destination.category);
     setEditedDestinationLocation(destination.location);
     setEditedDestinationManagement(destination.managementType);
+    
+    const imageMap = getDestinationImageMap(getDestinations());
     setEditedDestinationImageUrl(imageMap[destination.id] || '');
     setIsEditDialogOpen(true);
   }
@@ -182,7 +190,8 @@ export default function DestinationsPage() {
       return;
     }
 
-    const updatedDestinations = destinations.map(d => 
+    const currentDestinations = getDestinations();
+    const updatedDestinations = currentDestinations.map(d => 
       d.id === editingDestination.id 
         ? { 
             ...d, 
@@ -193,13 +202,11 @@ export default function DestinationsPage() {
           } 
         : d
     );
-
-    setDestinations(updatedDestinations);
     saveDestinations(updatedDestinations);
     
     // Update and save the image map
+    const imageMap = getDestinationImageMap(currentDestinations);
     const newImageMap = { ...imageMap, [editingDestination.id]: editedDestinationImageUrl };
-    setImageMap(newImageMap);
     saveDestinationImageMap(newImageMap);
 
     setIsEditDialogOpen(false);

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,11 +16,20 @@ export default function DestinationImageSettings() {
     const [destinations, setDestinations] = useState<Destination[]>([]);
     const [imageMap, setImageMap] = useState<Record<string, string>>({});
 
-    useEffect(() => {
+    const fetchData = useCallback(() => {
         const allDestinations = getDestinations();
         setDestinations(allDestinations);
         setImageMap(getDestinationImageMap(allDestinations));
     }, []);
+
+    useEffect(() => {
+        fetchData();
+        window.addEventListener('storage', fetchData);
+        return () => {
+            window.removeEventListener('storage', fetchData);
+        };
+    }, [fetchData]);
+
 
     const handleImageUrlChange = (destinationId: string, url: string) => {
         setImageMap(prevMap => ({
@@ -49,7 +58,7 @@ export default function DestinationImageSettings() {
                 <div className="space-y-4">
                     {destinations.filter(d => d.status === 'aktif').map(dest => (
                         <div key={dest.id} className="flex items-center gap-4">
-                            <div className="relative h-16 w-16 rounded-md overflow-hidden shrink-0">
+                            <div className="relative h-16 w-16 rounded-md overflow-hidden shrink-0 bg-muted">
                                 {imageMap[dest.id] && (
                                      <Image 
                                         src={imageMap[dest.id]} 

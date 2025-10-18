@@ -12,6 +12,12 @@ import {
 import type { User, Destination, VisitData, UnlockRequest, Category, Country } from './types';
 import { PlaceHolderImages } from './placeholder-images';
 
+function dispatchStorageEvent() {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('storage'));
+    }
+}
+
 function getData<T>(key: string, mockData: T[]): T[] {
   try {
     if (typeof window !== 'undefined') {
@@ -34,7 +40,9 @@ function saveData<T>(key: string, data: T[] | T): void {
   try {
     if (typeof window === 'undefined') return;
     localStorage.setItem(key, JSON.stringify(data));
-  } catch (error) {
+    dispatchStorageEvent(); // Dispatch event on every save
+  } catch (error)
+ {
     console.error(`Error saving data for key ${key} to localStorage`, error);
   }
 }
@@ -45,7 +53,8 @@ export function resetAndSeedData(): void {
     
     const keysToReset = [
         'users', 'destinations', 'visitData', 'unlockRequests', 
-        'categories', 'countries', 'destinationImageMap'
+        'categories', 'countries', 'destinationImageMap', 'appTitle',
+        'logoUrl', 'appFooter', 'heroTitle', 'heroSubtitle'
     ];
     keysToReset.forEach(key => localStorage.removeItem(key));
     
@@ -60,7 +69,7 @@ export function resetAndSeedData(): void {
     // Seed the destination image map
     const initialImageMap: Record<string, string> = {};
     mockDestinations.forEach(dest => {
-      const placeholder = PlaceHolderImages.find(p => p.id.includes(dest.name.split(' ')[0].toLowerCase()));
+      const placeholder = PlaceHolderImages.find(p => dest.name.toLowerCase().includes(p.id.split('-')[1]));
       if (placeholder) {
         initialImageMap[dest.id] = placeholder.imageUrl;
       }
@@ -68,6 +77,7 @@ export function resetAndSeedData(): void {
     saveDestinationImageMap(initialImageMap);
 
     console.log('Local storage has been reset and seeded with fresh mock data.');
+    dispatchStorageEvent(); // Notify all components about the reset
 }
 
 
@@ -126,8 +136,8 @@ export function getDestinationImageMap(destinations: Destination[]): Record<stri
     // Create and save a default map if it doesn't exist
     const defaultMap: Record<string, string> = {};
     destinations.forEach(dest => {
-        const placeholder = PlaceHolderImages.find(p => p.id.includes(dest.name.split(' ')[0].toLowerCase())) || PlaceHolderImages[0];
-        defaultMap[dest.id] = placeholder.imageUrl;
+        const placeholder = PlaceHolderImages.find(p => dest.name.toLowerCase().includes(p.id.split('-')[1])) || PlaceHolderImages[0];
+        if(placeholder) defaultMap[dest.id] = placeholder.imageUrl;
     });
     saveDestinationImageMap(defaultMap);
     return defaultMap;
@@ -135,8 +145,6 @@ export function getDestinationImageMap(destinations: Destination[]): Record<stri
 
 export function saveDestinationImageMap(map: Record<string, string>): void {
     saveData('destinationImageMap', map);
-    // Dispatch a storage event to notify other components of the change
-    window.dispatchEvent(new Event('storage'));
 }
 
 
@@ -171,5 +179,13 @@ export function saveAllData(data: {
     saveData('countries', data.countries);
     if(data.destinationImageMap) {
         saveDestinationImageMap(data.destinationImageMap);
+    } else {
+        // create a default one
+        const defaultMap: Record<string, string> = {};
+        data.destinations.forEach(dest => {
+            const placeholder = PlaceHolderImages.find(p => dest.name.toLowerCase().includes(p.id.split('-')[1])) || PlaceHolderImages[0];
+            if(placeholder) defaultMap[dest.id] = placeholder.imageUrl;
+        });
+        saveDestinationImageMap(defaultMap);
     }
 }

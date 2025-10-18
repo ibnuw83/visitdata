@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -160,10 +161,18 @@ export default function UsersPage() {
   const [editedUserRole, setEditedUserRole] = useState<'admin' | 'pengelola'>('pengelola');
   const [editedUserAssignedLocations, setEditedUserAssignedLocations] = useState<string[]>([]);
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     setUsers(getUsers());
     setDestinations(getDestinations());
   }, []);
+
+  useEffect(() => {
+    fetchData();
+    window.addEventListener('storage', fetchData);
+    return () => {
+      window.removeEventListener('storage', fetchData);
+    };
+  }, [fetchData]);
 
   const destinationOptions = destinations.map(d => ({ value: d.id, label: d.name}));
 
@@ -180,26 +189,26 @@ export default function UsersPage() {
       toast({ variant: "destructive", title: "Nama tidak boleh kosong."});
       return;
     }
-
-    const updatedUsers = users.map(u => u.uid === editingUser.uid ? {
+    
+    const currentUsers = getUsers();
+    const updatedUsers = currentUsers.map(u => u.uid === editingUser.uid ? {
       ...u,
       name: editedUserName.trim(),
       role: editedUserRole,
       assignedLocations: editedUserRole === 'admin' ? [] : editedUserAssignedLocations
     } : u);
 
-    setUsers(updatedUsers);
     saveUsers(updatedUsers);
     setIsEditDialogOpen(false);
     toast({ title: "Pengguna Diperbarui", description: `Data untuk ${editedUserName} telah diperbarui.`});
   }
 
   const handleDeleteUser = (userId: string) => {
-    const userToDelete = users.find(u => u.uid === userId);
+    const currentUsers = getUsers();
+    const userToDelete = currentUsers.find(u => u.uid === userId);
     if (!userToDelete) return;
 
-    const updatedUsers = users.filter(u => u.uid !== userId);
-    setUsers(updatedUsers);
+    const updatedUsers = currentUsers.filter(u => u.uid !== userId);
     saveUsers(updatedUsers);
 
     toast({
@@ -226,8 +235,9 @@ export default function UsersPage() {
       return;
     }
     
+    const currentUsers = getUsers();
     // Check for duplicate email
-    if (users.some(user => user.email === newUserEmail.trim())) {
+    if (currentUsers.some(user => user.email === newUserEmail.trim())) {
       toast({
         variant: "destructive",
         title: "Email sudah ada",
@@ -244,11 +254,10 @@ export default function UsersPage() {
       role: newUserRole,
       assignedLocations: newUserRole === 'pengelola' ? newUserAssignedLocations : [],
       status: 'aktif',
-      avatarUrl: PlaceHolderImages[users.length % PlaceHolderImages.length].imageUrl
+      avatarUrl: PlaceHolderImages[currentUsers.length % PlaceHolderImages.length].imageUrl
     };
 
-    const updatedUsers = [...users, newUser];
-    setUsers(updatedUsers);
+    const updatedUsers = [...currentUsers, newUser];
     saveUsers(updatedUsers);
 
     toast({

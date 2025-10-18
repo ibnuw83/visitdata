@@ -116,13 +116,10 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
     setData(initialData);
   }, [initialData]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedSave = useCallback(
-    debounce((newData: VisitData[], destName: string) => {
+    debounce((newData: VisitData[]) => {
       onDataChange(newData);
-      toast({
-        title: "Data Disimpan Otomatis",
-        description: `Perubahan untuk ${destName} telah disimpan.`,
-      });
     }, 1000),
     [onDataChange]
   );
@@ -135,7 +132,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
       monthData[field] = value;
       monthData.totalVisitors = monthData.wisnus + monthData.wisman;
       setData(newData);
-      debouncedSave(newData, destination.name);
+      debouncedSave(newData);
     }
   };
 
@@ -147,7 +144,7 @@ function DestinationDataEntry({ destination, initialData, onDataChange, onNewReq
         monthData.wisman = wismanDetails.reduce((sum, detail) => sum + (detail.count || 0), 0);
         monthData.totalVisitors = monthData.wisnus + monthData.wisman;
         setData(newData);
-        debouncedSave(newData, destination.name);
+        debouncedSave(newData);
      }
   }
 
@@ -280,7 +277,10 @@ function WismanPopover({ details, totalWisman, onSave, disabled }: { details: Wi
     }, [details]);
     
     useEffect(() => {
-        setCountries(getCountries());
+        const fetchCountries = () => setCountries(getCountries());
+        fetchCountries();
+        window.addEventListener('storage', fetchCountries);
+        return () => window.removeEventListener('storage', fetchCountries);
     }, []);
 
     const countryOptions = useMemo(() => countries.map(c => ({ label: c.name, value: c.name })), [countries]);
@@ -369,17 +369,18 @@ export default function DataEntryPage() {
   
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  
+  const { toast } = useToast();
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     if (!user) return;
     
     const allDestinations = getDestinations();
+    let userDestinations = allDestinations;
     if (user.role === 'pengelola') {
-        const assignedDestinations = allDestinations.filter(d => user.assignedLocations.includes(d.id));
-        setDestinations(assignedDestinations);
-    } else {
-        setDestinations(allDestinations);
+        userDestinations = allDestinations.filter(d => user.assignedLocations.includes(d.id));
     }
+    setDestinations(userDestinations);
 
     const visitData = getVisitData();
     setAllVisitData(visitData);
@@ -390,23 +391,38 @@ export default function DataEntryPage() {
     const allYears = [...new Set([currentYear, ...yearsFromData])].sort((a,b) => b-a);
 
     setAvailableYears(allYears);
-    setSelectedYear(allYears[0] || currentYear);
+    if (!allYears.includes(selectedYear)) {
+        setSelectedYear(allYears[0] || currentYear);
+    }
+  }, [user, selectedYear]);
 
-  }, [user]);
+  useEffect(() => {
+    fetchData();
+    window.addEventListener('storage', fetchData);
+    return () => {
+        window.removeEventListener('storage', fetchData);
+    }
+  }, [fetchData]);
 
   const handleDataChange = (updatedData: VisitData[]) => {
-    // A bit complex: we need to merge the changes from one destination
-    // back into the main `allVisitData` state.
+    const allData = getVisitData();
     const updatedIds = new Set(updatedData.map(d => d.id));
-    const unaffectedData = allVisitData.filter(d => !updatedIds.has(d.id));
+    const unaffectedData = allData.filter(d => !updatedIds.has(d.id));
     const newAllVisitData = [...unaffectedData, ...updatedData];
-    setAllVisitData(newAllVisitData);
     saveVisitData(newAllVisitData);
+    
+    // Optimistic UI update
+    setAllVisitData(newAllVisitData);
+
+    toast({
+        title: "Data Disimpan Otomatis",
+        description: `Perubahan untuk destinasi telah disimpan.`,
+      });
   }
 
   const handleNewRequest = (newRequest: UnlockRequest) => {
-    const updatedRequests = [...unlockRequests, newRequest];
-    setUnlockRequests(updatedRequests);
+    const currentRequests = getUnlockRequests();
+    const updatedRequests = [...currentRequests, newRequest];
     saveUnlockRequests(updatedRequests);
   }
   
@@ -420,30 +436,31 @@ export default function DataEntryPage() {
 
   const dataByDestination = useMemo(() => {
     return destinations.map(dest => {
-      const destData = allVisitData.filter(d => d.destinationId === dest.id && d.year === selectedYear);
+      let destData = allVisitData.filter(d => d.destinationId === dest.id && d.year === selectedYear);
       
-      // If no data for the year, create a default structure for all 12 months
-      if (destData.length < 12) {
-          const existingMonths = destData.map(d => d.month);
-          const missingMonthsData = months
-            .map((monthName, index) => ({ monthName, monthIndex: index + 1 }))
-            .filter(({ monthIndex }) => !existingMonths.includes(monthIndex))
-            .map(({ monthName, monthIndex }) => ({
-                id: `visit-${dest.id}-${selectedYear}-${monthIndex}`,
-                destinationId: dest.id,
-                year: selectedYear,
-                month: monthIndex,
-                monthName: monthName,
-                wisnus: 0,
-                wisman: 0,
-                wismanDetails: [],
-                eventVisitors: 0,
-                historicalVisitors: 0,
-                totalVisitors: 0,
-                locked: true, // Default new entries to locked
-            }));
-          const fullYearData = [...destData, ...missingMonthsData].sort((a, b) => a.month - b.month);
-           return { destination: dest, data: fullYearData };
+      if (destData.length === 0 || destData.length < 12) {
+          const existingMonths = new Set(destData.map(d => d.month));
+          const fullYearData = months.map((monthName, index) => {
+              const monthIndex = index + 1;
+              const existingData = destData.find(d => d.month === monthIndex);
+              if (existingData) return existingData;
+
+              return {
+                  id: `visit-${dest.id}-${selectedYear}-${monthIndex}`,
+                  destinationId: dest.id,
+                  year: selectedYear,
+                  month: monthIndex,
+                  monthName: monthName,
+                  wisnus: 0,
+                  wisman: 0,
+                  wismanDetails: [],
+                  eventVisitors: 0,
+                  historicalVisitors: 0,
+                  totalVisitors: 0,
+                  locked: true,
+              };
+          });
+          destData = fullYearData;
       }
       
       return { destination: dest, data: destData.sort((a,b) => a.month - b.month) };
@@ -471,7 +488,7 @@ export default function DataEntryPage() {
               <CardTitle>Data Kunjungan Tahun {selectedYear}</CardTitle>
               <CardDescription>Klik pada setiap destinasi untuk mengelola data.</CardDescription>
             </div>
-             {user.role === 'admin' && (
+             
               <div className="flex items-center gap-2">
                 <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
                   <SelectTrigger className="w-[180px]">
@@ -485,11 +502,13 @@ export default function DataEntryPage() {
                       ))}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" onClick={handleAddYear}>
-                  <PlusCircle className="h-4 w-4" />
-                </Button>
+                 {user.role === 'admin' && (
+                    <Button variant="outline" size="icon" onClick={handleAddYear}>
+                        <PlusCircle className="h-4 w-4" />
+                    </Button>
+                 )}
               </div>
-            )}
+            
           </div>
         </CardHeader>
         <CardContent>
@@ -498,7 +517,7 @@ export default function DataEntryPage() {
                 .filter(d => d.destination.status === 'aktif')
                 .map(({ destination, data }, index) => (
                   <DestinationDataEntry 
-                    key={destination.id} 
+                    key={`${destination.id}-${selectedYear}`}
                     destination={destination} 
                     initialData={data}
                     onDataChange={handleDataChange}
@@ -512,6 +531,3 @@ export default function DataEntryPage() {
     </div>
   );
 }
-
-
-    
