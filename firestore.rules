@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -8,70 +9,64 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isUser(uid) {
-      return isAuth() && request.auth.uid == uid;
+    function isAuthOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
     }
 
-    // Get user role from the 'users' collection
-    function getRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    function getRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
     }
 
     function isAdmin() {
-      return isAuth() && getRole() == 'admin';
+      return isAuth() && getRole(request.auth.uid) == 'admin';
     }
-    
-    // Check if it's the very first write to a collection (for seeding)
-    function isFirstWrite(collectionName) {
-      return !exists(/databases/$(database)/documents/$(collectionName));
+
+    function isPengelola() {
+        return isAuth() && getRole(request.auth.uid) == 'pengelola';
     }
-    
-    // --- User Profiles ---
+
+    // --- Collection Rules ---
+
+    // Users can create their own user doc, admin can manage anyone.
     match /users/{userId} {
       allow read;
-      // Anyone can create their own user profile document
-      allow create: if isUser(userId);
-      // Users can update their own profile, Admins can update any
-      allow update: if isUser(userId) || isAdmin();
-      // Only admins can delete users
+      allow create: if isAuthOwner(userId);
+      allow update: if isAuthOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
+
+    // Data entry is managed by admins or pengelola.
+    match /destinations/{destinationId}/visits/{visitId} {
+      allow read;
+      allow write: if isAdmin() || isPengelola();
+    }
     
-    // --- App Settings ---
-    match /settings/app {
+    // Core data collections are read-only for public, writable only by admins.
+    match /destinations/{destinationId} {
         allow read;
-        // Allow write only for admins
+        allow write: if isAdmin();
+    }
+    
+    match /categories/{categoryId} {
+        allow read;
         allow write: if isAdmin();
     }
 
-    // --- Main Data Collections (Destinations, Categories, Countries) ---
-    match /{collectionName=destinations|categories|countries}/{docId} {
+    match /countries/{countryId} {
         allow read;
-        // Allow create for seeding (if collection is empty) OR if user is admin
-        allow create: if isAdmin();
-        // Allow update and delete only for admins
-        allow update, delete: if isAdmin();
+        allow write: if isAdmin();
     }
     
-    // --- Visit Data (Sub-collection) ---
-    match /destinations/{destinationId}/visits/{visitId} {
-      allow read;
-      // Allow create if user is admin (for seeding/adding new year)
-      allow create: if isAdmin();
-      // Allow update if admin OR if pengelola and data is not locked
-      allow update: if isAdmin() || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'pengelola' && resource.data.locked == false);
-      // Allow delete only for admins (e.g., deleting a year's data)
-      allow delete: if isAdmin();
+    // Unlock requests can be read by admins, created by pengelola.
+    match /unlock-requests/{requestId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isPengelola();
     }
 
-    // --- Unlock Requests ---
-    match /unlock-requests/{requestId} {
-      allow read: if isAuth();
-      // Pengelola can create requests
-      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'pengelola';
-      // Admin can update requests (to approve/reject)
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+    // App settings can be read by anyone, but only written by admins.
+    match /settings/app {
+      allow read;
+      allow write: if isAdmin();
     }
   }
 }
