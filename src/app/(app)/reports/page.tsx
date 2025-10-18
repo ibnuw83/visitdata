@@ -19,7 +19,7 @@ export default function ReportsPage() {
 
   // Filter state
   const [selectedDestination, setSelectedDestination] = useState('all');
-  const [selectedYear, setSelectedYear] = useState('all');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState('all');
 
   const { toast } = useToast();
@@ -63,51 +63,75 @@ export default function ReportsPage() {
         return;
     }
 
-    const groupedByDestination = filteredData.reduce((acc, d) => {
-        const destName = destinationMap.get(d.destinationId) || 'Tidak Dikenal';
-        if (!acc[destName]) {
-            acc[destName] = [];
+    const groupedByDestinationAndYear = filteredData.reduce((acc, d) => {
+        const key = `${d.destinationId}_${d.year}`;
+        if (!acc[key]) {
+            acc[key] = {
+                destName: destinationMap.get(d.destinationId) || 'Tidak Dikenal',
+                year: d.year,
+                data: []
+            };
         }
-        acc[destName].push(d);
+        acc[key].data.push(d);
         return acc;
-    }, {} as Record<string, VisitData[]>);
-    
-    // Get all unique countries from the ENTIRE filtered data to create consistent columns
-    const allCountries = [...new Set(filteredData.flatMap(d => d.wismanDetails?.map(detail => detail.country) || []))];
+    }, {} as Record<string, { destName: string, year: number, data: VisitData[] }>);
 
     let csvContent = "";
+    
+    const allMonths = Array.from({ length: 12 }, (_, i) => ({
+      month: i + 1,
+      name: new Date(0, i).toLocaleString('id-ID', { month: 'long' })
+    }));
 
-    for (const destName in groupedByDestination) {
-        const destData = groupedByDestination[destName];
+    for (const key in groupedByDestinationAndYear) {
+        const group = groupedByDestinationAndYear[key];
         
-        // Add a title for the table
-        csvContent += `Laporan untuk:,"${destName}"\n`;
+        csvContent += `Laporan untuk:,"${group.destName} - Tahun ${group.year}"\n`;
         
         const csvHeader = [
-          "Tahun",
           "Bulan",
           "Wisatawan Domestik",
-          "Total Wisatawan Asing",
-          ...allCountries, // Add country columns
+          "Wisatawan Asing",
+          "Rincian Negara",
           "Total Pengunjung"
         ];
+        csvContent += csvHeader.join(',') + '\n';
         
-        const csvRows = destData.map(d => {
-            const countryCounts = new Map(d.wismanDetails?.map(detail => [detail.country, detail.count]) || []);
-            const countryValues = allCountries.map(country => countryCounts.get(country) || 0);
+        const totals = { wisnus: 0, wisman: 0, totalVisitors: 0 };
 
-            return [
-              d.year,
-              d.monthName,
-              d.wisnus,
-              d.wisman,
-              ...countryValues,
-              d.totalVisitors
-            ].join(',');
+        const monthlyData = new Map(group.data.map(d => [d.month, d]));
+
+        allMonths.forEach(m => {
+            const d = monthlyData.get(m.month);
+            const wisnus = d?.wisnus || 0;
+            const wisman = d?.wisman || 0;
+            const totalVisitors = d?.totalVisitors || 0;
+            const rincianNegara = d?.wismanDetails?.map(detail => `${detail.country} = ${detail.count}`).join(', ') || '';
+
+            totals.wisnus += wisnus;
+            totals.wisman += wisman;
+            totals.totalVisitors += totalVisitors;
+
+            const row = [
+                m.name,
+                wisnus,
+                wisman,
+                `"${rincianNegara}"`,
+                totalVisitors
+            ];
+            csvContent += row.join(',') + '\n';
         });
 
-        csvContent += csvHeader.join(',') + '\n';
-        csvContent += csvRows.join('\n');
+        // Add total row
+        const totalRow = [
+          "JUMLAH",
+          totals.wisnus,
+          totals.wisman,
+          "", // Empty cell for rincian
+          totals.totalVisitors
+        ];
+        csvContent += totalRow.join(',') + '\n';
+
         csvContent += '\n\n'; // Add two empty lines for separation
     }
 
