@@ -1,7 +1,6 @@
-
 'use server';
 
-import { createSession, deleteSession as deleteSessionCookie } from '@/lib/session';
+import { createSession, deleteSession } from '@/lib/session';
 
 export async function loginAction(uid: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -9,11 +8,10 @@ export async function loginAction(uid: string): Promise<{ success: boolean; erro
     return { success: true };
   } catch (e: any) {
     console.error("Login server action error:", e);
-    return { success: false, error: e.message || 'Terjadi kesalahan saat membuat sesi.' };
+    return { success: false, error: e.message || 'Terjadi kesalahan pada server' };
   }
 }
 
-export async function logoutAction(): Promise<{ success: boolean }> {
-  await deleteSessionCookie();
-  return { success: true };
+export async function logoutAction(): Promise<void> {
+    await deleteSession();
 }
