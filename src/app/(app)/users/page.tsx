@@ -50,8 +50,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useFirestore, useCollection, errorEmitter, FirestorePermissionError, AuthError, useAuth } from '@/firebase';
+import { collection, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 function MultiSelect({
   options,
@@ -143,6 +144,7 @@ function MultiSelect({
 
 export default function UsersPage() {
   const firestore = useFirestore();
+  const auth = useAuth();
   const usersQuery = useMemo(() => firestore ? collection(firestore, 'users') : null, [firestore]);
   const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
 
@@ -236,11 +238,55 @@ export default function UsersPage() {
   };
 
   const handleAddNewUser = async () => {
-    toast({
-      variant: "destructive",
-      title: "Fungsi Dinonaktifkan",
-      description: "Penambahan pengguna baru untuk sementara dinonaktifkan.",
-    });
+    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Input Tidak Lengkap",
+        description: "Nama, email, dan kata sandi harus diisi.",
+      });
+      return;
+    }
+    
+    if (!auth || !firestore) return;
+
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail, newUserPassword);
+        const { user } = userCredential;
+
+        const newUserProfile: Omit<AppUser, 'password'> = {
+            uid: user.uid,
+            name: newUserName.trim(),
+            email: newUserEmail.trim(),
+            role: newUserRole,
+            assignedLocations: newUserRole === 'pengelola' ? newUserAssignedLocations : [],
+            status: 'aktif',
+            avatarUrl: `https://avatar.vercel.sh/${user.email}.png`,
+        };
+        
+        const userDocRef = doc(firestore, "users", user.uid);
+        
+        setDoc(userDocRef, newUserProfile)
+          .then(() => {
+            toast({
+              title: "Pengguna Berhasil Dibuat",
+              description: `Pengguna ${newUserProfile.name} telah ditambahkan.`,
+            });
+            setIsAddDialogOpen(false);
+            resetAddForm();
+          })
+          .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+              path: userDocRef.path,
+              operation: 'create',
+              requestResourceData: newUserProfile,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+          });
+    } catch (e: any) {
+        console.error("Error creating user:", e);
+        const authError = new AuthError(e.code, e.message);
+        errorEmitter.emit('auth-error', authError);
+    }
   };
 
   const statusVariant = {
@@ -519,3 +565,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+    

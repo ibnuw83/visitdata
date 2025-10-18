@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AuthError } from '../errors';
@@ -23,11 +24,27 @@ export function handleAuthError(toast: UseToastReturn['toast'], error: Error) {
         description: 'Periksa jaringan Anda dan coba lagi.',
       });
       break;
+    case 'auth/email-already-in-use':
+        toast({
+            variant: 'destructive',
+            title: 'Email Sudah Digunakan',
+            description: 'Email ini sudah terdaftar. Silakan gunakan email lain.',
+        });
+        break;
+     case 'auth/weak-password':
+        toast({
+            variant: 'destructive',
+            title: 'Kata Sandi Lemah',
+            description: 'Kata sandi harus terdiri dari setidaknya 6 karakter.',
+        });
+        break;
     default:
       toast({
         variant: 'destructive',
         title: 'Kesalahan Autentikasi ⚠️',
-        description: error.message || 'Terjadi kesalahan saat login.',
+        description: error.message || 'Terjadi kesalahan saat proses autentikasi.',
       });
   }
 }
+
+    
