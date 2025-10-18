@@ -44,23 +44,24 @@ export default function ReportsPage() {
 
   const visitsQuery = useMemo(() => {
       if (!firestore) return null;
+      // This query can be broad for admins, but will be filtered down for 'pengelola'
       return collectionGroup(firestore, 'visits');
   }, [firestore]);
 
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
-  const { data: visitData } = useCollection<VisitData>(visitsQuery);
+  const { data: allVisitData } = useCollection<VisitData>(visitsQuery); // Fetch all data first
 
 
   const { toast } = useToast();
 
   const years = useMemo(() => {
-    if (!visitData) return [currentYear.toString()];
-    const allYears = [...new Set(visitData.map(d => d.year))].sort((a,b) => b-a);
+    if (!allVisitData) return [currentYear.toString()];
+    const allYears = [...new Set(allVisitData.map(d => d.year))].sort((a,b) => b-a);
     if (!allYears.includes(currentYear)) {
         allYears.unshift(currentYear);
     }
     return allYears.map(String);
-  },[visitData, currentYear]);
+  },[allVisitData, currentYear]);
 
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
@@ -72,14 +73,13 @@ export default function ReportsPage() {
   const destinationMap = useMemo(() => new Map(destinations?.map(d => [d.id, d.name])), [destinations]);
 
   const filteredData = useMemo(() => {
-    if (!visitData || !destinations) return [];
+    if (!allVisitData || !destinations || !appUser) return [];
 
-    let data = visitData;
-    
-    const dests = destinations || [];
-    const allowedDestinationIds = new Set(dests.map(d => d.id));
-    data = data.filter(d => allowedDestinationIds.has(d.destinationId));
+    // Filter visitData based on user's assigned locations first.
+    const allowedDestinationIds = new Set(destinations.map(d => d.id));
+    let data = allVisitData.filter(d => allowedDestinationIds.has(d.destinationId));
 
+    // Apply UI filters
     if (selectedDestination !== 'all') {
       data = data.filter(d => d.destinationId === selectedDestination);
     }
@@ -94,7 +94,7 @@ export default function ReportsPage() {
         if (a.year !== b.year) return b.year - a.year;
         return a.month - b.month;
     });
-  }, [visitData, destinations, selectedDestination, selectedYear, selectedMonth]);
+  }, [allVisitData, destinations, appUser, selectedDestination, selectedYear, selectedMonth]);
 
 
   const handleDownload = () => {
@@ -232,7 +232,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Hasil Filter</CardTitle>
-          <CardDescription>Menampilkan {filteredData.length} dari total {(visitData || []).length} data kunjungan.</CardDescription>
+          <CardDescription>Menampilkan {filteredData.length} dari total {(allVisitData || []).length} data kunjungan.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -300,3 +300,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
