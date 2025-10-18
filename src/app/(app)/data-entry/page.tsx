@@ -474,49 +474,52 @@ export default function DataEntryPage() {
   
   const handleAddYear = async () => {
     const newYear = (parseInt(availableYears[0]) || new Date().getFullYear()) + 1;
-    if (!availableYears.includes(newYear.toString()) && firestore && destinations) {
-      const batch = writeBatch(firestore);
-      const newVisitEntries: VisitData[] = [];
-      destinations.forEach(dest => {
-        months.forEach((monthName, index) => {
-          const monthIndex = index + 1;
-          const visitId = `${dest.id}-${newYear}-${monthIndex}`;
-          const visitDocRef = doc(firestore, 'destinations', dest.id, 'visits', visitId);
-          const newVisitData: VisitData = {
-              id: visitId,
-              destinationId: dest.id,
-              year: newYear,
-              month: monthIndex,
-              monthName: monthName,
-              wisnus: 0, wisman: 0, wismanDetails: [], totalVisitors: 0,
-              locked: true,
-          };
-          batch.set(visitDocRef, newVisitData);
-          newVisitEntries.push(newVisitData);
-        });
+    if (!firestore || !destinations) return;
+  
+    const batch = writeBatch(firestore);
+    const newVisitEntries: VisitData[] = [];
+  
+    destinations.forEach(dest => {
+      months.forEach((monthName, index) => {
+        const monthIndex = index + 1;
+        const visitId = `${dest.id}-${newYear}-${monthIndex}`;
+        const visitDocRef = doc(firestore, 'destinations', dest.id, 'visits', visitId);
+        const newVisitData: VisitData = {
+          id: visitId,
+          destinationId: dest.id,
+          year: newYear,
+          month: monthIndex,
+          monthName: monthName,
+          wisnus: 0,
+          wisman: 0,
+          wismanDetails: [],
+          totalVisitors: 0,
+          locked: true,
+        };
+        batch.set(visitDocRef, newVisitData);
+        newVisitEntries.push(newVisitData);
       });
-      
-      batch.commit()
-        .then(() => {
-            setAllVisitData(prevData => [...(prevData || []), ...newVisitEntries]);
-            setSelectedYear(newYear);
-            toast({
-                title: "Tahun Ditambahkan",
-                description: `Tahun ${newYear} telah ditambahkan. Anda sekarang dapat mengelola data untuk tahun tersebut.`
-            });
-        })
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: 'destinations/{destId}/visits',
-                operation: 'create',
-                requestResourceData: {
-                    year: newYear,
-                    destinations: destinations.map(d => d.id),
-                    batchOperations: newVisitEntries
-                },
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        });
+    });
+  
+    try {
+      await batch.commit();
+      setAllVisitData(prevData => [...(prevData || []), ...newVisitEntries]);
+      setSelectedYear(newYear);
+      toast({
+        title: "Tahun Ditambahkan",
+        description: `Tahun ${newYear} telah ditambahkan. Anda sekarang dapat mengelola data untuk tahun tersebut.`
+      });
+    } catch (serverError) {
+      const permissionError = new FirestorePermissionError({
+        path: 'destinations/{destId}/visits',
+        operation: 'create',
+        requestResourceData: {
+          year: newYear,
+          destinations: destinations.map(d => d.id),
+          batchOperations: newVisitEntries
+        },
+      });
+      errorEmitter.emit('permission-error', permissionError);
     }
   };
 
@@ -630,64 +633,62 @@ export default function DataEntryPage() {
       </div>
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-4">
             <div>
               <CardTitle>Data Kunjungan Tahun {selectedYear}</CardTitle>
               <CardDescription>Klik pada setiap destinasi untuk mengelola data.</CardDescription>
             </div>
-             
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                <Select value={selectedDestinationFilter} onValueChange={setSelectedDestinationFilter}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                        <SelectValue placeholder="Pilih Destinasi" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua Destinasi</SelectItem>
-                        {(destinations || []).map(d => (
-                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <Select value={selectedDestinationFilter} onValueChange={setSelectedDestinationFilter}>
                   <SelectTrigger className="w-full sm:w-[180px]">
-                      <SelectValue placeholder="Pilih Tahun" />
+                      <SelectValue placeholder="Pilih Destinasi" />
                   </SelectTrigger>
                   <SelectContent>
-                      {availableYears.map(year => (
-                          <SelectItem key={year} value={year}>
-                              Tahun {year}
-                          </SelectItem>
+                      <SelectItem value="all">Semua Destinasi</SelectItem>
+                      {(destinations || []).map(d => (
+                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                       ))}
                   </SelectContent>
-                </Select>
-                 {appUser.role === 'admin' && (
-                    <div className="flex items-center gap-1">
-                        <Button variant="outline" size="icon" onClick={handleAddYear}>
-                            <PlusCircle className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="icon" disabled={availableYears.length <= 1}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Hapus Semua Data Tahun {selectedYear}?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Tindakan ini akan menghapus semua data kunjungan untuk tahun <span className="font-bold">{selectedYear}</span> di semua destinasi. Tindakan ini tidak dapat diurungkan.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Batal</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleDeleteYear} className="bg-destructive hover:bg-destructive/90">Ya, Hapus</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                 )}
-              </div>
-            
+              </Select>
+              <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Pilih Tahun" />
+                </SelectTrigger>
+                <SelectContent>
+                    {availableYears.map(year => (
+                        <SelectItem key={year} value={year}>
+                            Tahun {year}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+               {appUser.role === 'admin' && (
+                  <div className="flex items-center gap-1">
+                      <Button variant="outline" size="icon" onClick={handleAddYear}>
+                          <PlusCircle className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                              <Button variant="destructive" size="icon" disabled={availableYears.length <= 1}>
+                                  <Trash2 className="h-4 w-4" />
+                              </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                              <AlertDialogHeader>
+                                  <AlertDialogTitle>Hapus Semua Data Tahun {selectedYear}?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                      Tindakan ini akan menghapus semua data kunjungan untuk tahun <span className="font-bold">{selectedYear}</span> di semua destinasi. Tindakan ini tidak dapat diurungkan.
+                                  </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                                  <AlertDialogAction onClick={handleDeleteYear} className="bg-destructive hover:bg-destructive/90">Ya, Hapus</AlertDialogAction>
+                              </AlertDialogFooter>
+                          </AlertDialogContent>
+                      </AlertDialog>
+                  </div>
+               )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -714,5 +715,3 @@ export default function DataEntryPage() {
     </div>
   );
 }
-
-    
