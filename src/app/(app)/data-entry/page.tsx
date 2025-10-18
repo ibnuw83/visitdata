@@ -18,7 +18,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PlusCircle, Trash2, Lock, Unlock, KeyRound } from 'lucide-react';
 import debounce from 'lodash.debounce';
-import { Combobox } from '@/components/ui/combobox';
 import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose, DialogTrigger } from '@/components/ui/dialog';
@@ -36,7 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, collectionGroup, QuerySnapshot, DocumentData } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -301,8 +300,6 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
         setWismanDetails(details);
     }, [details]);
 
-    const countryOptions = useMemo(() => (countries || []).map(c => ({ label: c.name, value: c.name })).sort((a, b) => a.label.localeCompare(b.label)), [countries]);
-
     const handleDetailChange = (index: number, field: keyof WismanDetail, value: string | number) => {
         const newDetails = [...wismanDetails];
         if (field === 'count') {
@@ -349,12 +346,11 @@ function WismanPopover({ details, totalWisman, onSave, disabled, countries }: { 
                     <div className="grid gap-2 max-h-60 overflow-y-auto pr-3">
                         {wismanDetails.map((detail, index) => (
                            <div key={index} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-                                <Combobox
-                                  options={countryOptions}
-                                  value={detail.country}
-                                  onChange={(value) => handleDetailChange(index, 'country', value)}
-                                  placeholder="Cari negara..."
-                                  inputPlaceholder="Pilih Negara"
+                                <Input
+                                    placeholder="Nama Negara"
+                                    value={detail.country}
+                                    className="h-9"
+                                    onChange={(e) => handleDetailChange(index, 'country', e.target.value)}
                                 />
                                 <Input
                                     type="number"
@@ -501,26 +497,27 @@ export default function DataEntryPage() {
       });
     });
   
-    try {
-      await batch.commit();
-      setAllVisitData(prevData => [...(prevData || []), ...newVisitEntries]);
-      setSelectedYear(newYear);
-      toast({
-        title: "Tahun Ditambahkan",
-        description: `Tahun ${newYear} telah ditambahkan. Anda sekarang dapat mengelola data untuk tahun tersebut.`
+    batch.commit()
+      .then(() => {
+        setAllVisitData(prevData => [...(prevData || []), ...newVisitEntries]);
+        setSelectedYear(newYear);
+        toast({
+          title: "Tahun Ditambahkan",
+          description: `Tahun ${newYear} telah ditambahkan. Anda sekarang dapat mengelola data untuk tahun tersebut.`
+        });
+      })
+      .catch((serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'destinations/{destId}/visits',
+          operation: 'create',
+          requestResourceData: {
+            year: newYear,
+            destinations: destinations.map(d => d.id),
+            batchOperations: newVisitEntries
+          },
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-    } catch (serverError) {
-      const permissionError = new FirestorePermissionError({
-        path: 'destinations/{destId}/visits',
-        operation: 'create',
-        requestResourceData: {
-          year: newYear,
-          destinations: destinations.map(d => d.id),
-          batchOperations: newVisitEntries
-        },
-      });
-      errorEmitter.emit('permission-error', permissionError);
-    }
   };
 
   const handleDeleteYear = async () => {
