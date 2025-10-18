@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUsers, saveUsers } from '@/lib/local-data-service';
 import type { User } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { MoreHorizontal, FilePenLine, Trash2 } from 'lucide-react';
+import { MoreHorizontal, FilePenLine, Trash2, PlusCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -22,11 +22,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const { toast } = useToast();
+
+  // State for Add User Dialog
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'pengelola'>('pengelola');
   
   useEffect(() => {
     setUsers(getUsers());
@@ -56,6 +75,55 @@ export default function UsersPage() {
       description: `Pengguna "${userToDelete.name}" telah berhasil dihapus.`,
     });
   }
+  
+  const resetAddForm = () => {
+    setNewUserName('');
+    setNewUserEmail('');
+    setNewUserRole('pengelola');
+  };
+
+  const handleAddNewUser = () => {
+    if (!newUserName.trim() || !newUserEmail.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Input tidak lengkap",
+        description: "Harap isi nama dan email pengguna.",
+      });
+      return;
+    }
+    
+    // Check for duplicate email
+    if (users.some(user => user.email === newUserEmail.trim())) {
+      toast({
+        variant: "destructive",
+        title: "Email sudah ada",
+        description: "Email yang Anda masukkan sudah terdaftar.",
+      });
+      return;
+    }
+
+    const newUser: User = {
+      uid: `user-${Date.now()}`,
+      name: newUserName.trim(),
+      email: newUserEmail.trim(),
+      role: newUserRole,
+      assignedLocations: [],
+      status: 'aktif',
+      avatar: `user-${(users.length % 3) + 1}` // Cycle through user-1, user-2, user-3
+    };
+
+    const updatedUsers = [...users, newUser];
+    setUsers(updatedUsers);
+    saveUsers(updatedUsers);
+
+    toast({
+      title: "Pengguna Ditambahkan",
+      description: `Pengguna "${newUser.name}" berhasil dibuat.`,
+    });
+
+    setIsAddDialogOpen(false);
+    resetAddForm();
+  };
 
   const statusVariant = {
       aktif: "default",
@@ -76,9 +144,74 @@ export default function UsersPage() {
         </p>
       </div>
       <Card>
-        <CardHeader>
-            <CardTitle>Daftar Pengguna</CardTitle>
-            <CardDescription>Berikut adalah daftar semua pengguna yang terdaftar di sistem.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div className="space-y-1.5">
+                <CardTitle>Daftar Pengguna</CardTitle>
+                <CardDescription>Berikut adalah daftar semua pengguna yang terdaftar di sistem.</CardDescription>
+            </div>
+             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                    <PlusCircle className="mr-2" />
+                    Tambah Pengguna
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[480px]">
+                <DialogHeader>
+                  <DialogTitle>Tambah Pengguna Baru</DialogTitle>
+                  <DialogDescription>
+                    Isi detail di bawah ini untuk membuat pengguna baru.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="user-name" className="text-right">
+                      Nama
+                    </Label>
+                    <Input
+                      id="user-name"
+                      value={newUserName}
+                      onChange={(e) => setNewUserName(e.target.value)}
+                      className="col-span-3"
+                      placeholder="Contoh: Budi Santoso"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="user-email" className="text-right">
+                      Email
+                    </Label>
+                    <Input
+                      id="user-email"
+                      type="email"
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      className="col-span-3"
+                      placeholder="budi@example.com"
+                    />
+                  </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="user-role" className="text-right">
+                      Peran
+                    </Label>
+                     <Select value={newUserRole} onValueChange={(value) => setNewUserRole(value as 'admin' | 'pengelola')}>
+                        <SelectTrigger id="user-role" className="col-span-3">
+                            <SelectValue placeholder="Pilih Peran" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="pengelola" className="capitalize">Pengelola</SelectItem>
+                            <SelectItem value="admin" className="capitalize">Admin</SelectItem>
+                        </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline" onClick={resetAddForm}>Batal</Button>
+                  </DialogClose>
+                  <Button onClick={handleAddNewUser}>Simpan</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
         </CardHeader>
         <CardContent>
              <Table>
