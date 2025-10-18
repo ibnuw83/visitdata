@@ -10,13 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { SidebarTrigger } from "../ui/sidebar";
-import { User } from "@/lib/types";
 import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
-import { Badge } from "../ui/badge";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -24,8 +21,6 @@ export default function Header() {
   if (!user) {
     return null;
   }
-
-  const userImage = PlaceHolderImages.find(p => p.id === user.avatar);
 
   const roleVariant = {
     admin: "secondary",
@@ -50,7 +45,7 @@ export default function Header() {
               className="overflow-hidden rounded-full"
             >
               <Avatar>
-                <AvatarImage src={userImage?.imageUrl} alt={user.name} data-ai-hint={userImage?.imageHint}/>
+                <AvatarImage src={user.avatarUrl} alt={user.name} />
                 <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
               </Avatar>
             </Button>

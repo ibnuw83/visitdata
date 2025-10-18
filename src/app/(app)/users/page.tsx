@@ -167,10 +167,6 @@ export default function UsersPage() {
 
   const destinationOptions = destinations.map(d => ({ value: d.id, label: d.name}));
 
-  const getAvatar = (avatarId: string) => {
-    return PlaceHolderImages.find(p => p.id === avatarId);
-  }
-
   const openEditDialog = (user: User) => {
     setEditingUser(user);
     setEditedUserName(user.name);
@@ -246,7 +242,7 @@ export default function UsersPage() {
       role: newUserRole,
       assignedLocations: newUserRole === 'pengelola' ? newUserAssignedLocations : [],
       status: 'aktif',
-      avatar: `user-${(users.length % 3) + 1}` // Cycle through user-1, user-2, user-3
+      avatarUrl: PlaceHolderImages[users.length % 3].imageUrl // Cycle through placeholder images
     };
 
     const updatedUsers = [...users, newUser];
@@ -382,13 +378,12 @@ export default function UsersPage() {
                 </TableHeader>
                 <TableBody>
                     {users.map(user => {
-                      const userImage = getAvatar(user.avatar);
                       return (
                         <TableRow key={user.uid}>
                             <TableCell className="font-medium">
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">
-                                  <AvatarImage src={userImage?.imageUrl} alt={user.name} data-ai-hint={userImage?.imageHint}/>
+                                  <AvatarImage src={user.avatarUrl} alt={user.name}/>
                                   <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div>

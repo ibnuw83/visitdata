@@ -1,4 +1,9 @@
 import { User, Destination, VisitData, UnlockRequest, Category, Country } from './types';
+import { PlaceHolderImages } from './placeholder-images';
+
+const userImage1 = PlaceHolderImages.find(p => p.id === 'user-1')?.imageUrl || '';
+const userImage2 = PlaceHolderImages.find(p => p.id === 'user-2')?.imageUrl || '';
+const userImage3 = PlaceHolderImages.find(p => p.id === 'user-3')?.imageUrl || '';
 
 export const users: User[] = [
   {
@@ -8,7 +13,7 @@ export const users: User[] = [
     role: 'admin',
     assignedLocations: [],
     status: 'aktif',
-    avatar: 'user-1'
+    avatarUrl: userImage1
   },
   {
     uid: 'pengelola-01',
@@ -17,7 +22,7 @@ export const users: User[] = [
     role: 'pengelola',
     assignedLocations: ['dest-01'],
     status: 'aktif',
-    avatar: 'user-2'
+    avatarUrl: userImage2
   },
   {
     uid: 'pengelola-02',
@@ -26,7 +31,7 @@ export const users: User[] = [
     role: 'pengelola',
     assignedLocations: ['dest-02', 'dest-03'],
     status: 'aktif',
-    avatar: 'user-3'
+    avatarUrl: userImage3
   },
 ];
 

@@ -7,11 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from '@/context/auth-context';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { getAllData } from '@/lib/local-data-service';
+import { getAllData, saveUsers, getUsers } from '@/lib/local-data-service';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 
 function AppSettingsCard() {
     const { toast } = useToast();
@@ -92,9 +92,50 @@ function AppSettingsCard() {
     );
 }
 
+function ChangePhotoDialog({ onSave }: { onSave: (newUrl: string) => void }) {
+    const [newAvatarUrl, setNewAvatarUrl] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
+
+    const handleSave = () => {
+        onSave(newAvatarUrl);
+        setIsOpen(false);
+        setNewAvatarUrl('');
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">Ubah Foto</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Ubah Foto Profil</DialogTitle>
+                    <DialogDescription>
+                        Masukkan URL gambar baru untuk foto profil Anda.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-2">
+                    <Label htmlFor="avatar-url">URL Gambar</Label>
+                    <Input 
+                        id="avatar-url"
+                        value={newAvatarUrl}
+                        onChange={(e) => setNewAvatarUrl(e.target.value)}
+                        placeholder="https://example.com/avatar.png"
+                    />
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline">Batal</Button>
+                    </DialogClose>
+                    <Button onClick={handleSave}>Simpan</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const { toast } = useToast();
   const [name, setName] = useState('');
 
@@ -104,21 +145,29 @@ export default function SettingsPage() {
     }
   }, [user]);
 
-  const userImage = user ? PlaceHolderImages.find(p => p.id === user.avatar) : null;
-
   const handleSaveChanges = () => {
-    // In a real app, this would involve API calls to update user profile and password.
-    // For this demo, we'll just show a success toast.
+    if (!user) return;
+    // In a real app, this would involve API calls. Here we update local state and localStorage.
+    const allUsers = getUsers();
+    const updatedUsers = allUsers.map(u => u.uid === user.uid ? {...u, name: name} : u);
+    saveUsers(updatedUsers);
+    setUser({...user, name: name});
+
     toast({
       title: "Perubahan Disimpan",
-      description: "Pengaturan profil Anda telah berhasil diperbarui (simulasi).",
+      description: "Pengaturan profil Anda telah berhasil diperbarui.",
     });
   };
 
-  const handlePhotoChange = () => {
+  const handlePhotoChange = (newUrl: string) => {
+    if (!user) return;
+    const allUsers = getUsers();
+    const updatedUsers = allUsers.map(u => u.uid === user.uid ? {...u, avatarUrl: newUrl} : u);
+    saveUsers(updatedUsers);
+    setUser({...user, avatarUrl: newUrl});
     toast({
-        title: "Fitur Dalam Pengembangan",
-        description: "Fungsi untuk mengubah foto profil akan segera hadir.",
+        title: "Foto Profil Diperbarui",
+        description: "Foto profil Anda telah berhasil diubah.",
     })
   }
   
@@ -172,13 +221,13 @@ export default function SettingsPage() {
         <CardContent className="space-y-6">
             <div className="flex items-center gap-4">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={userImage?.imageUrl} alt={user.name} data-ai-hint={userImage?.imageHint}/>
+                <AvatarImage src={user.avatarUrl} alt={user.name} />
                 <AvatarFallback className="text-3xl">{name.charAt(0)}</AvatarFallback>
               </Avatar>
                <div>
-                <Button variant="outline" onClick={handlePhotoChange}>Ubah Foto</Button>
-                <div className="mt-2">
-                    <span className="text-sm text-muted-foreground">Masuk sebagai: </span>
+                <ChangePhotoDialog onSave={handlePhotoChange} />
+                <div className="mt-2 text-sm text-muted-foreground">
+                    <span>Masuk sebagai: </span>
                     <Badge variant={roleVariant[user.role]} className="capitalize">{user.role}</Badge>
                 </div>
               </div>

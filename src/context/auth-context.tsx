@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, Dispatch, SetStateAction } from 'react';
 import { useRouter } from 'next/navigation';
 import { login as loginAction, logout as logoutAction } from '@/app/auth-actions';
 import { User } from '@/lib/types';
@@ -9,6 +9,7 @@ const LOCAL_STORAGE_KEY = 'visitdata.session';
 
 interface AuthContextType {
   user: User | null;
+  setUser: Dispatch<SetStateAction<User | null>>;
   login: (formData: FormData) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
@@ -85,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, error }}>
+    <AuthContext.Provider value={{ user, setUser, login, logout, isLoading, error }}>
       {children}
     </AuthContext.Provider>
   );
