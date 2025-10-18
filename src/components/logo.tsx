@@ -13,9 +13,9 @@ const DefaultLogo = (props: React.SVGProps<SVGSVGElement>) => (
       strokeLinejoin="round"
       {...props}
     >
-      <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="hsl(var(--primary))" />
-      <path d="M2 17l10 5 10-5" stroke="hsl(var(--accent))" />
-      <path d="M2 12l10 5 10-5" stroke="hsl(var(--accent))" strokeOpacity="0.6" />
+      <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="hsl(var(--primary))" fill="none" />
+      <path d="M2 17l10 5 10-5" stroke="hsl(var(--accent))" fill="none" />
+      <path d="M2 12l10 5 10-5" stroke="hsl(var(--accent))" strokeOpacity="0.6" fill="none" />
     </svg>
 );
 
