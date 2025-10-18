@@ -415,10 +415,7 @@ export default function DataEntryPage() {
 
   
   const { data: destinations } = useCollection<Destination>(destinationsQuery);
-  // Defer collectionGroup query until firestore is available
-  const { data: allVisitData } = useCollection<VisitData>(
-    firestore ? collectionGroup(firestore, 'visits') : null
-  );
+  const { data: allVisitData } = useCollection<VisitData>(firestore ? collectionGroup(firestore, 'visits') : null);
   
   const { toast } = useToast();
 

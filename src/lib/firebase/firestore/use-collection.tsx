@@ -17,10 +17,7 @@ export function useCollection<T>(
     // Jangan jalankan kalau query belum siap
     if (!q) {
       setData([]);
-      // Set loading to true if we expect a query but haven't received it yet.
-      // Set to false if we're sure no query will be provided.
-      // A simple approach is to always show loading until a query is processed.
-      setLoading(true); 
+      setLoading(false); // Set loading to false if query is not ready
       setError(null);
       return;
     }

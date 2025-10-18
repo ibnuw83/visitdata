@@ -53,11 +53,10 @@ const colorPalette = [
 
 export default function CategoriesPage() {
   const firestore = useFirestore();
-  const { appUser } = useUser();
   const categoriesQuery = useMemo(() => {
-    if (!firestore || !appUser) return null;
+    if (!firestore) return null;
     return collection(firestore, 'categories');
-  }, [firestore, appUser]);
+  }, [firestore]);
   const { data: categories, loading } = useCollection<Category>(categoriesQuery);
 
   const [newCategoryName, setNewCategoryName] = useState('');
