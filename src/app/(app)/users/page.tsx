@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUsers, saveUsers, getDestinations } from '@/lib/local-data-service';
 import type { User, Destination } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { MoreHorizontal, FilePenLine, Trash2, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, FilePenLine, Trash2, PlusCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -139,10 +139,6 @@ function MultiSelect({
     </Popover>
   );
 }
-
-const XCircle = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg>
-)
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
