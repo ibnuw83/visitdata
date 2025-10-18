@@ -1,3 +1,4 @@
+
 'use client';
 
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
@@ -52,7 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Redirect if not logged in
   useEffect(() => {
     if (!isLoading && !user) {
-      router.replace('/');
+      router.replace('/login');
     }
   }, [user, isLoading, router]);
 
