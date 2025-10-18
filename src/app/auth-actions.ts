@@ -1,7 +1,6 @@
 'use server';
 
 import { createSession, deleteSession } from '@/lib/session';
-import { users } from '@/lib/mock-data';
 import { User } from '@/lib/types';
 import { getUsers } from '@/lib/local-data-service';
 
