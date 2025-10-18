@@ -14,13 +14,17 @@ export function useCollection<T>(
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    // If the query is null, do nothing and reset state.
     if (q === null) {
       setData([]);
       setLoading(false);
       return;
     }
     
+    // Set loading to true when a new query is received.
     setLoading(true);
+    // Clear previous data
+    setData([]);
 
     const unsubscribe = onSnapshot(
       q,
@@ -36,9 +40,10 @@ export function useCollection<T>(
       (err: Error) => {
         console.error('useCollection error:', err);
         
-        let errorPath = 'unknown';
+        let errorPath = 'unknown path';
         try {
-           // @ts-ignore internal property
+           // This is an internal property and might break, so we wrap it in a try-catch
+           // @ts-ignore
            errorPath = q._query.path.segments.join('/');
         } catch (e) {
             console.warn("Could not extract path from Firestore query for error reporting.", e);
