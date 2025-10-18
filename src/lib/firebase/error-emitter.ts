@@ -1,6 +1,10 @@
 import { EventEmitter } from 'events';
 
-// This is a simple event emitter that can be used to broadcast events across the app.
-// We use this to broadcast permission errors from Firestore so that we can display them
-// in a central location.
+/**
+ * Global event bus untuk error Firebase
+ * - permission-error: Untuk galat izin Firestore.
+ * - firestore-error: Untuk galat umum Firestore lainnya.
+ * - auth-error: Untuk galat otentikasi.
+ * - network-error: Untuk galat terkait jaringan.
+ */
 export const errorEmitter = new EventEmitter();

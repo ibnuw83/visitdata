@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { useAuth as useFirebaseAuth } from '@/lib/firebase/client-provider';
 import { useToast } from '@/hooks/use-toast';
+import { AuthError } from '@/lib/firebase/errors';
+import { errorEmitter } from '@/lib/firebase/error-emitter';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -23,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -31,8 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
-      setIsLoading(false);
-      setIsInitializing(false); // Set initializing to false after first auth check
+      setIsInitializing(false);
     });
 
     return () => unsubscribe();
@@ -46,13 +47,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // On success, the onAuthStateChanged listener will handle the user state
+      // and the layout effect will handle the redirect.
     } catch (e: any) {
       console.error("Login Error:", e);
-      if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password') {
-        setError('Email atau kata sandi salah.');
-      } else {
-        setError(e.message || 'Terjadi kesalahan saat login.');
-      }
+      // Emit a structured error for the global listener
+      const authError = new AuthError(e.code, e.message);
+      errorEmitter.emit('auth-error', authError);
+      
+      // We can still set a local error if needed for inline messages
+      setError('Email atau kata sandi salah.');
     } finally {
        setIsLoading(false);
     }

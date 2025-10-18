@@ -1,47 +1,43 @@
-
 'use client';
 
 import { useEffect } from 'react';
 import { errorEmitter } from '@/lib/firebase/error-emitter';
 import { useToast } from '@/hooks/use-toast';
-import { FirestorePermissionError } from '@/lib/firebase/errors';
+import { handleFirestoreError } from '@/lib/firebase/listeners/firestore-error-handler';
+import { handleAuthError } from '@/lib/firebase/listeners/auth-error-handler';
+import { handleGenericError } from '@/lib/firebase/listeners/generic-error-handler';
+import {
+  FirestorePermissionError,
+  FirestoreGenericError,
+  AuthError,
+  NetworkError,
+} from '@/lib/firebase/errors';
+
 
 /**
- * 🔥 Global Firestore Error Listener
- * Dapat dipasang di layout utama (RootLayout) agar setiap
- * FirestorePermissionError otomatis tampil di toast UI.
+ * 🔥 Global Firebase Error Listener
+ * Dipasang di dalam FirebaseClientProvider untuk menangkap semua event error
+ * dari `errorEmitter` dan menampilkannya sebagai notifikasi toast.
  */
 export function FirebaseErrorListener() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const handlePermissionError = (error: FirestorePermissionError) => {
-      const { path, operation } = error.context || {};
-      const readableOp =
-        operation === 'list'
-          ? 'membaca data'
-          : operation === 'write'
-          ? 'menulis data'
-          : operation === 'create'
-          ? 'membuat data'
-          : operation === 'update'
-          ? 'memperbarui data'
-          : operation === 'delete'
-          ? 'menghapus data'
-          : 'mengakses Firestore';
+    const onPermissionError = (error: FirestorePermissionError) => handleFirestoreError(toast, error);
+    const onGenericFirestoreError = (error: FirestoreGenericError) => handleFirestoreError(toast, error);
+    const onAuthError = (error: AuthError) => handleAuthError(toast, error);
+    const onNetworkError = (error: NetworkError) => handleGenericError(toast, error);
 
-      toast({
-        variant: 'destructive',
-        title: 'Akses Firestore Ditolak 🔒',
-        description: `Tidak memiliki izin untuk ${readableOp} pada path: ${path || '(tidak diketahui)'}.`,
-      });
+    errorEmitter.on('permission-error', onPermissionError);
+    errorEmitter.on('firestore-error', onGenericFirestoreError);
+    errorEmitter.on('auth-error', onAuthError);
+    errorEmitter.on('network-error', onNetworkError);
 
-      console.warn('[FirestorePermissionError]', error);
-    };
-
-    errorEmitter.on('permission-error', handlePermissionError);
     return () => {
-      errorEmitter.off('permission-error', handlePermissionError);
+      errorEmitter.off('permission-error', onPermissionError);
+      errorEmitter.off('firestore-error', onGenericFirestoreError);
+      errorEmitter.off('auth-error', onAuthError);
+      errorEmitter.off('network-error', onNetworkError);
     };
   }, [toast]);
 

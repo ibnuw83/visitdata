@@ -1,3 +1,4 @@
+
 // This file serves as a central hub for re-exporting Firebase-related utilities,
 // making it easier to import them across the application.
 
@@ -12,4 +13,4 @@ export { useCollection, useDoc, useQuery } from '@/lib/firebase/firestore';
 
 // Error handling utilities
 export { errorEmitter } from '@/lib/firebase/error-emitter';
-export { FirestorePermissionError } from '@/lib/firebase/errors';
+export { FirestorePermissionError, AuthError } from '@/lib/firebase/errors';
