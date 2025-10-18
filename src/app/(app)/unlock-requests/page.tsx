@@ -8,10 +8,14 @@ import { Button } from "@/components/ui/button";
 import { getDestinations, getUnlockRequests } from "@/lib/local-data-service";
 import type { Destination, UnlockRequest } from '@/lib/types';
 import { format } from 'date-fns';
+import { MoreHorizontal, CheckCircle, XCircle } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
 
 export default function UnlockRequestsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [unlockRequests, setUnlockRequests] = useState<UnlockRequest[]>([]);
+  const { toast } = useToast();
   
   useEffect(() => {
     setDestinations(getDestinations());
@@ -25,6 +29,14 @@ export default function UnlockRequestsPage() {
       approved: "default",
       rejected: "destructive",
   };
+
+  const handleActionClick = (action: string, destinationName: string, period: string) => {
+    toast({
+      title: `Permintaan ${action}`,
+      description: `Permintaan untuk ${destinationName} periode ${period} telah di-${action.toLowerCase()}. (Simulasi)`,
+    });
+    // In a real app, you'd update the status here.
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -52,10 +64,13 @@ export default function UnlockRequestsPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {unlockRequests.map(req => (
+                    {unlockRequests.map(req => {
+                      const destinationName = getDestinationName(req.destinationId);
+                      const period = `${new Date(req.year, req.month -1).toLocaleString('id-ID', {month: 'long'})} ${req.year}`;
+                      return (
                         <TableRow key={req.id}>
-                            <TableCell className="font-medium">{getDestinationName(req.destinationId)}</TableCell>
-                            <TableCell>{new Date(req.year, req.month -1).toLocaleString('id-ID', {month: 'long'})} {req.year}</TableCell>
+                            <TableCell className="font-medium">{destinationName}</TableCell>
+                            <TableCell>{period}</TableCell>
                             <TableCell className="text-muted-foreground text-xs truncate max-w-xs">{req.reason}</TableCell>
                             <TableCell>
                                 <Badge variant={statusVariant[req.status]} className="capitalize">{req.status}</Badge>
@@ -63,14 +78,29 @@ export default function UnlockRequestsPage() {
                             <TableCell>{format(new Date(req.timestamp), 'dd MMM yyyy')}</TableCell>
                             <TableCell className="text-right">
                                 {req.status === 'pending' && (
-                                    <div className="flex gap-2 justify-end">
-                                        <Button variant="outline" size="sm">Tolak</Button>
-                                        <Button variant="default" size="sm" className="bg-accent hover:bg-accent/90">Setujui</Button>
-                                    </div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                                <span className="sr-only">Buka menu</span>
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => handleActionClick('Setujui', destinationName, period)}>
+                                                <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                                                <span>Setujui</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleActionClick('Tolak', destinationName, period)}>
+                                                <XCircle className="mr-2 h-4 w-4 text-red-500" />
+                                                <span>Tolak</span>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 )}
                             </TableCell>
                         </TableRow>
-                    ))}
+                      )
+                    })}
                 </TableBody>
             </Table>
         </CardContent>

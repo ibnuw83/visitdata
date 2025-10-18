@@ -8,9 +8,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUsers } from '@/lib/local-data-service';
 import type { User } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { MoreHorizontal, FilePenLine, Trash2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const { toast } = useToast();
   
   useEffect(() => {
     setUsers(getUsers());
@@ -18,6 +23,13 @@ export default function UsersPage() {
 
   const getAvatar = (avatarId: string) => {
     return PlaceHolderImages.find(p => p.id === avatarId);
+  }
+
+  const handleActionClick = (action: string, userName: string) => {
+    toast({
+      title: `Aksi: ${action}`,
+      description: `Anda memilih ${action} untuk pengguna ${userName}. (Fungsi belum diimplementasikan)`,
+    });
   }
 
   const statusVariant = {
@@ -76,7 +88,24 @@ export default function UsersPage() {
                                 <Badge variant={statusVariant[user.status]}>{user.status}</Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                                {/* Actions like Edit/Delete would go here */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                            <span className="sr-only">Buka menu</span>
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => handleActionClick('Edit', user.name)}>
+                                            <FilePenLine className="mr-2 h-4 w-4" />
+                                            <span>Edit</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem className="text-destructive" onClick={() => handleActionClick('Hapus', user.name)}>
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            <span>Hapus</span>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </TableCell>
                         </TableRow>
                       )
