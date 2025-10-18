@@ -1,8 +1,8 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { createSession, deleteSession } from '@/lib/session';
 import { users } from '@/lib/mock-data';
+import { redirect } from 'next/navigation';
 
 export async function login(formData: FormData) {
   const email = formData.get('email') as string;
@@ -16,7 +16,6 @@ export async function login(formData: FormData) {
 
   if (user && password === 'password123') {
     await createSession(user.uid);
-    // Kita tidak akan redirect di sini lagi, kita kembalikan status sukses
     return { success: true };
   } else {
     return { error: 'Email atau kata sandi tidak valid.' };
