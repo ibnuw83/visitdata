@@ -29,6 +29,7 @@ export async function GET() {
                     email: user.email,
                     password: "password123",
                     displayName: user.name,
+                    photoURL: user.avatarUrl,
                 });
                 console.log(`Successfully created new user: ${user.email}.`);
                 return { ...userRecord, seedData: user };
@@ -43,7 +44,9 @@ export async function GET() {
     // Seed Destinations first to get their IDs
     const seededDestinations: (Destination & { id: string })[] = [];
     seedDestinations.forEach(destination => {
-      const docRef = adminDb.collection('destinations').doc();
+      // Use a slug-like ID for predictability during seeding
+      const slug = destination.name.toLowerCase().replace(/\s+/g, '-');
+      const docRef = adminDb.collection('destinations').doc(slug);
       const destWithId = { ...destination, id: docRef.id };
       batch.set(docRef, destWithId);
       seededDestinations.push(destWithId);
@@ -52,13 +55,12 @@ export async function GET() {
 
     // Now, set Custom Claims and Firestore User Docs
     console.log('Setting custom claims and seeding Firestore users...');
-    const claimsPromises = userRecordsWithSeedData.map(async ({ uid, email, seedData }) => {
+    const claimsPromises = userRecordsWithSeedData.map(async ({ uid, seedData }) => {
         const isPengelola = seedData.role === 'pengelola';
         
         const assignedLocationsIds = isPengelola 
             ? seedData.assignedLocations.map(slug => {
-                // Find the full destination object by its slug-like id
-                const dest = seededDestinations.find(d => d.name.toLowerCase().replace(/ /g, '-').includes(slug.split('-')[1]));
+                const dest = seededDestinations.find(d => d.id === slug);
                 return dest ? dest.id : null;
             }).filter((id): id is string => id !== null)
             : [];
@@ -68,12 +70,12 @@ export async function GET() {
             pengelola: isPengelola,
             assignedLocations: assignedLocationsIds
         };
+        // Set the custom claims for the user
         await auth.setCustomUserClaims(uid, claims);
 
+        // Queue the user profile document to be written in the batch
         const userRef = adminDb.collection('users').doc(uid);
         batch.set(userRef, { ...seedData, uid: uid, assignedLocations: assignedLocationsIds });
-
-        console.log(`Claims and Firestore doc set for ${email}`);
     });
     await Promise.all(claimsPromises);
     console.log('Finished setting claims and queueing users.');
@@ -117,7 +119,7 @@ export async function GET() {
     console.log('Batch committed successfully.');
 
     return NextResponse.json({
-      message: 'Database seeded successfully.',
+      message: 'Database seeded successfully. IMPORTANT: Users may need to log out and log back in for custom claims to apply.',
       users: userRecordsWithSeedData.length,
       categories: seedCategories.length,
       destinations: seedDestinations.length,
