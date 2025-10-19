@@ -17,7 +17,12 @@ async function seedAuthUsers() {
   for (const user of seedUsers) {
     try {
       const existingUser = await auth.getUserByEmail(user.email);
-      console.log(`User ${user.email} already exists. Skipping creation.`);
+      console.log(`User ${user.email} already exists. Setting custom claims...`);
+      // Ensure claims are set even for existing users
+      await auth.setCustomUserClaims(existingUser.uid, {
+        admin: user.role === 'admin',
+        pengelola: user.role === 'pengelola',
+      });
       userRecords.push(existingUser);
     } catch (error: any) {
       if (error.code === 'auth/user-not-found') {
@@ -26,7 +31,11 @@ async function seedAuthUsers() {
           password: "password123",
           displayName: user.name,
         });
-        console.log(`Successfully created new user: ${user.email}`);
+        await auth.setCustomUserClaims(userRecord.uid, {
+          admin: user.role === 'admin',
+          pengelola: user.role === 'pengelola',
+        });
+        console.log(`Successfully created new user: ${user.email} with custom claims.`);
         userRecords.push(userRecord);
       } else {
         throw error;
@@ -41,15 +50,17 @@ export async function GET() {
   try {
     const batch = adminDb.batch();
 
-    console.log('Starting user authentication seeding...');
+    console.log('Starting user authentication seeding and setting custom claims...');
     const userRecords = await seedAuthUsers();
     console.log('Finished user authentication seeding.');
 
     // Seed Users collection in Firestore
     userRecords.forEach((userRecord, index) => {
         const userRef = adminDb.collection('users').doc(userRecord.uid);
-        const userData = seedUsers[index];
-        batch.set(userRef, { ...userData, uid: userRecord.uid });
+        const userData = seedUsers.find(u => u.email === userRecord.email);
+        if (userData) {
+           batch.set(userRef, { ...userData, uid: userRecord.uid });
+        }
     });
     console.log('Users queued for Firestore batch.');
 
@@ -102,7 +113,7 @@ export async function GET() {
     console.log('Batch committed successfully.');
 
     return NextResponse.json({
-      message: 'Database seeded successfully.',
+      message: 'Database seeded successfully with custom claims.',
       users: userRecords.length,
       categories: seedCategories.length,
       destinations: seedDestinations.length,
