@@ -26,16 +26,12 @@ export default function DashboardPage() {
         let q = query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
 
         if (appUser.role === 'pengelola') {
-            // Pengelola should only see their assigned locations.
-            // If they have no locations, they see nothing. This prevents a Firestore error on an empty 'in' query.
             if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
                 q = query(q, where('id', 'in', appUser.assignedLocations));
             } else {
-                // Return a query that is guaranteed to be empty.
                 return query(q, where('id', 'in', ['non-existent-id']));
             }
         }
-        // Admin sees all active destinations, so no extra filter is needed.
         return q;
     }, [firestore, appUser]);
 
@@ -44,7 +40,6 @@ export default function DashboardPage() {
     const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
 
     const visitsQuery = useMemoFirebase(() => {
-        // Do not run the query if there are no destination IDs to filter by.
         if (!firestore || destinationIds.length === 0) return null;
         return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
     }, [firestore, destinationIds]);
