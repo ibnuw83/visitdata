@@ -89,19 +89,16 @@ function AppSettingsCard() {
         ];
 
         try {
-            // Fetch all collections
             for (const { key, query } of collectionsToExport) {
                 const snapshot = await getDocs(query);
                 exportedData[key] = snapshot.docs.map(d => d.data());
             }
 
-            // Fetch app settings separately
             const appSettingsDoc = await getDoc(doc(firestore, 'settings/app'));
             if (appSettingsDoc.exists()) {
                 exportedData.appSettings = appSettingsDoc.data();
             }
 
-            // If all fetches are successful, create and download the file
             const jsonString = JSON.stringify(exportedData, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -114,14 +111,8 @@ function AppSettingsCard() {
             toast({ title: "Ekspor Berhasil", description: "Data Anda telah diunduh sebagai file JSON." });
 
         } catch (error: any) {
-            // This single catch block will handle any failure from any of the getDocs/getDoc calls
-            let failedCollection = 'unknown';
-            // A simple way to guess which collection failed based on what was last attempted
-            // Note: this is an approximation. The underlying error is what matters.
-            const queryPath = error.customData?.path || '(unknown path)';
-
             const permissionError = new FirestorePermissionError({
-                path: queryPath,
+                path: error.customData?.failedCollection || 'multiple collections',
                 operation: 'list',
                 details: `Gagal mengekspor data. Periksa izin baca Anda. Penyebab: ${error.message}`,
             });
