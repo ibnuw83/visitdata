@@ -12,7 +12,55 @@ import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Unsubscribe, Firestore } from 'firebase/firestore';
+
+/**
+ * Custom hook to fetch all visit data from multiple destinations in real-time.
+ * This avoids using a collectionGroup query which can be problematic for real-time updates with 'in' filters.
+ */
+function useAllVisits(firestore: Firestore | null, destinationIds: string[]) {
+    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!firestore || destinationIds.length === 0) {
+            setLoading(false);
+            setAllVisitData([]);
+            return;
+        }
+
+        setLoading(true);
+        const allData: { [key: string]: VisitData[] } = {};
+        const unsubscribers: Unsubscribe[] = [];
+
+        destinationIds.forEach(destId => {
+            const visitsRef = collection(firestore, 'destinations', destId, 'visits');
+            const unsubscribe = onSnapshot(visitsRef, (snapshot) => {
+                allData[destId] = snapshot.docs.map(doc => doc.data() as VisitData);
+                
+                // Combine all data from all listeners
+                const combinedData = Object.values(allData).flat();
+                setAllVisitData(combinedData);
+                
+                // Consider loading finished after the first batch from all listeners
+                if (Object.keys(allData).length === destinationIds.length) {
+                    setLoading(false);
+                }
+            }, (error) => {
+                console.error(`Error fetching visits for destination ${destId}:`, error);
+                setLoading(false); // Stop loading on error
+            });
+            unsubscribers.push(unsubscribe);
+        });
+
+        return () => {
+            unsubscribers.forEach(unsub => unsub());
+        };
+    }, [firestore, destinationIds]);
+
+    return { data: allVisitData, loading };
+}
+
 
 export default function DashboardPage() {
     const { appUser } = useUser();
@@ -29,6 +77,7 @@ export default function DashboardPage() {
             if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
                 q = query(q, where('id', 'in', appUser.assignedLocations));
             } else {
+                // Return a query that will yield no results if a manager has no assigned locations.
                 return query(q, where('id', 'in', ['non-existent-id']));
             }
         }
@@ -39,14 +88,10 @@ export default function DashboardPage() {
     
     const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
 
-    const visitsQuery = useMemoFirebase(() => {
-        if (!firestore || destinationIds.length === 0) return null;
-        return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
-    }, [firestore, destinationIds]);
-    
-    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
+    // Use the new custom hook for fetching visits
+    const { data: allVisitData, loading: visitsLoading } = useAllVisits(firestore, destinationIds);
 
-    const loading = destinationsLoading || (destinationIds.length > 0 && visitsLoading);
+    const loading = destinationsLoading || visitsLoading;
 
     const currentYear = new Date().getFullYear();
     const availableYears = useMemo(() => {
@@ -59,10 +104,10 @@ export default function DashboardPage() {
     }, [allVisitData, currentYear]);
 
     useEffect(() => {
-        if (!availableYears.includes(selectedYear)) {
-            setSelectedYear(currentYear.toString());
+        if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
+            setSelectedYear(availableYears[0]);
         }
-    }, [availableYears, selectedYear, currentYear]);
+    }, [availableYears, selectedYear]);
 
     const yearlyData = useMemo(() => {
         if (!allVisitData) return [];
@@ -165,5 +210,3 @@ export default function DashboardPage() {
         </div>
     )
 }
-
-    
