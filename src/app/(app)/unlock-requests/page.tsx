@@ -11,42 +11,17 @@ import { format } from 'date-fns';
 import { MoreHorizontal, CheckCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useCollection } from '@/firebase';
-import { collection, doc, updateDoc, writeBatch, query } from 'firebase/firestore';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 
-
-function UnlockRequestsPageSkeleton() {
-  return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-9 w-48" />
-        <Skeleton className="h-5 w-72" />
-      </div>
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-7 w-48" />
-          <Skeleton className="h-5 w-80" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
 
 export default function UnlockRequestsPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
 
-  const requestsQuery = useMemo(() => {
+  const requestsQuery = useMemoFirebase(() => {
     if (!firestore || appUser?.role !== 'admin') return null;
-    return query(collection(firestore, 'unlock-requests'));
+    return collection(firestore, 'unlock-requests');
   }, [firestore, appUser?.role]);
   
   const { data: unlockRequests, loading: requestsLoading } = useCollection<UnlockRequest>(requestsQuery);
@@ -101,29 +76,13 @@ export default function UnlockRequestsPage() {
     return [...unlockRequests].sort((a, b) => {
         if (a.status === 'pending' && b.status !== 'pending') return -1;
         if (a.status !== 'pending' && b.status === 'pending') return 1;
+        // Firebase Timestamps might not be loaded yet, handle safely
         const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
         const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
         return timeB - timeA;
     });
   }, [unlockRequests]);
-
-  if (appUser?.role !== 'admin') {
-    return (
-        <div className="flex flex-col gap-8">
-            <div className="flex flex-col gap-2">
-                <h1 className="font-headline text-3xl font-bold tracking-tight">Akses Ditolak</h1>
-                <p className="text-muted-foreground">
-                Halaman ini hanya dapat diakses oleh admin.
-                </p>
-            </div>
-        </div>
-    )
-  }
-
-  if (requestsLoading) {
-    return <UnlockRequestsPageSkeleton />;
-  }
-
+  
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -151,44 +110,51 @@ export default function UnlockRequestsPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {sortedRequests.map(req => {
-                      const period = `${new Date(req.year, req.month -1).toLocaleString('id-ID', {month: 'long'})} ${req.year}`;
-                      return (
-                        <TableRow key={req.id}>
-                            <TableCell className="font-medium">{req.destinationName || req.destinationId}</TableCell>
-                            <TableCell>{period}</TableCell>
-                            <TableCell className="text-muted-foreground">{req.requesterName || req.requestedBy}</TableCell>
-                            <TableCell className="text-muted-foreground text-xs truncate max-w-xs">{req.reason}</TableCell>
-                            <TableCell>
-                                <Badge variant={statusVariant[req.status]} className="capitalize">{req.status}</Badge>
-                            </TableCell>
-                            <TableCell>{req.timestamp ? format(new Date(req.timestamp), 'dd MMM yyyy') : 'Baru saja'}</TableCell>
-                            <TableCell className="text-right">
-                                {req.status === 'pending' && (
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                                <span className="sr-only">Buka menu</span>
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => handleAction(req.id, 'approved')}>
-                                                <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                                                <span>Setujui</span>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleAction(req.id, 'rejected')}>
-                                                <XCircle className="mr-2 h-4 w-4 text-red-500" />
-                                                <span>Tolak</span>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                )}
+                    {requestsLoading ? (
+                       <TableRow>
+                            <TableCell colSpan={7} className="h-24 text-center">
+                                Memuat permintaan...
                             </TableCell>
                         </TableRow>
-                      )
-                    })}
-                     {(!sortedRequests || sortedRequests.length === 0) && (
+                    ) : sortedRequests.length > 0 ? (
+                      sortedRequests.map(req => {
+                        const period = `${new Date(req.year, req.month -1).toLocaleString('id-ID', {month: 'long'})} ${req.year}`;
+                        return (
+                          <TableRow key={req.id}>
+                              <TableCell className="font-medium">{req.destinationName || req.destinationId}</TableCell>
+                              <TableCell>{period}</TableCell>
+                              <TableCell className="text-muted-foreground">{req.requesterName || req.requestedBy}</TableCell>
+                              <TableCell className="text-muted-foreground text-xs truncate max-w-xs">{req.reason}</TableCell>
+                              <TableCell>
+                                  <Badge variant={statusVariant[req.status]} className="capitalize">{req.status}</Badge>
+                              </TableCell>
+                              <TableCell>{req.timestamp ? format(new Date(req.timestamp), 'dd MMM yyyy') : 'N/A'}</TableCell>
+                              <TableCell className="text-right">
+                                  {req.status === 'pending' && (
+                                      <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                                  <span className="sr-only">Buka menu</span>
+                                                  <MoreHorizontal className="h-4 w-4" />
+                                              </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end">
+                                              <DropdownMenuItem onClick={() => handleAction(req.id, 'approved')}>
+                                                  <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                                                  <span>Setujui</span>
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem onClick={() => handleAction(req.id, 'rejected')}>
+                                                  <XCircle className="mr-2 h-4 w-4 text-red-500" />
+                                                  <span>Tolak</span>
+                                              </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                      </DropdownMenu>
+                                  )}
+                              </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    ) : (
                         <TableRow>
                             <TableCell colSpan={7} className="h-24 text-center">
                                 Tidak ada permintaan revisi.
@@ -202,3 +168,5 @@ export default function UnlockRequestsPage() {
     </div>
   );
 }
+
+    

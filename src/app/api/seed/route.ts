@@ -11,18 +11,19 @@ import {
 } from '@/lib/seed-data';
 import type { Destination } from '@/lib/types';
 
-
 export async function GET() {
   try {
     const auth = getAuth();
     const batch = adminDb.batch();
 
     console.log('Starting user authentication seeding...');
+    
+    // Create Auth users and collect their UIDs
     const userRecordsPromises = seedUsers.map(async (user) => {
         let uid: string;
         try {
             const existingUser = await auth.getUserByEmail(user.email);
-            console.log(`User ${user.email} already exists. Skipping auth creation.`);
+            console.log(`User ${user.email} already exists. Using existing UID: ${existingUser.uid}`);
             uid = existingUser.uid;
         } catch (error: any) {
             if (error.code === 'auth/user-not-found') {
@@ -32,22 +33,22 @@ export async function GET() {
                     displayName: user.name,
                     photoURL: user.avatarUrl,
                 });
-                console.log(`Successfully created new user: ${user.email}.`);
+                console.log(`Successfully created new auth user: ${user.email} with UID: ${userRecord.uid}.`);
                 uid = userRecord.uid;
             } else {
+                // Re-throw other auth errors
                 throw error;
             }
         }
-        return { uid: uid, seedData: user };
+        return { ...user, uid };
     });
     
-    const userRecordsWithSeedData = await Promise.all(userRecordsPromises);
-    console.log('Finished user authentication check/creation.');
+    const usersWithUids = await Promise.all(userRecordsPromises);
+    console.log('Finished auth user creation/retrieval.');
 
     // Seed Destinations first to get their IDs
     const seededDestinations: (Destination & { id: string })[] = [];
     seedDestinations.forEach(destination => {
-      // Use a slug-like ID for predictability during seeding
       const slug = destination.name.toLowerCase().replace(/\s+/g, '-');
       const docRef = adminDb.collection('destinations').doc(slug);
       const destWithId = { ...destination, id: docRef.id };
@@ -56,23 +57,29 @@ export async function GET() {
     });
     console.log('Destinations queued for batch.');
 
-    // Now, set Firestore User Docs based on auth UIDs and destination IDs
-    console.log('Seeding Firestore user documents...');
-    userRecordsWithSeedData.forEach(({ uid, seedData }) => {
-        const isPengelola = seedData.role === 'pengelola';
+    // Seed Firestore User Docs and Admins collection
+    console.log('Seeding Firestore user documents and admin roles...');
+    for (const user of usersWithUids) {
+        const isPengelola = user.role === 'pengelola';
         
         const assignedLocationsIds = isPengelola 
-            ? seedData.assignedLocations.map(slug => {
+            ? user.assignedLocations.map(slug => {
                 const dest = seededDestinations.find(d => d.id === slug);
                 return dest ? dest.id : null;
             }).filter((id): id is string => id !== null)
             : [];
         
-        const userRef = adminDb.collection('users').doc(uid);
-        batch.set(userRef, { ...seedData, uid: uid, assignedLocations: assignedLocationsIds });
-    });
-    console.log('Finished queueing user documents.');
+        const userRef = adminDb.collection('users').doc(user.uid);
+        batch.set(userRef, { ...user, assignedLocations: assignedLocationsIds });
 
+        // If the user is an admin, add them to the 'admins' collection
+        if (user.role === 'admin') {
+            const adminRef = adminDb.collection('admins').doc(user.uid);
+            batch.set(adminRef, { role: 'admin' });
+            console.log(`User ${user.email} (${user.uid}) marked as admin.`);
+        }
+    }
+    console.log('Finished queueing user documents and admin roles.');
 
     // Seed Categories
     seedCategories.forEach(category => {
@@ -114,7 +121,7 @@ export async function GET() {
 
     return NextResponse.json({
       message: 'Database seeded successfully. It might take a moment for all data to be available.',
-      users: userRecordsWithSeedData.length,
+      users: usersWithUids.length,
       categories: seedCategories.length,
       destinations: seedDestinations.length,
       countries: seedCountries.length,
@@ -125,3 +132,5 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to seed database', details: error.message }, { status: 500 });
   }
 }
+
+    

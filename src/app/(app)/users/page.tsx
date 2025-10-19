@@ -50,10 +50,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useFirestore, useCollection, useAuth, useUser } from '@/firebase';
-import { collection, doc, updateDoc, deleteDoc, setDoc, query } from 'firebase/firestore';
+import { useFirestore, useCollection, useAuth, useUser, useMemoFirebase } from '@/firebase';
+import { collection, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { Skeleton } from '@/components/ui/skeleton';
 
 function MultiSelect({
   options,
@@ -154,46 +153,17 @@ function MultiSelect({
   );
 }
 
-function UsersPageSkeleton() {
-  return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-9 w-48" />
-        <Skeleton className="h-5 w-72" />
-      </div>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div className="space-y-1.5">
-            <Skeleton className="h-7 w-32" />
-            <Skeleton className="h-5 w-64" />
-          </div>
-          <Skeleton className="h-10 w-40" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export default function UsersPage() {
   const firestore = useFirestore();
   const auth = useAuth();
   const { appUser } = useUser();
 
-  const usersQuery = useMemo(() => {
-    // Only fetch if the current user is an admin.
+  const usersQuery = useMemoFirebase(() => {
     if (!firestore || appUser?.role !== 'admin') return null;
-    return query(collection(firestore, 'users'));
+    return collection(firestore, 'users');
   }, [firestore, appUser?.role]);
   
-  const destinationsQuery = useMemo(() => {
+  const destinationsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'destinations');
   }, [firestore]);
@@ -284,7 +254,6 @@ export default function UsersPage() {
     const temporaryPassword = "password123";
 
     try {
-        // This only creates the auth user. The function to set custom claims should be called from a backend.
         const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail, temporaryPassword);
         const { user } = userCredential;
 
@@ -298,7 +267,6 @@ export default function UsersPage() {
             avatarUrl: `https://avatar.vercel.sh/${user.email}.png`,
         };
         
-        // Now create the user document in Firestore.
         const userDocRef = doc(firestore, "users", user.uid);
         await setDoc(userDocRef, newUserProfile);
         
@@ -331,24 +299,6 @@ export default function UsersPage() {
   const getAssignedLocationsNames = (locationIds: string[]) => {
     if (!destinations || !locationIds || locationIds.length === 0) return '-';
     return locationIds.map(id => destinations.find(d => d.id === id)?.name).filter(Boolean).join(', ');
-  }
-
-  // AppLayout guarantees appUser exists. Now we check the role.
-  if (appUser?.role !== 'admin') {
-    return (
-        <div className="flex flex-col gap-8">
-            <div className="flex flex-col gap-2">
-                <h1 className="font-headline text-3xl font-bold tracking-tight">Akses Ditolak</h1>
-                <p className="text-muted-foreground">
-                Halaman ini hanya dapat diakses oleh admin.
-                </p>
-            </div>
-        </div>
-    )
-  }
-  
-  if (loading) {
-    return <UsersPageSkeleton />;
   }
 
   return (
@@ -526,7 +476,7 @@ export default function UsersPage() {
                      {!loading && usersError && (
                         <TableRow>
                             <TableCell colSpan={6} className="h-24 text-center text-destructive">
-                                Gagal memuat data: Anda tidak memiliki izin untuk melihat daftar pengguna.
+                                Gagal memuat data: {usersError.message}
                             </TableCell>
                         </TableRow>
                     )}
@@ -612,3 +562,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+    
