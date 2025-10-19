@@ -31,20 +31,22 @@ function useAllVisits(firestore: Firestore | null, destinationIds: string[]) {
 
         setLoading(true);
         const allData: { [key: string]: VisitData[] } = {};
+        let initialLoadCompleted = false;
         const unsubscribers: Unsubscribe[] = [];
 
         destinationIds.forEach(destId => {
             const visitsRef = collection(firestore, 'destinations', destId, 'visits');
             const unsubscribe = onSnapshot(visitsRef, (snapshot) => {
-                allData[destId] = snapshot.docs.map(doc => doc.data() as VisitData);
+                allData[destId] = snapshot.docs.map(doc => ({...doc.data(), id: doc.id} as VisitData));
                 
                 // Combine all data from all listeners
                 const combinedData = Object.values(allData).flat();
                 setAllVisitData(combinedData);
                 
                 // Consider loading finished after the first batch from all listeners
-                if (Object.keys(allData).length === destinationIds.length) {
+                if (!initialLoadCompleted && Object.keys(allData).length === destinationIds.length) {
                     setLoading(false);
+                    initialLoadCompleted = true;
                 }
             }, (error) => {
                 console.error(`Error fetching visits for destination ${destId}:`, error);
@@ -78,7 +80,7 @@ export default function DashboardPage() {
                 q = query(q, where('id', 'in', appUser.assignedLocations));
             } else {
                 // Return a query that will yield no results if a manager has no assigned locations.
-                return query(q, where('id', 'in', ['non-existent-id']));
+                return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
             }
         }
         return q;
