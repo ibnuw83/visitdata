@@ -19,12 +19,11 @@ export async function GET() {
 
     console.log('Starting user authentication seeding...');
     const userRecordsPromises = seedUsers.map(async (user) => {
+        let uid: string;
         try {
-            await auth.getUserByEmail(user.email);
-            console.log(`User ${user.email} already exists. Skipping auth creation.`);
-            // Fetch the existing user to get the UID for Firestore doc
             const existingUser = await auth.getUserByEmail(user.email);
-            return { uid: existingUser.uid, seedData: user };
+            console.log(`User ${user.email} already exists. Skipping auth creation.`);
+            uid = existingUser.uid;
         } catch (error: any) {
             if (error.code === 'auth/user-not-found') {
                 const userRecord = await auth.createUser({
@@ -34,10 +33,12 @@ export async function GET() {
                     photoURL: user.avatarUrl,
                 });
                 console.log(`Successfully created new user: ${user.email}.`);
-                return { uid: userRecord.uid, seedData: user };
+                uid = userRecord.uid;
+            } else {
+                throw error;
             }
-            throw error;
         }
+        return { uid: uid, seedData: user };
     });
     
     const userRecordsWithSeedData = await Promise.all(userRecordsPromises);

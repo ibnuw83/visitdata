@@ -50,29 +50,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, appUser, isLoading } = useUser();
   const router = useRouter();
 
-  // This effect handles redirection based on auth state.
+  // Efek ini menangani pengalihan berdasarkan status otentikasi.
   useEffect(() => {
-    // Once loading is complete, if there's no user, redirect to login.
+    // Setelah pemuatan selesai, jika tidak ada pengguna, alihkan ke halaman login.
     if (!isLoading && !user) {
         router.replace('/login');
     }
   }, [user, isLoading, router]);
 
-  // The `isLoading` flag from `useUser` is now the single source of truth.
-  // It remains `true` until both the auth state is resolved AND the `appUser`
-  // Firestore document is fetched. This prevents rendering children prematurely.
+  // isLoading dari useUser sekarang menjadi satu-satunya sumber kebenaran.
+  // isLoading akan tetap true hingga otentikasi selesai DAN dokumen appUser dari Firestore diambil.
+  // Ini adalah "gerbang" utama untuk mencegah rendering prematur.
   if (isLoading) {
     return <AppLayoutSkeleton />;
   }
   
-  // After loading, if there's still no user (which means they need to be redirected),
-  // or if for some reason there's an auth user without a corresponding appUser doc,
-  // render null to prevent a flash of content before the redirect effect kicks in.
+  // Setelah pemuatan, jika masih tidak ada pengguna (yang berarti mereka perlu dialihkan),
+  // atau jika karena suatu alasan ada pengguna otentikasi tanpa dokumen appUser yang sesuai,
+  // render null untuk mencegah kilatan konten sebelum efek pengalihan berjalan.
+  // Pemeriksaan `!appUser` adalah kunci untuk memperbaiki bug visual "Akses Ditolak".
   if (!user || !appUser) {
     return null;
   }
 
-  // If we have a user and their profile, show the full app layout.
+  // Jika kita memiliki pengguna dan profilnya, tampilkan layout aplikasi lengkap.
   return (
     <SidebarProvider>
       <Sidebar>
