@@ -156,18 +156,19 @@ function MultiSelect({
 export default function UsersPage() {
   const firestore = useFirestore();
   const auth = useAuth();
-  const { appUser } = useUser();
+  const { appUser, isLoading: isAppUserLoading } = useUser();
+
   const usersQuery = useMemo(() => {
-    if (!firestore) return null;
+    if (!firestore || appUser?.role !== 'admin') return null;
     return collection(firestore, 'users');
-  }, [firestore]);
+  }, [firestore, appUser]);
   
   const destinationsQuery = useMemo(() => {
     if (!firestore) return null;
     return collection(firestore, 'destinations');
   }, [firestore]);
 
-  const { data: users, loading: usersLoading } = useCollection<AppUser>(usersQuery);
+  const { data: users, loading: usersLoading, error: usersError } = useCollection<AppUser>(usersQuery);
   const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
 
   const { toast } = useToast();
@@ -325,6 +326,46 @@ export default function UsersPage() {
     return locationIds.map(id => destinations.find(d => d.id === id)?.name).filter(Boolean).join(', ');
   }
   
+  if (isAppUserLoading) {
+     return (
+        <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-2">
+                <h1 className="font-headline text-3xl font-bold tracking-tight">Pengguna</h1>
+                <p className="text-muted-foreground">
+                Kelola pengguna (admin dan pengelola) di sini.
+                </p>
+            </div>
+            <Card>
+              <CardHeader>
+                  <CardTitle>Daftar Pengguna</CardTitle>
+                  <CardDescription>Berikut adalah daftar semua pengguna yang terdaftar di sistem.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Nama</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Peran</TableHead>
+                            <TableHead>Lokasi Kelolaan</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Aksi</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center">
+                                Memeriksa hak akses...
+                            </TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+        </div>
+    )
+  }
+
   if (appUser?.role !== 'admin') {
     return (
         <div className="flex flex-col gap-8">
@@ -443,7 +484,7 @@ export default function UsersPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {usersLoading ? (
+                    {usersLoading || destinationsLoading ? (
                       <TableRow key="loading-row">
                         <TableCell colSpan={6} className="h-24 text-center">
                           Memuat data pengguna...
@@ -510,6 +551,13 @@ export default function UsersPage() {
                         </TableRow>
                       )
                     })}
+                     {!usersLoading && usersError && (
+                        <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center text-destructive">
+                                Gagal memuat data: Anda tidak memiliki izin untuk melihat daftar pengguna.
+                            </TableCell>
+                        </TableRow>
+                    )}
                 </TableBody>
             </Table>
         </CardContent>
