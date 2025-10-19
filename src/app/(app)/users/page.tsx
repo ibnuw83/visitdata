@@ -157,8 +157,15 @@ export default function UsersPage() {
   const firestore = useFirestore();
   const auth = useAuth();
   const { appUser } = useUser();
-  const usersQuery = useMemo(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-  const destinationsQuery = useMemo(() => firestore ? collection(firestore, 'destinations') : null, [firestore]);
+  const usersQuery = useMemo(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'users');
+  }, [firestore]);
+  
+  const destinationsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'destinations');
+  }, [firestore]);
 
   const { data: users, loading: usersLoading } = useCollection<AppUser>(usersQuery);
   const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
@@ -169,7 +176,6 @@ export default function UsersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'pengelola'>('pengelola');
   const [newUserAssignedLocations, setNewUserAssignedLocations] = useState<string[]>([]);
   
@@ -180,7 +186,10 @@ export default function UsersPage() {
   const [editedUserRole, setEditedUserRole] = useState<'admin' | 'pengelola'>('pengelola');
   const [editedUserAssignedLocations, setEditedUserAssignedLocations] = useState<string[]>([]);
 
-  const destinationOptions = useMemo(() => destinations?.map(d => ({ value: d.id, label: d.name})) || [], [destinations]);
+  const destinationOptions = useMemo(() => {
+    if (!destinations) return [];
+    return destinations.map(d => ({ value: d.id, label: d.name}));
+  }, [destinations]);
 
   const openEditDialog = (user: AppUser) => {
     setEditingUser(user);
@@ -244,28 +253,29 @@ export default function UsersPage() {
   const resetAddForm = () => {
     setNewUserName('');
     setNewUserEmail('');
-    setNewUserPassword('');
     setNewUserRole('pengelola');
     setNewUserAssignedLocations([]);
   };
 
   const handleAddNewUser = async () => {
-    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
+    if (!newUserName.trim() || !newUserEmail.trim()) {
       toast({
         variant: "destructive",
         title: "Input Tidak Lengkap",
-        description: "Nama, email, dan kata sandi harus diisi.",
+        description: "Nama dan email harus diisi.",
       });
       return;
     }
     
     if (!auth || !firestore) return;
 
+    const temporaryPassword = "password123";
+
     try {
-        const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail, newUserPassword);
+        const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail, temporaryPassword);
         const { user } = userCredential;
 
-        const newUserProfile: Omit<AppUser, 'password'> = {
+        const newUserProfile: AppUser = {
             uid: user.uid,
             name: newUserName.trim(),
             email: newUserEmail.trim(),
@@ -281,7 +291,7 @@ export default function UsersPage() {
           .then(() => {
             toast({
               title: "Pengguna Berhasil Dibuat",
-              description: `Pengguna ${newUserProfile.name} telah ditambahkan.`,
+              description: `Pengguna ${newUserProfile.name} telah ditambahkan dengan kata sandi sementara.`,
             });
             setIsAddDialogOpen(false);
             resetAddForm();
@@ -380,19 +390,6 @@ export default function UsersPage() {
                       onChange={(e) => setNewUserEmail(e.target.value)}
                       className="col-span-3"
                       placeholder="budi@example.com"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="user-password" className="text-right">
-                      Kata Sandi
-                    </Label>
-                    <Input
-                      id="user-password"
-                      type="password"
-                      value={newUserPassword}
-                      onChange={(e) => setNewUserPassword(e.target.value)}
-                      className="col-span-3"
-                      placeholder="Kata sandi awal (min. 6 karakter)"
                     />
                   </div>
                    <div className="grid grid-cols-4 items-center gap-4">

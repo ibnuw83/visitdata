@@ -2,7 +2,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getAuth } from 'firebase-admin/auth';
-import { hash } from 'bcryptjs';
 import {
   seedUsers,
   seedCategories,
@@ -22,10 +21,9 @@ async function seedAuthUsers() {
       userRecords.push(existingUser);
     } catch (error: any) {
       if (error.code === 'auth/user-not-found') {
-        const hashedPassword = await hash(user.password!, 10);
         const userRecord = await auth.createUser({
           email: user.email,
-          password: hashedPassword,
+          password: "password123",
           displayName: user.name,
         });
         console.log(`Successfully created new user: ${user.email}`);
@@ -50,7 +48,7 @@ export async function GET() {
     // Seed Users collection in Firestore
     userRecords.forEach((userRecord, index) => {
         const userRef = adminDb.collection('users').doc(userRecord.uid);
-        const { password, ...userData } = seedUsers[index];
+        const userData = seedUsers[index];
         batch.set(userRef, { ...userData, uid: userRecord.uid });
     });
     console.log('Users queued for Firestore batch.');

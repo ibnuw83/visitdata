@@ -371,8 +371,6 @@ export default function SettingsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [name, setName] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
 
   useEffect(() => {
     if (appUser) {
@@ -401,34 +399,6 @@ export default function SettingsPage() {
             errorEmitter.emit('permission-error', permissionError);
         });
   };
-
-  const handlePasswordChange = async () => {
-    if (!user || !user.email) {
-        const authError = new AuthError('auth/no-current-user', "Pengguna tidak ditemukan.");
-        errorEmitter.emit('auth-error', authError);
-        return;
-    }
-    if (!currentPassword || !newPassword) {
-        const authError = new AuthError('auth/missing-password', "Harap isi kata sandi saat ini dan yang baru.");
-        errorEmitter.emit('auth-error', authError);
-        return;
-    }
-
-    try {
-        const credential = EmailAuthProvider.credential(user.email, currentPassword);
-        await reauthenticateWithCredential(user, credential);
-        await updatePassword(user, newPassword);
-        toast({
-            title: "Kata Sandi Diperbarui",
-            description: "Kata sandi Anda telah berhasil diubah.",
-        });
-        setCurrentPassword('');
-        setNewPassword('');
-    } catch (error: any) {
-        const authError = new AuthError(error.code, error.message);
-        errorEmitter.emit('auth-error', authError);
-    }
-  }
 
   const handlePhotoChange = async (newUrl: string) => {
     if (!appUser || !firestore) return;
@@ -497,7 +467,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
             <CardTitle>Profil Pengguna</CardTitle>
-            <CardDescription>Perbarui informasi profil dan kata sandi Anda.</CardDescription>
+            <CardDescription>Perbarui informasi profil Anda.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
             <div className="flex items-center gap-4">
@@ -524,17 +494,6 @@ export default function SettingsPage() {
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" defaultValue={appUser.email} disabled />
             </div>
-             <div className="border-t pt-6 space-y-4">
-                 <div className="space-y-2">
-                     <Label htmlFor="current-password">Kata Sandi Saat Ini</Label>
-                     <Input id="current-password" type="password" value={currentPassword || ''} onChange={e => setCurrentPassword(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="new-password">Kata Sandi Baru</Label>
-                    <Input id="new-password" type="password" value={newPassword || ''} onChange={e => setNewPassword(e.target.value)} />
-                </div>
-                <Button onClick={handlePasswordChange}>Ubah Kata Sandi</Button>
-             </div>
         </CardContent>
       </Card>
       {appUser.role === 'admin' && (
@@ -546,5 +505,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    

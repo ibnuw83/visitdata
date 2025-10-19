@@ -2,7 +2,6 @@ export type User = {
   uid: string;
   name: string;
   email: string;
-  password?: string; // Only for creation, won't be stored in Firestore
   role: 'admin' | 'pengelola';
   assignedLocations: string[]; // Array of destination IDs
   status: 'aktif' | 'nonaktif';
