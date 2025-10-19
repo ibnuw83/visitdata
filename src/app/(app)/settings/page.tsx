@@ -15,10 +15,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Textarea } from '@/components/ui/textarea';
 import DestinationImageSettings from '@/components/settings/destination-image-settings';
-import { doc, updateDoc, setDoc, collection, getDocs, writeBatch, getDoc, collectionGroup } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, getDocs, writeBatch, getDoc, collectionGroup, Query } from 'firebase/firestore';
 import { AppSettings, User, Category, Destination, UnlockRequest, VisitData, Country } from '@/lib/types';
-import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-
 
 function AppSettingsCard() {
     const { toast } = useToast();
@@ -79,34 +77,50 @@ function AppSettingsCard() {
         if (!firestore) return;
         setIsExporting(true);
         toast({ title: "Mengekspor data...", description: "Harap tunggu, proses ini mungkin memakan waktu beberapa saat." });
-
+    
+        const exportedData: Record<string, any> = {};
+        const collectionsToExport: Record<string, Query<unknown>> = {
+            users: collection(firestore, 'users'),
+            categories: collection(firestore, 'categories'),
+            destinations: collection(firestore, 'destinations'),
+            unlockRequests: collection(firestore, 'unlock-requests'),
+            countries: collection(firestore, 'countries'),
+            visits: collectionGroup(firestore, 'visits'),
+        };
+    
         try {
-            const collectionsToExport = {
-                users: collection(firestore, 'users'),
-                categories: collection(firestore, 'categories'),
-                destinations: collection(firestore, 'destinations'),
-                unlockRequests: collection(firestore, 'unlock-requests'),
-                countries: collection(firestore, 'countries'),
-            };
-
-            const exportedData: Record<string, any> = {};
-
             for (const [key, coll] of Object.entries(collectionsToExport)) {
-                const snapshot = await getDocs(coll);
-                exportedData[key] = snapshot.docs.map(d => d.data());
+                try {
+                    const snapshot = await getDocs(coll);
+                    exportedData[key] = snapshot.docs.map(d => d.data());
+                } catch (error) {
+                     const permissionError = new FirestorePermissionError({
+                        path: key, // collection name
+                        operation: 'list',
+                        details: `Gagal mengekspor koleksi '${key}'.`,
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
+                    setIsExporting(false);
+                    return; // Stop the export process
+                }
             }
-            
-            // Get settings
-            const appSettingsDoc = await getDoc(doc(firestore, 'settings/app'));
-            if(appSettingsDoc.exists()) {
-                exportedData.appSettings = appSettingsDoc.data();
+    
+            try {
+                const appSettingsDoc = await getDoc(doc(firestore, 'settings/app'));
+                if (appSettingsDoc.exists()) {
+                    exportedData.appSettings = appSettingsDoc.data();
+                }
+            } catch (error) {
+                 const permissionError = new FirestorePermissionError({
+                    path: 'settings/app',
+                    operation: 'get',
+                    details: 'Gagal mengekspor pengaturan aplikasi.',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                setIsExporting(false);
+                return; // Stop the export process
             }
-
-            // Get all visits subcollections
-            const allVisitsSnapshot = await getDocs(collectionGroup(firestore, 'visits'));
-            exportedData.visits = allVisitsSnapshot.docs.map(d => d.data());
-
-
+    
             const jsonString = JSON.stringify(exportedData, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -115,11 +129,17 @@ function AppSettingsCard() {
             a.download = `backup-visitdata-hub-${new Date().toISOString().split('T')[0]}.json`;
             a.click();
             URL.revokeObjectURL(url);
-
+    
             toast({ title: "Ekspor Berhasil", description: "Data Anda telah diunduh sebagai file JSON." });
+    
         } catch (error: any) {
-            console.error("Export error:", error);
-            errorEmitter.emit('firestore-error', error);
+            // This is a fallback for any other unexpected errors during the process.
+            const genericError = new FirestorePermissionError({
+                path: 'unknown',
+                operation: 'list',
+                details: error.message || 'Terjadi kesalahan tidak terduga saat mengekspor.',
+            });
+            errorEmitter.emit('permission-error', genericError);
         } finally {
             setIsExporting(false);
         }
@@ -130,77 +150,62 @@ function AppSettingsCard() {
             toast({ variant: 'destructive', title: 'Tidak ada file dipilih' });
             return;
         }
-
+    
         setIsImporting(true);
         toast({ title: "Mengimpor data...", description: "Ini akan menimpa data yang ada. Jangan tutup jendela ini." });
-
+    
         const reader = new FileReader();
         reader.onload = async (event) => {
             try {
                 const data = JSON.parse(event.target?.result as string);
                 const batch = writeBatch(firestore);
-
-                // Import users
+    
                 if (data.users && Array.isArray(data.users)) {
                     data.users.forEach((user: User) => {
                         const docRef = doc(firestore, 'users', user.uid);
                         batch.set(docRef, user);
                     });
                 }
-                
-                // Import categories
                 if (data.categories && Array.isArray(data.categories)) {
                     data.categories.forEach((category: Category) => {
                         const docRef = doc(firestore, 'categories', category.id);
                         batch.set(docRef, category);
                     });
                 }
-                
-                // Import destinations
                 if (data.destinations && Array.isArray(data.destinations)) {
                     data.destinations.forEach((destination: Destination) => {
                         const docRef = doc(firestore, 'destinations', destination.id);
                         batch.set(docRef, destination);
                     });
                 }
-                
-                // Import countries
                 if (data.countries && Array.isArray(data.countries)) {
                     data.countries.forEach((country: Country) => {
                         const docRef = doc(firestore, 'countries', country.code);
                         batch.set(docRef, country);
                     });
                 }
-
-                // Import unlock-requests
                 if (data.unlockRequests && Array.isArray(data.unlockRequests)) {
                     data.unlockRequests.forEach((request: UnlockRequest) => {
                         const docRef = doc(firestore, 'unlock-requests', request.id);
                         batch.set(docRef, request);
                     });
                 }
-                
-                // Import visits
                 if (data.visits && Array.isArray(data.visits)) {
                      data.visits.forEach((visit: VisitData) => {
                         const docRef = doc(firestore, 'destinations', visit.destinationId, 'visits', visit.id);
                         batch.set(docRef, visit);
                     });
                 }
-
-                // Import appSettings
                 if (data.appSettings) {
                     const docRef = doc(firestore, 'settings', 'app');
                     batch.set(docRef, data.appSettings);
                 }
-
+    
                 await batch.commit();
-
                 toast({ title: "Impor Berhasil", description: "Data telah dipulihkan. Harap segarkan halaman." });
-
+    
             } catch (error: any) {
-                console.error("Import error:", error);
-                 const permissionError = new FirestorePermissionError({
+                const permissionError = new FirestorePermissionError({
                     path: 'batch import',
                     operation: 'write',
                     details: error.message
