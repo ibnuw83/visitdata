@@ -11,58 +11,36 @@ import {
 } from '@/lib/seed-data';
 import type { Destination } from '@/lib/types';
 
-async function seedAuthUsers() {
-  const auth = getAuth();
-  const userRecords = [];
-  for (const user of seedUsers) {
-    try {
-      const existingUser = await auth.getUserByEmail(user.email);
-      console.log(`User ${user.email} already exists.`);
-      userRecords.push(existingUser);
-    } catch (error: any) {
-      if (error.code === 'auth/user-not-found') {
-        const userRecord = await auth.createUser({
-          email: user.email,
-          password: "password123",
-          displayName: user.name,
-        });
-        console.log(`Successfully created new user: ${user.email}.`);
-        userRecords.push(userRecord);
-      } else {
-        throw error;
-      }
-    }
-  }
-  return userRecords;
-}
-
 
 export async function GET() {
   try {
+    const auth = getAuth();
     const batch = adminDb.batch();
 
     console.log('Starting user authentication seeding...');
-    const userRecords = await seedAuthUsers();
-    console.log('Finished user authentication seeding.');
-
-    // Seed Users collection in Firestore
-    userRecords.forEach((userRecord, index) => {
-        const userRef = adminDb.collection('users').doc(userRecord.uid);
-        const userData = seedUsers.find(u => u.email === userRecord.email);
-        if (userData) {
-           batch.set(userRef, { ...userData, uid: userRecord.uid });
+    const userRecordsPromises = seedUsers.map(async (user) => {
+        try {
+            const existingUser = await auth.getUserByEmail(user.email);
+            console.log(`User ${user.email} already exists.`);
+            return { ...existingUser, seedData: user };
+        } catch (error: any) {
+            if (error.code === 'auth/user-not-found') {
+                const userRecord = await auth.createUser({
+                    email: user.email,
+                    password: "password123",
+                    displayName: user.name,
+                });
+                console.log(`Successfully created new user: ${user.email}.`);
+                return { ...userRecord, seedData: user };
+            }
+            throw error;
         }
     });
-    console.log('Users queued for Firestore batch.');
+    
+    const userRecordsWithSeedData = await Promise.all(userRecordsPromises);
+    console.log('Finished user authentication seeding.');
 
-    // Seed Categories
-    seedCategories.forEach(category => {
-      const docRef = adminDb.collection('categories').doc();
-      batch.set(docRef, { ...category, id: docRef.id });
-    });
-    console.log('Categories queued for batch.');
-
-    // Seed Destinations
+    // Seed Destinations first to get their IDs
     const seededDestinations: (Destination & { id: string })[] = [];
     seedDestinations.forEach(destination => {
       const docRef = adminDb.collection('destinations').doc();
@@ -71,6 +49,41 @@ export async function GET() {
       seededDestinations.push(destWithId);
     });
     console.log('Destinations queued for batch.');
+
+    // Now, set Custom Claims and Firestore User Docs
+    console.log('Setting custom claims and seeding Firestore users...');
+    const claimsPromises = userRecordsWithSeedData.map(async ({ uid, email, seedData }) => {
+        const isPengelola = seedData.role === 'pengelola';
+        
+        const assignedLocationsIds = isPengelola 
+            ? seedData.assignedLocations.map(slug => {
+                // Find the full destination object by its slug-like id
+                const dest = seededDestinations.find(d => d.name.toLowerCase().replace(/ /g, '-').includes(slug.split('-')[1]));
+                return dest ? dest.id : null;
+            }).filter((id): id is string => id !== null)
+            : [];
+
+        const claims = {
+            admin: seedData.role === 'admin',
+            pengelola: isPengelola,
+            assignedLocations: assignedLocationsIds
+        };
+        await auth.setCustomUserClaims(uid, claims);
+
+        const userRef = adminDb.collection('users').doc(uid);
+        batch.set(userRef, { ...seedData, uid: uid, assignedLocations: assignedLocationsIds });
+
+        console.log(`Claims and Firestore doc set for ${email}`);
+    });
+    await Promise.all(claimsPromises);
+    console.log('Finished setting claims and queueing users.');
+
+    // Seed Categories
+    seedCategories.forEach(category => {
+      const docRef = adminDb.collection('categories').doc();
+      batch.set(docRef, { ...category, id: docRef.id });
+    });
+    console.log('Categories queued for batch.');
 
     // Seed Countries
     seedCountries.forEach(country => {
@@ -105,7 +118,7 @@ export async function GET() {
 
     return NextResponse.json({
       message: 'Database seeded successfully.',
-      users: userRecords.length,
+      users: userRecordsWithSeedData.length,
       categories: seedCategories.length,
       destinations: seedDestinations.length,
       countries: seedCountries.length,

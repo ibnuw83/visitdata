@@ -160,9 +160,9 @@ export default function UsersPage() {
   const { appUser } = useUser();
 
   const usersQuery = useMemo(() => {
-    if (!firestore) return null;
+    if (!firestore || appUser?.role !== 'admin') return null;
     return query(collection(firestore, 'users'));
-  }, [firestore]);
+  }, [firestore, appUser?.role]);
   
   const destinationsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -170,7 +170,8 @@ export default function UsersPage() {
   }, [firestore]);
 
   const { data: users, loading: usersLoading, error: usersError } = useCollection<AppUser>(usersQuery);
-  const { data: destinations } = useCollection<Destination>(destinationsQuery);
+  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
+  const loading = usersLoading || destinationsLoading;
   
   const { toast } = useToast();
 
@@ -311,6 +312,34 @@ export default function UsersPage() {
         </div>
     )
   }
+  
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-2">
+            <Skeleton className="h-9 w-48" />
+            <Skeleton className="h-5 w-72" />
+        </div>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="space-y-1.5">
+                  <Skeleton className="h-7 w-32" />
+                  <Skeleton className="h-5 w-64" />
+              </div>
+              <Skeleton className="h-10 w-40" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+              </div>
+            </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -417,7 +446,7 @@ export default function UsersPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {usersLoading ? (
+                    {loading ? (
                       <TableRow key="loading-row">
                         <TableCell colSpan={6} className="h-24 text-center">
                           Memuat data pengguna...
@@ -484,10 +513,17 @@ export default function UsersPage() {
                         </TableRow>
                       )
                     })}
-                     {!usersLoading && usersError && (
+                     {!loading && usersError && (
                         <TableRow>
                             <TableCell colSpan={6} className="h-24 text-center text-destructive">
                                 Gagal memuat data: Anda tidak memiliki izin untuk melihat daftar pengguna.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                    {!loading && !usersError && (!users || users.length === 0) && (
+                        <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center">
+                                Tidak ada pengguna yang ditemukan.
                             </TableCell>
                         </TableRow>
                     )}

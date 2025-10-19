@@ -20,9 +20,9 @@ export default function UnlockRequestsPage() {
   const firestore = useFirestore();
 
   const requestsQuery = useMemo(() => {
-    if (!firestore) return null;
+    if (!firestore || appUser?.role !== 'admin') return null;
     return query(collection(firestore, 'unlock-requests'));
-  }, [firestore]);
+  }, [firestore, appUser?.role]);
   
   const { data: unlockRequests, loading: requestsLoading, setData: setUnlockRequests } = useCollection<UnlockRequest>(requestsQuery);
   const { toast } = useToast();
@@ -93,6 +93,30 @@ export default function UnlockRequestsPage() {
     )
   }
 
+  if (requestsLoading) {
+    return (
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-2">
+            <Skeleton className="h-9 w-48" />
+            <Skeleton className="h-5 w-72" />
+        </div>
+        <Card>
+            <CardHeader>
+              <Skeleton className="h-7 w-48" />
+              <Skeleton className="h-5 w-80" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+              </div>
+            </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -120,13 +144,7 @@ export default function UnlockRequestsPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {requestsLoading ? (
-                        <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center">
-                                Memuat permintaan...
-                            </TableCell>
-                        </TableRow>
-                    ) : (sortedRequests || []).map(req => {
+                    {sortedRequests.map(req => {
                       const period = `${new Date(req.year, req.month -1).toLocaleString('id-ID', {month: 'long'})} ${req.year}`;
                       return (
                         <TableRow key={req.id}>
@@ -163,7 +181,7 @@ export default function UnlockRequestsPage() {
                         </TableRow>
                       )
                     })}
-                     {(!sortedRequests || sortedRequests.length === 0) && !requestsLoading && (
+                     {(!sortedRequests || sortedRequests.length === 0) && (
                         <TableRow>
                             <TableCell colSpan={7} className="h-24 text-center">
                                 Tidak ada permintaan revisi.

@@ -8,7 +8,7 @@ import { useDoc } from '../firestore/use-doc';
 import { User as AppUser } from '@/lib/types';
 
 export const useUser = () => {
-  const { user: authUser, isLoading: isAuthLoading } = useAuthUser();
+  const { user: authUser, isLoading: isAuthLoading, logout } = useAuthUser();
   const firestore = useFirestore();
 
   const userDocRef = useMemo(() => {
@@ -18,8 +18,7 @@ export const useUser = () => {
   
   const { data: appUser, loading: isAppUserLoading, error } = useDoc<AppUser>(userDocRef);
 
-  // isLoading is true if the initial auth check is running,
-  // OR if we have an authenticated user but their Firestore profile has not yet loaded.
+  // isLoading is true if auth is still initializing OR if we have an auth user but NOT a firestore profile yet.
   const isLoading = isAuthLoading || (!!authUser && !appUser);
 
   return {
@@ -27,5 +26,6 @@ export const useUser = () => {
     appUser: appUser,
     isLoading: isLoading,
     error,
+    logout
   };
 };
