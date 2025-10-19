@@ -1,4 +1,3 @@
-
 // This file is used to store the Firebase configuration.
 // It is used by the Firebase SDK to connect to your Firebase project.
 // You can get this from the Firebase console.
