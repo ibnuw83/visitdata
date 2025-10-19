@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, doc, updateDoc, writeBatch, query } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function UnlockRequestsPage() {
   const { appUser } = useUser();
@@ -94,7 +95,8 @@ export default function UnlockRequestsPage() {
     });
   }, [unlockRequests]);
 
-  // AppLayout now guarantees appUser is loaded, so we can safely check the role.
+  // AppLayout now guarantees appUser is loaded and available.
+  // We can safely check the role without a flash of incorrect content.
   if (appUser?.role !== 'admin') {
     return (
         <div className="flex flex-col gap-8">

@@ -53,6 +53,7 @@ import {
 import { useFirestore, useCollection, errorEmitter, FirestorePermissionError, AuthError, useAuth, useUser } from '@/firebase';
 import { collection, doc, updateDoc, deleteDoc, setDoc, query } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function MultiSelect({
   options,
@@ -326,7 +327,8 @@ export default function UsersPage() {
     return locationIds.map(id => destinations.find(d => d.id === id)?.name).filter(Boolean).join(', ');
   }
 
-  // AppLayout now guarantees appUser is loaded, so we can safely check the role.
+  // AppLayout now guarantees that appUser exists and is loaded.
+  // We can safely check the role without causing a flash of incorrect content.
   if (appUser?.role !== 'admin') {
     return (
         <div className="flex flex-col gap-8">

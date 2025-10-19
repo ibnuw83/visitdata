@@ -55,22 +55,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     // Wait until the initial auth check and user profile fetch is finished
     if (!isLoading) {
         // If there's no authenticated user at all, or their Firestore profile doesn't exist, redirect to login.
-        if (!user || !appUser) {
+        if (!user) {
             router.replace('/login');
         } 
     }
-  }, [user, appUser, isLoading, router]);
+  }, [user, isLoading, router]);
 
   // The isLoading flag from useUser is now the single source of truth.
-  // It's true until both the auth user and the firestore appUser profile are loaded.
-  // This ensures we show the skeleton until ALL user data is ready.
+  // It's true until both the auth user and the firestore appUser profile are loaded (or fail to load).
   if (isLoading) {
     return <AppLayoutSkeleton />;
   }
   
-  // If loading is done and there's still no user or no app profile,
-  // the useEffect above will handle the redirection.
-  // Render null to avoid a flash of unauthenticated content.
+  // After loading, if there's still no user (or no app profile), it means they are not logged in.
+  // The useEffect above will handle the redirection.
+  // Render null to prevent any flash of content before the redirect happens.
   if (!user || !appUser) {
     return null;
   }
