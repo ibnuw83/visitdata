@@ -10,8 +10,7 @@ import { Logo } from '@/components/logo';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth, useAuthUser } from '@/app/provider';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
@@ -20,8 +19,6 @@ export default function LoginPage() {
   const router = useRouter();
   const [appTitle, setAppTitle] = useState('VisitData Hub');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -53,33 +50,6 @@ export default function LoginPage() {
     }
   };
 
-  const handlePasswordReset = async () => {
-    if (!resetEmail) {
-      toast({
-        variant: "destructive",
-        title: "Email diperlukan",
-        description: "Harap masukkan alamat email Anda.",
-      });
-      return;
-    }
-    if (!auth) return;
-    try {
-      await sendPasswordResetEmail(auth, resetEmail);
-      toast({
-        title: "Tautan Reset Terkirim",
-        description: `Tautan untuk mereset kata sandi telah dikirim ke ${resetEmail}.`,
-      });
-      setIsResetDialogOpen(false);
-    } catch (e: any) {
-      console.error("Password Reset Error:", e);
-      toast({
-        variant: "destructive",
-        title: "Gagal Mengirim Tautan",
-        description: "Terjadi kesalahan. Periksa kembali email Anda."
-      });
-    }
-  };
-  
   if (isInitializing || user) {
      return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -115,45 +85,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Kata Sandi</Label>
-                <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
-                    <DialogTrigger asChild>
-                        <button type="button" className="ml-auto inline-block text-sm underline">
-                            Lupa kata sandi?
-                        </button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                        <DialogTitle>Reset Kata Sandi</DialogTitle>
-                        <DialogDescription>
-                            Masukkan alamat email Anda di bawah ini. Kami akan mengirimkan tautan untuk mereset kata sandi Anda.
-                        </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="reset-email" className="text-right">
-                            Email
-                            </Label>
-                            <Input
-                            id="reset-email"
-                            type="email"
-                            value={resetEmail}
-                            onChange={(e) => setResetEmail(e.target.value)}
-                            className="col-span-3"
-                            placeholder="email@example.com"
-                            />
-                        </div>
-                        </div>
-                        <DialogFooter>
-                          <DialogClose asChild>
-                            <Button variant="outline">Batal</Button>
-                          </DialogClose>
-                          <Button onClick={handlePasswordReset}>Kirim Tautan Reset</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-              </div>
+              <Label htmlFor="password">Kata Sandi</Label>
               <Input 
                 id="password" 
                 type="password" 
