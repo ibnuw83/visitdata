@@ -13,7 +13,67 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, collectionGroup } from "firebase/firestore";
+import { collection, query, where, Unsubscribe, onSnapshot, Firestore } from 'firebase/firestore';
+
+
+/**
+ * Custom hook to fetch all visit data for a specific year from multiple destinations.
+ * This is more performant than a collectionGroup query for this specific use case.
+ */
+function useAllVisitsForYear(firestore: Firestore | null, destinationIds: string[], year: number) {
+    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!firestore || destinationIds.length === 0) {
+            setLoading(false);
+            setAllVisitData([]);
+            return;
+        }
+
+        setLoading(true);
+        const allData: { [key: string]: VisitData[] } = {};
+        const unsubscribers: Unsubscribe[] = [];
+
+        const loadingTimeout = setTimeout(() => setLoading(false), 5000); // Failsafe
+
+        const checkCompletion = () => {
+            if (Object.keys(allData).length === destinationIds.length) {
+                setLoading(false);
+                clearTimeout(loadingTimeout);
+            }
+        };
+
+        destinationIds.forEach(destId => {
+            const visitsRef = collection(firestore, 'destinations', destId, 'visits');
+            const q = query(visitsRef, where('year', '==', year));
+            
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                allData[destId] = snapshot.docs.map(doc => ({...doc.data(), id: doc.id} as VisitData));
+                
+                const combinedData = Object.values(allData).flat();
+                setAllVisitData(combinedData);
+                
+                checkCompletion();
+
+            }, (error) => {
+                console.error(`Error fetching visits for destination ${destId} in year ${year}:`, error);
+                allData[destId] = []; // On error, assume no data
+                checkCompletion();
+            });
+            unsubscribers.push(unsubscribe);
+        });
+
+        return () => {
+            unsubscribers.forEach(unsub => unsub());
+            clearTimeout(loadingTimeout);
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [firestore, JSON.stringify(destinationIds), year]);
+
+    return { data: allVisitData, loading };
+}
+
 
 export default function ReportsPage() {
   const { appUser } = useUser();
@@ -30,7 +90,6 @@ export default function ReportsPage() {
     let q = query(collection(firestore, 'destinations'));
     
     if (appUser.role === 'pengelola') {
-      // Safety check: if a manager has no assigned locations, return a query for a non-existent ID.
       if (!appUser.assignedLocations || appUser.assignedLocations.length === 0) {
           return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
       }
@@ -39,50 +98,50 @@ export default function ReportsPage() {
     return q;
   }, [firestore, appUser]);
 
-  const { data: destinations } = useCollection<Destination>(destinationsQuery);
+  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
   const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
 
-  const visitsQuery = useMemoFirebase(() => {
-      // Critical safety check: Do not run collectionGroup query with an empty 'in' array.
+  // This is a one-off query just to determine the available years.
+  const allVisitsForYearsQuery = useMemoFirebase(() => {
       if (!firestore || destinationIds.length === 0) return null;
-      
-      return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
+      return query(collection(firestore, 'destinations', destinationIds[0], 'visits'));
   }, [firestore, destinationIds]);
 
-  const { data: allVisitData } = useCollection<VisitData>(visitsQuery);
+  const { data: sampleVisitData } = useCollection<VisitData>(allVisitsForYearsQuery);
 
+  const { data: visitDataForYear, loading: visitsLoading } = useAllVisitsForYear(firestore, destinationIds, parseInt(selectedYear));
 
   const { toast } = useToast();
 
   const years = useMemo(() => {
-    if (!allVisitData) return [currentYear.toString()];
-    const allYears = [...new Set(allVisitData.map(d => d.year.toString()))].sort((a,b) => parseInt(b) - parseInt(a));
+    if (!sampleVisitData) return [currentYear.toString()];
+    const allYears = [...new Set(sampleVisitData.map(d => d.year.toString()))].sort((a,b) => parseInt(b) - parseInt(a));
     if (!allYears.includes(currentYear.toString())) {
         allYears.unshift(currentYear.toString());
     }
+    // Simple fallback to prevent no years from showing
+    if (allYears.length === 0) return [currentYear.toString()];
     return allYears;
-  },[allVisitData, currentYear]);
+  },[sampleVisitData, currentYear]);
 
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
-    setSelectedYear(new Date().getFullYear().toString());
-  }, []);
+    if (!years.includes(selectedYear)) {
+      setSelectedYear(years[0] || new Date().getFullYear().toString());
+    }
+  }, [years, selectedYear]);
 
   const months = Array.from({ length: 12 }, (_, i) => ({ value: (i + 1).toString(), name: new Date(0, i).toLocaleString('id-ID', { month: 'long' }) }));
   
   const destinationMap = useMemo(() => new Map(destinations?.map(d => [d.id, d.name])), [destinations]);
 
   const filteredData = useMemo(() => {
-    if (!allVisitData || !destinations || !appUser) return [];
+    if (!visitDataForYear || !destinations || !appUser) return [];
 
-    let data = allVisitData;
+    let data = visitDataForYear;
 
-    // Apply UI filters
     if (selectedDestination !== 'all') {
       data = data.filter(d => d.destinationId === selectedDestination);
-    }
-    if (selectedYear !== 'all') {
-      data = data.filter(d => d.year === parseInt(selectedYear));
     }
     if (selectedMonth !== 'all') {
       data = data.filter(d => d.month === parseInt(selectedMonth));
@@ -95,7 +154,7 @@ export default function ReportsPage() {
         const nameB = destinationMap.get(b.destinationId) || '';
         return nameA.localeCompare(nameB);
     });
-  }, [allVisitData, destinations, appUser, selectedDestination, selectedYear, selectedMonth, destinationMap]);
+  }, [visitDataForYear, destinations, appUser, selectedDestination, selectedMonth, destinationMap]);
 
 
   const handleDownload = () => {
@@ -155,7 +214,6 @@ export default function ReportsPage() {
 
             const ws = XLSX.utils.aoa_to_sheet(dataToExport);
 
-            // Sanitize sheet name
             const safeSheetName = destName.replace(/[:\\/?*[\\]]/g, '').substring(0, 31);
             XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
         }
@@ -169,6 +227,8 @@ export default function ReportsPage() {
         description: "File laporan Excel Anda telah berhasil diunduh.",
     })
   }
+  
+  const loading = destinationsLoading || visitsLoading;
 
   if (!appUser) {
     return null; // or a loading skeleton
@@ -205,7 +265,6 @@ export default function ReportsPage() {
                 <SelectValue placeholder="Pilih Tahun" />
               </SelectTrigger>
               <SelectContent>
-                 <SelectItem value="all">Semua Tahun</SelectItem>
                 {years.map(y => (
                   <SelectItem key={y} value={y}>{y}</SelectItem>
                 ))}
@@ -233,7 +292,12 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Hasil Filter</CardTitle>
-          <CardDescription>Menampilkan {filteredData.length} dari total {(allVisitData || []).length} data kunjungan.</CardDescription>
+          <CardDescription>
+            {loading 
+                ? 'Memuat data...' 
+                : `Menampilkan ${filteredData.length} dari total ${visitDataForYear.length} data kunjungan untuk tahun ${selectedYear}.`
+            }
+        </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -247,7 +311,13 @@ export default function ReportsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredData.length > 0 ? (
+              {loading ? (
+                 <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                        Memuat data kunjungan...
+                    </TableCell>
+                </TableRow>
+              ) : filteredData.length > 0 ? (
                 filteredData.map(d => (
                   <TableRow key={d.id}>
                     <TableCell className="font-medium">{destinationMap.get(d.destinationId) || 'Tidak Dikenal'}</TableCell>
