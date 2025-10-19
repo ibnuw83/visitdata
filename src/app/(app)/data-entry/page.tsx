@@ -32,7 +32,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, getDoc, collectionGroup } from 'firebase/firestore';
 
@@ -267,7 +266,7 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
                                     <WismanPopover 
                                         details={monthData.wismanDetails || []}
                                         totalWisman={monthData.wisman || 0}
-                                        onSave={(newDetails) => handleWismanDetailsChange(index, newDetails)}
+                                        onChange={(newDetails) => handleWismanDetailsChange(index, newDetails)}
                                         disabled={isLocked}
                                     />
                                 </TableCell>
@@ -317,41 +316,28 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
   );
 }
 
-function WismanPopover({ details, totalWisman, onSave, disabled }: { details: WismanDetail[], totalWisman: number, onSave: (details: WismanDetail[]) => void, disabled?: boolean }) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [wismanDetails, setWismanDetails] = useState<WismanDetail[]>(details);
-
-    useEffect(() => {
-        if (isOpen) {
-            setWismanDetails(details);
-        }
-    }, [isOpen, details]);
-
+function WismanPopover({ details, totalWisman, onChange, disabled }: { details: WismanDetail[], totalWisman: number, onChange: (details: WismanDetail[]) => void, disabled?: boolean }) {
+    
     const handleDetailChange = (index: number, field: keyof WismanDetail, value: string | number) => {
-        const newDetails = [...wismanDetails];
+        const newDetails = [...details];
         if (field === 'country') {
             newDetails[index][field] = String(value);
         } else {
             newDetails[index][field] = Number(value);
         }
-        setWismanDetails(newDetails);
+        onChange(newDetails);
     };
 
     const addEntry = () => {
-        setWismanDetails([...wismanDetails, { country: '', count: 0 }]);
+        onChange([...details, { country: '', count: 0 }]);
     };
 
     const removeEntry = (index: number) => {
-        setWismanDetails(wismanDetails.filter((_, i) => i !== index));
+        onChange(details.filter((_, i) => i !== index));
     };
 
-    const handleSaveAndClose = () => {
-        onSave(wismanDetails.filter(d => d.country && d.count > 0));
-        setIsOpen(false);
-    }
-
     return (
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <Popover>
             <PopoverTrigger asChild>
                 <Button 
                   variant="ghost" 
@@ -369,7 +355,7 @@ function WismanPopover({ details, totalWisman, onSave, disabled }: { details: Wi
                         </p>
                     </div>
                     <div className="grid gap-2 max-h-60 overflow-y-auto pr-3">
-                        {wismanDetails.map((detail, index) => (
+                        {details.map((detail, index) => (
                            <div key={index} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
                                 <Input
                                     type="text"
@@ -396,7 +382,6 @@ function WismanPopover({ details, totalWisman, onSave, disabled }: { details: Wi
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Tambah Negara
                         </Button>
-                        <Button size="sm" onClick={handleSaveAndClose}>Simpan Rincian</Button>
                     </div>
                 </div>
             </PopoverContent>
@@ -699,11 +684,11 @@ export default function DataEntryPage() {
                           <PlusCircle className="h-4 w-4" />
                       </Button>
                       <AlertDialog>
-                          <AlertDialogTrigger asChild>
+                          <DialogTrigger asChild>
                               <Button variant="destructive" size="icon" disabled={availableYears.length <= 1}>
                                   <Trash2 className="h-4 w-4" />
                               </Button>
-                          </AlertDialogTrigger>
+                          </DialogTrigger>
                           <AlertDialogContent>
                               <AlertDialogHeader>
                                   <AlertDialogTitle>Hapus Semua Data Tahun {selectedYear}?</AlertDialogTitle>
@@ -750,5 +735,7 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+    
 
     
