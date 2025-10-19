@@ -119,13 +119,11 @@ const colorPalette = [
 function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRequest, colorClass, selectedYear, onManualSave, hasUnsavedChanges, pendingChanges }: { destination: Destination, onDataChange: (updatedData: VisitData) => void, onLockChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void, colorClass: string, selectedYear: number, onManualSave: () => void, hasUnsavedChanges: boolean, pendingChanges: Record<string, VisitData> }) {
   const { appUser } = useUser();
   const firestore = useFirestore();
-  const [accordionValue, setAccordionValue] = useState<string[]>([]);
-  const isAccordionOpen = accordionValue.includes(destination.id);
 
   const visitsQuery = useMemoFirebase(() => {
-    if (!firestore || !isAccordionOpen) return null;
+    if (!firestore) return null;
     return query(collection(firestore, 'destinations', destination.id, 'visits'), where('year', '==', selectedYear));
-  }, [firestore, destination.id, selectedYear, isAccordionOpen]);
+  }, [firestore, destination.id, selectedYear]);
 
   const { data: fetchedVisitData } = useCollection<VisitData>(visitsQuery);
   
@@ -214,7 +212,7 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
   }, [displayData]);
 
   return (
-    <AccordionItem value={destination.id} onFocus={() => setAccordionValue([destination.id])} onClick={() => setAccordionValue(isAccordionOpen ? [] : [destination.id])}>
+    <AccordionItem value={destination.id}>
       <AccordionTrigger className="hover:no-underline">
         <div className="flex w-full items-center justify-between pr-4">
           <span className={cn("font-semibold", colorClass)}>{destination.name} - {selectedYear}</span>
@@ -740,3 +738,4 @@ export default function DataEntryPage() {
     
 
     
+
