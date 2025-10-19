@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError, AuthError, useCollection, useQuery } from '@/firebase';
+import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError, AuthError, useCollection } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -367,7 +367,7 @@ function ChangePhotoDialog({ onSave }: { onSave: (newUrl: string) => void }) {
 }
 
 export default function SettingsPage() {
-  const { appUser, user } = useUser();
+  const { appUser } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [name, setName] = useState('');
