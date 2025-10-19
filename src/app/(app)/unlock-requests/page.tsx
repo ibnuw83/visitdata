@@ -15,6 +15,31 @@ import { useUser, useFirestore, useCollection } from '@/firebase';
 import { collection, doc, updateDoc, writeBatch, query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
+
+function UnlockRequestsPageSkeleton() {
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-5 w-72" />
+      </div>
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-5 w-80" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function UnlockRequestsPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
@@ -24,7 +49,7 @@ export default function UnlockRequestsPage() {
     return query(collection(firestore, 'unlock-requests'));
   }, [firestore, appUser?.role]);
   
-  const { data: unlockRequests, loading: requestsLoading, setData: setUnlockRequests } = useCollection<UnlockRequest>(requestsQuery);
+  const { data: unlockRequests, loading: requestsLoading } = useCollection<UnlockRequest>(requestsQuery);
   const { toast } = useToast();
   
   const statusVariant: { [key in UnlockRequest['status']]: "secondary" | "default" | "destructive" } = {
@@ -55,18 +80,20 @@ export default function UnlockRequestsPage() {
         batch.update(visitDocRef, visitDataUpdate);
     }
 
-    await batch.commit();
-
-    setUnlockRequests(prevRequests => 
-      (prevRequests || []).map(req => 
-        req.id === requestId ? { ...req, status: newStatus, processedBy: appUser.uid } : req
-      )
-    );
-
-    toast({
-      title: `Permintaan ${newStatus === 'approved' ? 'Disetujui' : 'Ditolak'}`,
-      description: `Status permintaan telah diperbarui.`,
-    });
+    try {
+      await batch.commit();
+      toast({
+        title: `Permintaan ${newStatus === 'approved' ? 'Disetujui' : 'Ditolak'}`,
+        description: `Status permintaan telah diperbarui.`,
+      });
+    } catch(e) {
+      console.error(e);
+      toast({
+        variant: 'destructive',
+        title: 'Gagal Memperbarui',
+        description: 'Terjadi kesalahan saat memproses permintaan.'
+      })
+    }
   }
 
   const sortedRequests = useMemo(() => {
@@ -94,27 +121,7 @@ export default function UnlockRequestsPage() {
   }
 
   if (requestsLoading) {
-    return (
-      <div className="flex flex-col gap-8">
-        <div className="flex flex-col gap-2">
-            <Skeleton className="h-9 w-48" />
-            <Skeleton className="h-5 w-72" />
-        </div>
-        <Card>
-            <CardHeader>
-              <Skeleton className="h-7 w-48" />
-              <Skeleton className="h-5 w-80" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-              </div>
-            </CardContent>
-        </Card>
-      </div>
-    );
+    return <UnlockRequestsPageSkeleton />;
   }
 
   return (

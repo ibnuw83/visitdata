@@ -20,9 +20,11 @@ export async function GET() {
     console.log('Starting user authentication seeding...');
     const userRecordsPromises = seedUsers.map(async (user) => {
         try {
+            await auth.getUserByEmail(user.email);
+            console.log(`User ${user.email} already exists. Skipping auth creation.`);
+            // Fetch the existing user to get the UID for Firestore doc
             const existingUser = await auth.getUserByEmail(user.email);
-            console.log(`User ${user.email} already exists.`);
-            return { ...existingUser, seedData: user };
+            return { uid: existingUser.uid, seedData: user };
         } catch (error: any) {
             if (error.code === 'auth/user-not-found') {
                 const userRecord = await auth.createUser({
@@ -32,14 +34,14 @@ export async function GET() {
                     photoURL: user.avatarUrl,
                 });
                 console.log(`Successfully created new user: ${user.email}.`);
-                return { ...userRecord, seedData: user };
+                return { uid: userRecord.uid, seedData: user };
             }
             throw error;
         }
     });
     
     const userRecordsWithSeedData = await Promise.all(userRecordsPromises);
-    console.log('Finished user authentication seeding.');
+    console.log('Finished user authentication check/creation.');
 
     // Seed Destinations first to get their IDs
     const seededDestinations: (Destination & { id: string })[] = [];
@@ -53,9 +55,9 @@ export async function GET() {
     });
     console.log('Destinations queued for batch.');
 
-    // Now, set Custom Claims and Firestore User Docs
-    console.log('Setting custom claims and seeding Firestore users...');
-    const claimsPromises = userRecordsWithSeedData.map(async ({ uid, seedData }) => {
+    // Now, set Firestore User Docs based on auth UIDs and destination IDs
+    console.log('Seeding Firestore user documents...');
+    userRecordsWithSeedData.forEach(({ uid, seedData }) => {
         const isPengelola = seedData.role === 'pengelola';
         
         const assignedLocationsIds = isPengelola 
@@ -64,21 +66,12 @@ export async function GET() {
                 return dest ? dest.id : null;
             }).filter((id): id is string => id !== null)
             : [];
-
-        const claims = {
-            admin: seedData.role === 'admin',
-            pengelola: isPengelola,
-            assignedLocations: assignedLocationsIds
-        };
-        // Set the custom claims for the user
-        await auth.setCustomUserClaims(uid, claims);
-
-        // Queue the user profile document to be written in the batch
+        
         const userRef = adminDb.collection('users').doc(uid);
         batch.set(userRef, { ...seedData, uid: uid, assignedLocations: assignedLocationsIds });
     });
-    await Promise.all(claimsPromises);
-    console.log('Finished setting claims and queueing users.');
+    console.log('Finished queueing user documents.');
+
 
     // Seed Categories
     seedCategories.forEach(category => {
@@ -119,7 +112,7 @@ export async function GET() {
     console.log('Batch committed successfully.');
 
     return NextResponse.json({
-      message: 'Database seeded successfully. IMPORTANT: Users may need to log out and log back in for custom claims to apply.',
+      message: 'Database seeded successfully. It might take a moment for all data to be available.',
       users: userRecordsWithSeedData.length,
       categories: seedCategories.length,
       destinations: seedDestinations.length,

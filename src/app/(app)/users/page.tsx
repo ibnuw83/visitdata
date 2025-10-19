@@ -154,12 +154,41 @@ function MultiSelect({
   );
 }
 
+function UsersPageSkeleton() {
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-5 w-72" />
+      </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="space-y-1.5">
+            <Skeleton className="h-7 w-32" />
+            <Skeleton className="h-5 w-64" />
+          </div>
+          <Skeleton className="h-10 w-40" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function UsersPage() {
   const firestore = useFirestore();
   const auth = useAuth();
   const { appUser } = useUser();
 
   const usersQuery = useMemo(() => {
+    // Only fetch if the current user is an admin.
     if (!firestore || appUser?.role !== 'admin') return null;
     return query(collection(firestore, 'users'));
   }, [firestore, appUser?.role]);
@@ -222,11 +251,13 @@ export default function UsersPage() {
     if (!firestore || !users) return;
     const userToDelete = users.find(u => u.uid === userId);
     if (!userToDelete) return;
+    // Note: This only deletes the Firestore user document, not the Firebase Auth user.
+    // A cloud function would be needed for a complete deletion.
     const userRef = doc(firestore, 'users', userId);
     await deleteDoc(userRef);
     toast({
       title: "Pengguna Dihapus",
-      description: `Pengguna "${userToDelete.name}" telah berhasil dihapus.`,
+      description: `Pengguna "${userToDelete.name}" telah berhasil dihapus dari daftar aplikasi.`,
     });
   }
   
@@ -249,9 +280,11 @@ export default function UsersPage() {
     
     if (!auth || !firestore) return;
 
+    // A temporary password. The user should reset it.
     const temporaryPassword = "password123";
 
     try {
+        // This only creates the auth user. The function to set custom claims should be called from a backend.
         const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail, temporaryPassword);
         const { user } = userCredential;
 
@@ -265,6 +298,7 @@ export default function UsersPage() {
             avatarUrl: `https://avatar.vercel.sh/${user.email}.png`,
         };
         
+        // Now create the user document in Firestore.
         const userDocRef = doc(firestore, "users", user.uid);
         await setDoc(userDocRef, newUserProfile);
         
@@ -299,7 +333,7 @@ export default function UsersPage() {
     return locationIds.map(id => destinations.find(d => d.id === id)?.name).filter(Boolean).join(', ');
   }
 
-  // AppLayout now guarantees appUser exists.
+  // AppLayout guarantees appUser exists. Now we check the role.
   if (appUser?.role !== 'admin') {
     return (
         <div className="flex flex-col gap-8">
@@ -314,31 +348,7 @@ export default function UsersPage() {
   }
   
   if (loading) {
-    return (
-      <div className="flex flex-col gap-8">
-        <div className="flex flex-col gap-2">
-            <Skeleton className="h-9 w-48" />
-            <Skeleton className="h-5 w-72" />
-        </div>
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="space-y-1.5">
-                  <Skeleton className="h-7 w-32" />
-                  <Skeleton className="h-5 w-64" />
-              </div>
-              <Skeleton className="h-10 w-40" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-              </div>
-            </CardContent>
-        </Card>
-      </div>
-    );
+    return <UsersPageSkeleton />;
   }
 
   return (
