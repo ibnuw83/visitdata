@@ -187,9 +187,11 @@ export default function UsersPage() {
   const { appUser, isLoading: isAppUserLoading } = useUser();
 
   const usersQuery = useMemoFirebase(() => {
-    if (!firestore || appUser?.role !== 'admin') return null;
+    if (!firestore) return null;
+    // Otorisasi harus ditangani oleh Aturan Keamanan Firestore, bukan di sini.
+    // Cukup minta koleksi pengguna.
     return collection(firestore, 'users');
-  }, [firestore, appUser?.role]);
+  }, [firestore]);
   
   const destinationsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
