@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 
 
@@ -73,23 +73,17 @@ export default function CategoriesPage() {
     const categoryName = newCategoryName.trim().toLowerCase();
     const newCategoryData = { name: categoryName };
 
-    addDoc(collection(firestore, 'categories'), newCategoryData)
-        .then(() => {
-            setNewCategoryName('');
-            setIsAddDialogOpen(false);
-            toast({
-                title: "Kategori Ditambahkan",
-                description: `Kategori "${categoryName}" berhasil dibuat.`,
-            });
-        })
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: `categories`,
-                operation: 'create',
-                requestResourceData: newCategoryData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
+    try {
+        await addDoc(collection(firestore, 'categories'), newCategoryData);
+        setNewCategoryName('');
+        setIsAddDialogOpen(false);
+        toast({
+            title: "Kategori Ditambahkan",
+            description: `Kategori "${categoryName}" berhasil dibuat.`,
         });
+    } catch(e) {
+        console.error(e);
+    }
   }
 
   const handleDeleteCategory = async (categoryId: string) => {
@@ -97,20 +91,15 @@ export default function CategoriesPage() {
     const categoryName = categories.find(c => c.id === categoryId)?.name;
     const docRef = doc(firestore, 'categories', categoryId);
 
-    deleteDoc(docRef)
-        .then(() => {
-            toast({
-                title: "Kategori Dihapus",
-                description: `Kategori "${categoryName}" telah dihapus.`,
-            });
-        })
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: `categories/${categoryId}`,
-                operation: 'delete',
-            });
-            errorEmitter.emit('permission-error', permissionError);
+    try {
+        await deleteDoc(docRef);
+        toast({
+            title: "Kategori Dihapus",
+            description: `Kategori "${categoryName}" telah dihapus.`,
         });
+    } catch(e) {
+        console.error(e);
+    }
   }
 
   const openEditDialog = (category: Category) => {
@@ -131,23 +120,17 @@ export default function CategoriesPage() {
     const newName = editedCategoryName.trim().toLowerCase();
     const updatedData = { name: newName };
 
-    updateDoc(categoryRef, updatedData)
-        .then(() => {
-            setIsEditDialogOpen(false);
-            setEditingCategory(null);
-            toast({
-                title: "Kategori Diperbarui",
-                description: `Kategori "${editingCategory.name}" telah diubah menjadi "${newName}".`,
-            });
-        })
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: `categories/${editingCategory.id}`,
-                operation: 'update',
-                requestResourceData: updatedData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
+    try {
+        await updateDoc(categoryRef, updatedData)
+        setIsEditDialogOpen(false);
+        setEditingCategory(null);
+        toast({
+            title: "Kategori Diperbarui",
+            description: `Kategori "${editingCategory.name}" telah diubah menjadi "${newName}".`,
         });
+    } catch(e) {
+        console.error(e);
+    }
   }
   
   if(loading) {

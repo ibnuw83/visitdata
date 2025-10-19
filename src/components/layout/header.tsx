@@ -14,8 +14,8 @@ import {
 import { SidebarTrigger } from "../ui/sidebar";
 import { LogOut } from "lucide-react";
 import Link from "next/link";
-import { useAuthUser } from "@/lib/firebase/client-provider";
-import { useUser } from "@/lib/firebase/auth/use-user";
+import { useAuthUser } from "@/app/provider";
+import { useUser } from "@/firebase";
 import { ThemeToggle } from "./theme-toggle";
 
 export default function Header() {

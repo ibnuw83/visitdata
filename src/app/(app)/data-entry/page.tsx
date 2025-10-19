@@ -17,7 +17,7 @@ import { Destination, VisitData, WismanDetail, Country, UnlockRequest } from "@/
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PlusCircle, Trash2, Lock, Unlock, KeyRound, Save } from 'lucide-react';
-import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -436,11 +436,10 @@ export default function DataEntryPage() {
     }));
   }, []);
   
-  const handleManualSave = () => {
+  const handleManualSave = async () => {
     if (!firestore || !hasUnsavedChanges) return;
     
     const batch = writeBatch(firestore);
-    const batchOperations: Record<string, any> = {};
 
     Object.values(pendingChanges).forEach(updatedData => {
         const visitDocRef = doc(firestore, 'destinations', updatedData.destinationId, 'visits', updatedData.id);
@@ -449,25 +448,18 @@ export default function DataEntryPage() {
             dataToSet.lastUpdatedBy = appUser.uid;
         }
         batch.set(visitDocRef, dataToSet, { merge: true });
-        batchOperations[visitDocRef.path] = dataToSet;
     });
 
-    batch.commit()
-      .then(() => {
+    try {
+        await batch.commit();
         toast({
           title: "Perubahan Disimpan",
           description: "Semua perubahan Anda telah berhasil disimpan.",
         });
         setPendingChanges({});
-      })
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'destinations/{destId}/visits',
-            operation: 'update',
-            requestResourceData: { batchUpdates: batchOperations },
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    } catch (e) {
+        console.error(e);
+    }
   }
 
   const handleLockChange = async (updatedData: VisitData) => {
@@ -479,21 +471,15 @@ export default function DataEntryPage() {
         dataToSet.lastUpdatedBy = appUser.uid;
     }
 
-    setDoc(visitDocRef, dataToSet, { merge: true })
-        .then(() => {
-             toast({
-                title: `Data ${updatedData.locked ? 'Dikunci' : 'Dibuka'}`,
-                description: `Data untuk bulan ${updatedData.monthName} telah ${updatedData.locked ? 'dikunci' : 'dibuka'}.`,
-            });
-        })
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: visitDocRef.path,
-                operation: 'update',
-                requestResourceData: dataToSet,
-            });
-            errorEmitter.emit('permission-error', permissionError);
+    try {
+        await setDoc(visitDocRef, dataToSet, { merge: true });
+        toast({
+            title: `Data ${updatedData.locked ? 'Dikunci' : 'Dibuka'}`,
+            description: `Data untuk bulan ${updatedData.monthName} telah ${updatedData.locked ? 'dikunci' : 'dibuka'}.`,
         });
+    } catch(e) {
+        console.error(e);
+    }
   }
 
   const handleNewRequest = async (newRequest: Omit<UnlockRequest, 'id' | 'timestamp'>) => {
@@ -504,15 +490,11 @@ export default function DataEntryPage() {
         timestamp: serverTimestamp()
     };
     
-    addDoc(requestsCollection, requestData)
-      .catch(async (serverError) => {
-          const permissionError = new FirestorePermissionError({
-              path: 'unlock-requests',
-              operation: 'create',
-              requestResourceData: requestData,
-          });
-          errorEmitter.emit('permission-error', permissionError);
-      });
+    try {
+        await addDoc(requestsCollection, requestData);
+    } catch (e) {
+        console.error(e);
+    }
   }
   
   const handleAddYear = async () => {
@@ -520,7 +502,6 @@ export default function DataEntryPage() {
     if (!firestore || !destinations) return;
   
     const batch = writeBatch(firestore);
-    const newVisitEntries: VisitData[] = [];
   
     destinations.forEach(dest => {
       months.forEach((monthName, index) => {
@@ -540,30 +521,19 @@ export default function DataEntryPage() {
           locked: true,
         };
         batch.set(visitDocRef, newVisitData);
-        newVisitEntries.push(newVisitData);
       });
     });
   
-    batch.commit()
-      .then(() => {
+    try {
+        await batch.commit();
         setSelectedYear(newYear);
         toast({
           title: "Tahun Ditambahkan",
           description: `Tahun ${newYear} telah ditambahkan. Anda sekarang dapat mengelola data untuk tahun tersebut.`
         });
-      })
-      .catch((serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: 'destinations/{destId}/visits',
-          operation: 'create',
-          requestResourceData: {
-            year: newYear,
-            destinations: destinations.map(d => d.id),
-            batchOperations: newVisitEntries
-          },
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      });
+    } catch(e) {
+        console.error(e);
+    }
   };
 
   const handleDeleteYear = async () => {
@@ -579,7 +549,6 @@ export default function DataEntryPage() {
     if (!firestore || !destinations) return;
     
     const batch = writeBatch(firestore);
-    const pathsToDelete: string[] = [];
 
     try {
         for (const dest of destinations) {
@@ -588,39 +557,19 @@ export default function DataEntryPage() {
             const snapshot = await getDocs(q);
             snapshot.docs.forEach(d => {
                 batch.delete(d.ref);
-                pathsToDelete.push(d.ref.path);
             });
         }
-    } catch (serverError) {
-        const permissionError = new FirestorePermissionError({
-            path: `destinations/{destId}/visits`,
-            operation: 'list', // The failing operation is the getDocs query
-            requestResourceData: { year: selectedYear }
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        return; // Stop execution
-    }
     
-    batch.commit()
-      .then(() => {
+        await batch.commit();
         const newYear = availableYears.find(y => y !== selectedYear.toString()) || new Date().getFullYear().toString();
         setSelectedYear(parseInt(newYear));
         toast({
             title: "Tahun Dihapus",
             description: `Semua data untuk tahun ${selectedYear} telah dihapus.`,
         });
-      })
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: `destinations/{destId}/visits`,
-            operation: 'delete',
-            requestResourceData: { 
-                year: selectedYear,
-                pathsToDelete
-            }
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      });
+    } catch (e) {
+        console.error(e);
+    }
   }
 
   const dataByDestination = useMemo(() => {
@@ -734,8 +683,3 @@ export default function DataEntryPage() {
     </div>
   );
 }
-
-    
-
-    
-

@@ -3,8 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import { getDocs, Query } from 'firebase/firestore';
-import { errorEmitter } from '@/lib/firebase/error-emitter';
-import { FirestorePermissionError } from '@/lib/firebase/errors';
 
 export function useQuery<T>(
   q: Query | null
@@ -37,17 +35,7 @@ export function useQuery<T>(
       })
       .catch((err) => {
         if (isMounted) {
-          let errorPath = '(unknown)';
-          try {
-            // @ts-ignore
-            errorPath = q?._query?.path?.segments?.join('/') ?? '(unknown)';
-          } catch {}
-
-          const permissionError = new FirestorePermissionError({
-            path: errorPath,
-            operation: 'list',
-          });
-          errorEmitter.emit('permission-error', permissionError);
+          console.error(err);
           setError(err);
         }
       })

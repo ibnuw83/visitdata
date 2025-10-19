@@ -5,7 +5,7 @@
 import { useMemo } from "react";
 
 // Core client providers and hooks
-export { FirebaseClientProvider, useFirebaseApp, useFirestore, useAuth } from '@/lib/firebase/client-provider';
+export { useFirebaseApp, useFirestore, useAuth, useAuthUser } from '@/app/provider';
 
 // Authentication hook
 export { useUser } from '@/lib/firebase/auth/use-user';
@@ -14,11 +14,6 @@ export { useUser } from '@/lib/firebase/auth/use-user';
 export { useCollection } from '@/lib/firebase/firestore/use-collection';
 export { useDoc } from '@/lib/firebase/firestore/use-doc';
 export { useQuery } from '@/lib/firebase/firestore/use-query';
-
-
-// Error handling utilities
-export { errorEmitter } from '@/lib/firebase/error-emitter';
-export { FirestorePermissionError, AuthError } from '@/lib/firebase/errors';
 
 /**
  * A custom hook that memoizes a Firebase query or document reference.
@@ -32,5 +27,3 @@ export const useMemoFirebase = <T>(factory: () => T, deps: React.DependencyList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return useMemo(factory, deps);
 };
-
-    

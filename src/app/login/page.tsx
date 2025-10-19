@@ -9,10 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useAuth, useAuthUser } from '@/lib/firebase/client-provider';
+import { useAuth, useAuthUser } from '@/app/provider';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { AuthError } from '@/lib/firebase/errors';
-import { errorEmitter } from '@/lib/firebase/error-emitter';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
@@ -27,8 +25,6 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // AppLayout now handles redirection for logged-in users.
-    // This hook will redirect if a logged-in user tries to manually navigate to /login.
     if (!isInitializing && user) {
       router.push('/dashboard');
     }
@@ -36,6 +32,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!auth) return;
     setIsSubmitting(true);
     const formData = new FormData(event.currentTarget);
     const email = formData.get('email') as string;
@@ -43,13 +40,14 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // Successful login will trigger a re-render, and the useEffect above
-      // or the logic in AppLayout will handle the redirect.
       router.push('/dashboard');
     } catch (e: any) {
       console.error("Login Error:", e);
-      const authError = new AuthError(e.code, e.message);
-      errorEmitter.emit('auth-error', authError);
+      toast({
+        variant: "destructive",
+        title: "Login Gagal",
+        description: "Email atau kata sandi salah."
+      });
     } finally {
        setIsSubmitting(false);
     }
@@ -64,6 +62,7 @@ export default function LoginPage() {
       });
       return;
     }
+    if (!auth) return;
     try {
       await sendPasswordResetEmail(auth, resetEmail);
       toast({
@@ -72,13 +71,15 @@ export default function LoginPage() {
       });
       setIsResetDialogOpen(false);
     } catch (e: any) {
-      const authError = new AuthError(e.code, e.message);
-      errorEmitter.emit('auth-error', authError);
+      console.error("Password Reset Error:", e);
+      toast({
+        variant: "destructive",
+        title: "Gagal Mengirim Tautan",
+        description: "Terjadi kesalahan. Periksa kembali email Anda."
+      });
     }
   };
   
-  // Show a loading indicator while checking auth status.
-  // If the user is already logged in, they will be redirected by the useEffect.
   if (isInitializing || user) {
      return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -89,7 +90,6 @@ export default function LoginPage() {
      );
   }
 
-  // If not loading and no user, show the login form.
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">

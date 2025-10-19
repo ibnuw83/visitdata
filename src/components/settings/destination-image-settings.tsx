@@ -10,10 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { Destination } from '@/lib/types';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirestore } from '@/lib/firebase/client-provider';
+import { useFirestore } from '@/app/provider';
 import { useCollection } from '@/lib/firebase/firestore/use-collection';
-import { errorEmitter } from '@/lib/firebase/error-emitter';
-import { FirestorePermissionError } from '@/lib/firebase/errors';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
 
@@ -47,32 +45,24 @@ export default function DestinationImageSettings() {
     const handleSaveChanges = async () => {
         if (!firestore || !destinations) return;
         const batch = writeBatch(firestore);
-        const updates: Record<string, any> = {};
 
         destinations.forEach(dest => {
             if(imageMap[dest.id] !== (dest.imageUrl || '')) {
                 const destRef = doc(firestore, 'destinations', dest.id);
                 const updateData = { imageUrl: imageMap[dest.id] || '' };
                 batch.update(destRef, updateData);
-                updates[dest.id] = updateData;
             }
         });
         
-        batch.commit()
-            .then(() => {
-                toast({
-                    title: "Pengaturan Gambar Disimpan",
-                    description: "URL gambar untuk destinasi unggulan telah diperbarui.",
-                });
-            })
-            .catch(async (serverError) => {
-                 const permissionError = new FirestorePermissionError({
-                    path: 'destinations/{destId}',
-                    operation: 'update',
-                    requestResourceData: { batchUpdates: updates },
-                });
-                errorEmitter.emit('permission-error', permissionError);
+        try {
+            await batch.commit();
+            toast({
+                title: "Pengaturan Gambar Disimpan",
+                description: "URL gambar untuk destinasi unggulan telah diperbarui.",
             });
+        } catch(e) {
+            console.error(e);
+        }
     }
 
     if(loading) {
@@ -139,5 +129,3 @@ export default function DestinationImageSettings() {
         </Card>
     );
 }
-
-    

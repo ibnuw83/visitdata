@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { doc, DocumentReference } from 'firebase/firestore';
-import { useAuthUser, useFirestore } from '../client-provider';
+import { useAuthUser, useFirestore } from '@/app/provider';
 import { useDoc } from '../firestore/use-doc';
 import { User as AppUser } from '@/lib/types';
 
@@ -20,7 +20,6 @@ export const useUser = () => {
 
   // isLoading is true if the initial auth check is running,
   // OR if we have an authenticated user but their Firestore profile has not yet loaded.
-  // This prevents rendering children until the full user profile (including roles) is available.
   const isLoading = isAuthLoading || (!!authUser && !appUser);
 
   return {

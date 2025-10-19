@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser, useFirestore, useDoc, errorEmitter, FirestorePermissionError, AuthError, useCollection } from '@/firebase';
+import { useUser, useFirestore, useDoc, useCollection } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -49,27 +50,21 @@ function AppSettingsCard() {
         const newSettings = { appTitle, logoUrl, footerText, heroTitle, heroSubtitle };
         const docRef = doc(firestore, 'settings', 'app');
 
-        setDoc(docRef, newSettings, { merge: true })
-            .then(() => {
-                if (logoUrl) {
-                    localStorage.setItem('logoUrl', logoUrl);
-                } else {
-                    localStorage.removeItem('logoUrl');
-                }
-                window.dispatchEvent(new Event('storage'));
-                toast({
-                    title: "Pengaturan Aplikasi Disimpan",
-                    description: "Pengaturan tampilan aplikasi telah diperbarui.",
-                });
-            })
-            .catch(async (serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: 'settings/app',
-                    operation: 'update',
-                    requestResourceData: newSettings,
-                });
-                errorEmitter.emit('permission-error', permissionError);
+        try {
+            await setDoc(docRef, newSettings, { merge: true });
+            if (logoUrl) {
+                localStorage.setItem('logoUrl', logoUrl);
+            } else {
+                localStorage.removeItem('logoUrl');
+            }
+            window.dispatchEvent(new Event('storage'));
+            toast({
+                title: "Pengaturan Aplikasi Disimpan",
+                description: "Pengaturan tampilan aplikasi telah diperbarui.",
             });
+        } catch(e) {
+            console.error(e);
+        }
     }
 
     const handleExportData = async () => {
@@ -87,13 +82,11 @@ function AppSettingsCard() {
         ];
     
         try {
-            // Export simple collections
             for (const { key, query } of collectionsToExport) {
                 const snapshot = await getDocs(query);
                 exportedData[key] = snapshot.docs.map(d => d.data());
             }
-    
-            // Handle 'visits' subcollection separately and safely
+
             const allVisits: VisitData[] = [];
             if (exportedData.destinations && exportedData.destinations.length > 0) {
                 for (const dest of exportedData.destinations) {
@@ -123,12 +116,7 @@ function AppSettingsCard() {
             toast({ title: "Ekspor Berhasil", description: "Data Anda telah diunduh sebagai file JSON." });
     
         } catch (error: any) {
-             const permissionError = new FirestorePermissionError({
-                path: 'multiple collections',
-                operation: 'list',
-                details: `Gagal mengekspor data. Periksa izin baca Anda. Penyebab: ${error.message}`,
-            });
-            errorEmitter.emit('permission-error', permissionError);
+            console.error(error);
         } finally {
             setIsExporting(false);
         }
@@ -194,12 +182,7 @@ function AppSettingsCard() {
                 toast({ title: "Impor Berhasil", description: "Data telah dipulihkan. Harap segarkan halaman." });
     
             } catch (error: any) {
-                const permissionError = new FirestorePermissionError({
-                    path: 'batch import',
-                    operation: 'write',
-                    details: error.message
-                });
-                errorEmitter.emit('permission-error', permissionError);
+                console.error(error);
             } finally {
                 setIsImporting(false);
                 setIsImportDialogOpen(false);
@@ -377,21 +360,15 @@ export default function SettingsPage() {
     const userRef = doc(firestore, 'users', appUser.uid);
     const updatedData = { name };
 
-    updateDoc(userRef, updatedData)
-        .then(() => {
-            toast({
-              title: "Nama Disimpan",
-              description: "Nama profil Anda telah berhasil diperbarui.",
-            });
-        })
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: `users/${appUser.uid}`,
-                operation: 'update',
-                requestResourceData: updatedData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
+    try {
+        await updateDoc(userRef, updatedData)
+        toast({
+          title: "Nama Disimpan",
+          description: "Nama profil Anda telah berhasil diperbarui.",
         });
+    } catch(e) {
+        console.error(e);
+    }
   };
 
   const handlePhotoChange = async (newUrl: string) => {
@@ -399,21 +376,15 @@ export default function SettingsPage() {
     const userRef = doc(firestore, 'users', appUser.uid);
     const updatedData = { avatarUrl: newUrl };
 
-    updateDoc(userRef, updatedData)
-        .then(() => {
-            toast({
-                title: "Foto Profil Diperbarui",
-                description: "Foto profil Anda telah berhasil diubah.",
-            })
+    try {
+        await updateDoc(userRef, updatedData);
+        toast({
+            title: "Foto Profil Diperbarui",
+            description: "Foto profil Anda telah berhasil diubah.",
         })
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: `users/${appUser.uid}`,
-                operation: 'update',
-                requestResourceData: updatedData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        });
+    } catch(e) {
+        console.error(e);
+    }
   }
   
   const roleVariant = {

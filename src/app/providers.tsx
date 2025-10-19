@@ -2,7 +2,7 @@
 'use client';
 
 import { ThemeProvider } from '@/context/theme-provider';
-import { FirebaseClientProvider } from '@/lib/firebase/client-provider';
+import { AppProvider as VisitDataAppProvider } from './provider';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -12,9 +12,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       enableSystem
       disableTransitionOnChange
     >
-      <FirebaseClientProvider>
+      <VisitDataAppProvider>
         {children}
-      </FirebaseClientProvider>
+      </VisitDataAppProvider>
     </ThemeProvider>
   );
 }

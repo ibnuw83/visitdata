@@ -50,7 +50,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useFirestore, useCollection, errorEmitter, FirestorePermissionError, AuthError, useAuth, useUser } from '@/firebase';
+import { useFirestore, useCollection, useAuth, useUser } from '@/firebase';
 import { collection, doc, updateDoc, deleteDoc, setDoc, query } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -160,9 +160,9 @@ export default function UsersPage() {
   const { appUser } = useUser();
 
   const usersQuery = useMemo(() => {
-    if (!firestore || appUser?.role !== 'admin') return null;
+    if (!firestore) return null;
     return query(collection(firestore, 'users'));
-  }, [firestore, appUser?.role]);
+  }, [firestore]);
   
   const destinationsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -174,14 +174,12 @@ export default function UsersPage() {
   
   const { toast } = useToast();
 
-  // State for Add User Dialog
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'pengelola'>('pengelola');
   const [newUserAssignedLocations, setNewUserAssignedLocations] = useState<string[]>([]);
   
-  // State for Edit User Dialog
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [editedUserName, setEditedUserName] = useState('');
@@ -214,42 +212,21 @@ export default function UsersPage() {
         assignedLocations: editedUserRole === 'admin' ? [] : editedUserAssignedLocations
     };
 
-    updateDoc(userRef, updatedData)
-      .then(() => {
-        setIsEditDialogOpen(false);
-        toast({ title: "Pengguna Diperbarui", description: `Data untuk ${editedUserName} telah diperbarui.`});
-      })
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: `users/${editingUser.uid}`,
-          operation: 'update',
-          requestResourceData: updatedData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      });
+    await updateDoc(userRef, updatedData);
+    setIsEditDialogOpen(false);
+    toast({ title: "Pengguna Diperbarui", description: `Data untuk ${editedUserName} telah diperbarui.`});
   }
 
   const handleDeleteUser = async (userId: string) => {
     if (!firestore || !users) return;
     const userToDelete = users.find(u => u.uid === userId);
     if (!userToDelete) return;
-
     const userRef = doc(firestore, 'users', userId);
-    
-    deleteDoc(userRef)
-      .then(() => {
-        toast({
-          title: "Pengguna Dihapus",
-          description: `Pengguna "${userToDelete.name}" telah berhasil dihapus.`,
-        });
-      })
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: `users/${userId}`,
-          operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      });
+    await deleteDoc(userRef);
+    toast({
+      title: "Pengguna Dihapus",
+      description: `Pengguna "${userToDelete.name}" telah berhasil dihapus.`,
+    });
   }
   
   const resetAddForm = () => {
@@ -288,27 +265,21 @@ export default function UsersPage() {
         };
         
         const userDocRef = doc(firestore, "users", user.uid);
+        await setDoc(userDocRef, newUserProfile);
         
-        setDoc(userDocRef, newUserProfile)
-          .then(() => {
-            toast({
-              title: "Pengguna Berhasil Dibuat",
-              description: `Pengguna ${newUserProfile.name} telah ditambahkan dengan kata sandi sementara.`,
-            });
-            setIsAddDialogOpen(false);
-            resetAddForm();
-          })
-          .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-              path: userDocRef.path,
-              operation: 'create',
-              requestResourceData: newUserProfile,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-          });
+        toast({
+          title: "Pengguna Berhasil Dibuat",
+          description: `Pengguna ${newUserProfile.name} telah ditambahkan dengan kata sandi sementara.`,
+        });
+        setIsAddDialogOpen(false);
+        resetAddForm();
     } catch (e: any) {
-        const authError = new AuthError(e.code, e.message);
-        errorEmitter.emit('auth-error', authError);
+        console.error("User creation failed:", e);
+        toast({
+            variant: "destructive",
+            title: "Gagal Membuat Pengguna",
+            description: e.message || "Terjadi kesalahan yang tidak diketahui."
+        });
     }
   };
 
@@ -327,8 +298,7 @@ export default function UsersPage() {
     return locationIds.map(id => destinations.find(d => d.id === id)?.name).filter(Boolean).join(', ');
   }
 
-  // AppLayout now guarantees that appUser exists and is loaded.
-  // We can safely check the role without causing a flash of incorrect content.
+  // AppLayout now guarantees appUser exists.
   if (appUser?.role !== 'admin') {
     return (
         <div className="flex flex-col gap-8">

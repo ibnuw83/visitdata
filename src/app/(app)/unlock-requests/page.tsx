@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { MoreHorizontal, CheckCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useUser, useFirestore, useCollection } from '@/firebase';
 import { collection, doc, updateDoc, writeBatch, query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -20,9 +20,9 @@ export default function UnlockRequestsPage() {
   const firestore = useFirestore();
 
   const requestsQuery = useMemo(() => {
-    if (!firestore || appUser?.role !== 'admin') return null;
+    if (!firestore) return null;
     return query(collection(firestore, 'unlock-requests'));
-  }, [firestore, appUser?.role]);
+  }, [firestore]);
   
   const { data: unlockRequests, loading: requestsLoading, setData: setUnlockRequests } = useCollection<UnlockRequest>(requestsQuery);
   const { toast } = useToast();
@@ -40,7 +40,6 @@ export default function UnlockRequestsPage() {
     if (!targetRequest) return;
     
     const batch = writeBatch(firestore);
-    const batchOperations: Record<string, any> = {};
 
     const requestRef = doc(firestore, 'unlock-requests', requestId);
     const requestUpdateData = {
@@ -48,55 +47,39 @@ export default function UnlockRequestsPage() {
         processedBy: appUser.uid,
     };
     batch.update(requestRef, requestUpdateData);
-    batchOperations[requestRef.path] = requestUpdateData;
 
     if (newStatus === 'approved') {
         const visitDataId = `${targetRequest.destinationId}-${targetRequest.year}-${targetRequest.month}`;
         const visitDocRef = doc(firestore, 'destinations', targetRequest.destinationId, 'visits', visitDataId);
         const visitDataUpdate = { locked: false };
         batch.update(visitDocRef, visitDataUpdate);
-        batchOperations[visitDocRef.path] = visitDataUpdate;
     }
 
-    batch.commit()
-      .then(() => {
-        // Optimistically update UI
-        setUnlockRequests(prevRequests => 
-          (prevRequests || []).map(req => 
-            req.id === requestId ? { ...req, status: newStatus, processedBy: appUser.uid } : req
-          )
-        );
+    await batch.commit();
 
-        toast({
-          title: `Permintaan ${newStatus === 'approved' ? 'Disetujui' : 'Ditolak'}`,
-          description: `Status permintaan telah diperbarui.`,
-        });
-      })
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: `unlock-requests/${requestId} and related visit data`,
-          operation: 'update',
-          requestResourceData: batchOperations,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      });
+    setUnlockRequests(prevRequests => 
+      (prevRequests || []).map(req => 
+        req.id === requestId ? { ...req, status: newStatus, processedBy: appUser.uid } : req
+      )
+    );
+
+    toast({
+      title: `Permintaan ${newStatus === 'approved' ? 'Disetujui' : 'Ditolak'}`,
+      description: `Status permintaan telah diperbarui.`,
+    });
   }
 
   const sortedRequests = useMemo(() => {
     if (!unlockRequests) return [];
     return [...unlockRequests].sort((a, b) => {
-        // Sort by status first (pending comes first), then by timestamp
         if (a.status === 'pending' && b.status !== 'pending') return -1;
         if (a.status !== 'pending' && b.status === 'pending') return 1;
-        // Timestamps might be null for Firestore server timestamps initially, handle that
         const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
         const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
         return timeB - timeA;
     });
   }, [unlockRequests]);
 
-  // AppLayout now guarantees appUser is loaded and available.
-  // We can safely check the role without a flash of incorrect content.
   if (appUser?.role !== 'admin') {
     return (
         <div className="flex flex-col gap-8">
