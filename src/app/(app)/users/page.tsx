@@ -78,7 +78,7 @@ function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={`w-full justify-between h-auto ${selected.length > 0 ? 'h-auto' : 'h-10'}`}
+          className={cn(`w-full justify-between`, selected.length > 1 ? 'h-auto' : 'h-10', className)}
         >
           <div className="flex gap-1 flex-wrap">
             {selected.length > 0 ? selected.map((item) => {
@@ -96,10 +96,21 @@ function MultiSelect({
                     }}
                   >
                     {label}
-                    <span className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    <button
+                      className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                              handleUnselect(item);
+                          }
+                      }}
+                      onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                      }}
+                      onClick={() => handleUnselect(item)}
                     >
                       <XCircle className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                    </span>
+                    </button>
                   </Badge>
                 )
             }) : "Pilih destinasi..."}
@@ -577,5 +588,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    

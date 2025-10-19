@@ -16,13 +16,14 @@ import { collection, query, where, onSnapshot, Unsubscribe, Firestore } from 'fi
 
 /**
  * Custom hook to fetch all visit data from multiple destinations in real-time.
- * This avoids using a collectionGroup query which can be problematic for real-time updates with 'in' filters.
+ * This hook is now safe and will only run when it has a non-empty array of destination IDs.
  */
 function useAllVisits(firestore: Firestore | null, destinationIds: string[]) {
     const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Critical safety check: Do not run if firestore is not ready or if there are no destination IDs.
         if (!firestore || destinationIds.length === 0) {
             setLoading(false);
             setAllVisitData([]);
@@ -31,34 +32,45 @@ function useAllVisits(firestore: Firestore | null, destinationIds: string[]) {
 
         setLoading(true);
         const allData: { [key: string]: VisitData[] } = {};
-        let initialLoadCompleted = false;
         const unsubscribers: Unsubscribe[] = [];
+
+        // Set a timeout to mark loading as finished if some listeners don't return.
+        const loadingTimeout = setTimeout(() => {
+            setLoading(false);
+        }, 5000); // 5-second timeout
+
+        const checkCompletion = () => {
+            if (Object.keys(allData).length === destinationIds.length) {
+                setLoading(false);
+                clearTimeout(loadingTimeout);
+            }
+        };
 
         destinationIds.forEach(destId => {
             const visitsRef = collection(firestore, 'destinations', destId, 'visits');
             const unsubscribe = onSnapshot(visitsRef, (snapshot) => {
                 allData[destId] = snapshot.docs.map(doc => ({...doc.data(), id: doc.id} as VisitData));
                 
-                // Combine all data from all listeners
                 const combinedData = Object.values(allData).flat();
                 setAllVisitData(combinedData);
                 
-                // Consider loading finished after the first batch from all listeners
-                if (!initialLoadCompleted && Object.keys(allData).length === destinationIds.length) {
-                    setLoading(false);
-                    initialLoadCompleted = true;
-                }
+                checkCompletion();
+
             }, (error) => {
                 console.error(`Error fetching visits for destination ${destId}:`, error);
-                setLoading(false); // Stop loading on error
+                allData[destId] = []; // On error, assume no data for this listener
+                checkCompletion();
             });
             unsubscribers.push(unsubscribe);
         });
 
         return () => {
             unsubscribers.forEach(unsub => unsub());
+            clearTimeout(loadingTimeout);
         };
-    }, [firestore, destinationIds]);
+    // Re-run this effect ONLY if the stringified version of destinationIds changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [firestore, JSON.stringify(destinationIds)]);
 
     return { data: allVisitData, loading };
 }
@@ -76,18 +88,18 @@ export default function DashboardPage() {
         let q = query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
 
         if (appUser.role === 'pengelola') {
-            if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-                q = query(q, where('id', 'in', appUser.assignedLocations));
-            } else {
-                // Return a query that will yield no results if a manager has no assigned locations.
+            // Safety check: if a manager has no assigned locations, return a query for a non-existent ID.
+            if (!appUser.assignedLocations || appUser.assignedLocations.length === 0) {
                 return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
             }
+            q = query(q, where('id', 'in', appUser.assignedLocations));
         }
         return q;
     }, [firestore, appUser]);
 
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     
+    // Stabilize destinationIds to prevent re-renders
     const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
 
     // Use the new custom hook for fetching visits

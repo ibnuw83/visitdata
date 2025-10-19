@@ -30,11 +30,11 @@ export default function ReportsPage() {
     let q = query(collection(firestore, 'destinations'));
     
     if (appUser.role === 'pengelola') {
-      if (appUser.assignedLocations && appUser.assignedLocations.length > 0) {
-          q = query(q, where('id', 'in', appUser.assignedLocations));
-      } else {
+      // Safety check: if a manager has no assigned locations, return a query for a non-existent ID.
+      if (!appUser.assignedLocations || appUser.assignedLocations.length === 0) {
           return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
       }
+      q = query(q, where('id', 'in', appUser.assignedLocations));
     }
     return q;
   }, [firestore, appUser]);
@@ -43,9 +43,9 @@ export default function ReportsPage() {
   const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
 
   const visitsQuery = useMemoFirebase(() => {
+      // Critical safety check: Do not run collectionGroup query with an empty 'in' array.
       if (!firestore || destinationIds.length === 0) return null;
-      // Using 'in' clause with collectionGroup is not ideal for real-time, but for reports it's often acceptable.
-      // If real-time becomes an issue, a multi-query approach like the dashboard would be needed.
+      
       return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
   }, [firestore, destinationIds]);
 

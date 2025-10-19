@@ -31,12 +31,14 @@ function DashboardContent() {
     const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
 
     const visitsQuery = useMemoFirebase(() => {
+        // Critical safety check: Do not run collectionGroup query with an empty 'in' array.
         if (!firestore || destinationIds.length === 0) return null;
         return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
     }, [firestore, destinationIds]);
 
     const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
     
+    // Loading is true if destinations are loading, OR if we have destination IDs but visits are still loading.
     const loading = destinationsLoading || (destinationIds.length > 0 && visitsLoading);
 
     const currentYear = useMemo(() => new Date().getFullYear(), []);
