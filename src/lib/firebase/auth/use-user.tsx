@@ -18,10 +18,10 @@ export const useUser = () => {
   
   const { data: appUser, loading: isAppUserLoading, error } = useDoc<AppUser>(userDocRef);
 
-  // The isLoading flag is true if the initial auth check is running,
-  // OR if we have an authUser but are still waiting for the Firestore profile.
-  // This provides a single, reliable loading state for the entire user object.
-  const isLoading = isAuthLoading || (!!authUser && isAppUserLoading);
+  // isLoading is true if the initial auth check is running,
+  // OR if we have an authenticated user but their Firestore profile has not yet loaded.
+  // This prevents rendering children until the full user profile (including roles) is available.
+  const isLoading = isAuthLoading || (!!authUser && !appUser);
 
   return {
     user: authUser,
