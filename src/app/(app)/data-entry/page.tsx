@@ -32,6 +32,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, getDoc, collectionGroup } from 'firebase/firestore';
 
@@ -684,11 +685,11 @@ export default function DataEntryPage() {
                           <PlusCircle className="h-4 w-4" />
                       </Button>
                       <AlertDialog>
-                          <DialogTrigger asChild>
+                          <AlertDialogTrigger asChild>
                               <Button variant="destructive" size="icon" disabled={availableYears.length <= 1}>
                                   <Trash2 className="h-4 w-4" />
                               </Button>
-                          </DialogTrigger>
+                          </AlertDialogTrigger>
                           <AlertDialogContent>
                               <AlertDialogHeader>
                                   <AlertDialogTitle>Hapus Semua Data Tahun {selectedYear}?</AlertDialogTitle>
