@@ -16,7 +16,7 @@ import { collection, doc, writeBatch } from 'firebase/firestore';
 
 
 export default function UnlockRequestsPage() {
-  const { appUser } = useUser();
+  const { appUser, isLoading: isAppUserLoading } = useUser();
   const firestore = useFirestore();
 
   const requestsQuery = useMemoFirebase(() => {
@@ -76,13 +76,29 @@ export default function UnlockRequestsPage() {
     return [...unlockRequests].sort((a, b) => {
         if (a.status === 'pending' && b.status !== 'pending') return -1;
         if (a.status !== 'pending' && b.status === 'pending') return 1;
-        // Firebase Timestamps might not be loaded yet, handle safely
         const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
         const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
         return timeB - timeA;
     });
   }, [unlockRequests]);
   
+  if (isAppUserLoading) {
+      return null; // Or a loading skeleton
+  }
+
+  if (appUser?.role !== 'admin') {
+      return (
+          <div className="flex flex-col gap-8">
+              <div className="flex flex-col gap-2">
+                  <h1 className="font-headline text-3xl font-bold tracking-tight">Akses Ditolak</h1>
+                  <p className="text-muted-foreground">
+                      Anda tidak memiliki izin untuk mengakses halaman ini.
+                  </p>
+              </div>
+          </div>
+      )
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -168,5 +184,3 @@ export default function UnlockRequestsPage() {
     </div>
   );
 }
-
-    

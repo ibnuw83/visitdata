@@ -53,6 +53,7 @@ import {
 import { useFirestore, useCollection, useAuth, useUser, useMemoFirebase } from '@/firebase';
 import { collection, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function MultiSelect({
   options,
@@ -153,10 +154,37 @@ function MultiSelect({
   );
 }
 
+function PageSkeleton() {
+    return (
+        <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-2">
+                <Skeleton className="h-9 w-32" />
+                <Skeleton className="h-5 w-64" />
+            </div>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="space-y-1.5">
+                        <Skeleton className="h-7 w-40" />
+                        <Skeleton className="h-5 w-80" />
+                    </div>
+                    <Skeleton className="h-10 w-44" />
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
 export default function UsersPage() {
   const firestore = useFirestore();
   const auth = useAuth();
-  const { appUser } = useUser();
+  const { appUser, isLoading: isAppUserLoading } = useUser();
 
   const usersQuery = useMemoFirebase(() => {
     if (!firestore || appUser?.role !== 'admin') return null;
@@ -170,7 +198,6 @@ export default function UsersPage() {
 
   const { data: users, loading: usersLoading, error: usersError } = useCollection<AppUser>(usersQuery);
   const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-  const loading = usersLoading || destinationsLoading;
   
   const { toast } = useToast();
 
@@ -301,6 +328,24 @@ export default function UsersPage() {
     return locationIds.map(id => destinations.find(d => d.id === id)?.name).filter(Boolean).join(', ');
   }
 
+  // Handle loading and access denial
+  if (isAppUserLoading || destinationsLoading) {
+      return <PageSkeleton />
+  }
+
+  if (appUser?.role !== 'admin') {
+      return (
+          <div className="flex flex-col gap-8">
+              <div className="flex flex-col gap-2">
+                  <h1 className="font-headline text-3xl font-bold tracking-tight">Akses Ditolak</h1>
+                  <p className="text-muted-foreground">
+                      Anda tidak memiliki izin untuk mengakses halaman ini.
+                  </p>
+              </div>
+          </div>
+      )
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -406,7 +451,7 @@ export default function UsersPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {loading ? (
+                    {usersLoading ? (
                       <TableRow key="loading-row">
                         <TableCell colSpan={6} className="h-24 text-center">
                           Memuat data pengguna...
@@ -473,14 +518,14 @@ export default function UsersPage() {
                         </TableRow>
                       )
                     })}
-                     {!loading && usersError && (
+                     {!usersLoading && usersError && (
                         <TableRow>
                             <TableCell colSpan={6} className="h-24 text-center text-destructive">
                                 Gagal memuat data: {usersError.message}
                             </TableCell>
                         </TableRow>
                     )}
-                    {!loading && !usersError && (!users || users.length === 0) && (
+                    {!usersLoading && !usersError && (!users || users.length === 0) && appUser?.role === 'admin' && (
                         <TableRow>
                             <TableCell colSpan={6} className="h-24 text-center">
                                 Tidak ada pengguna yang ditemukan.
@@ -562,5 +607,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-    

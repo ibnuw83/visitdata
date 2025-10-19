@@ -1,7 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
-import { getAuth } from 'firebase-admin/auth';
+import { adminDb, adminAuth } from '@/lib/firebase/admin';
 import {
   seedUsers,
   seedCategories,
@@ -13,37 +12,34 @@ import type { Destination } from '@/lib/types';
 
 export async function GET() {
   try {
-    const auth = getAuth();
     const batch = adminDb.batch();
 
     console.log('Starting user authentication seeding...');
     
-    // Create Auth users and collect their UIDs
-    const userRecordsPromises = seedUsers.map(async (user) => {
+    const usersWithUids: { uid: string; name: string; email: string; role: 'admin' | 'pengelola'; assignedLocations: string[]; status: 'aktif' | 'nonaktif'; avatarUrl: string; }[] = [];
+
+    for (const user of seedUsers) {
         let uid: string;
         try {
-            const existingUser = await auth.getUserByEmail(user.email);
-            console.log(`User ${user.email} already exists. Using existing UID: ${existingUser.uid}`);
+            const existingUser = await adminAuth.getUserByEmail(user.email);
             uid = existingUser.uid;
+            console.log(`User ${user.email} already exists. Using existing UID: ${uid}`);
         } catch (error: any) {
             if (error.code === 'auth/user-not-found') {
-                const userRecord = await auth.createUser({
+                const userRecord = await adminAuth.createUser({
                     email: user.email,
                     password: "password123",
                     displayName: user.name,
                     photoURL: user.avatarUrl,
                 });
-                console.log(`Successfully created new auth user: ${user.email} with UID: ${userRecord.uid}.`);
                 uid = userRecord.uid;
+                console.log(`Successfully created new auth user: ${user.email} with UID: ${uid}.`);
             } else {
-                // Re-throw other auth errors
-                throw error;
+                throw error; // Re-throw other auth errors
             }
         }
-        return { ...user, uid };
-    });
-    
-    const usersWithUids = await Promise.all(userRecordsPromises);
+        usersWithUids.push({ ...user, uid });
+    }
     console.log('Finished auth user creation/retrieval.');
 
     // Seed Destinations first to get their IDs
@@ -57,7 +53,6 @@ export async function GET() {
     });
     console.log('Destinations queued for batch.');
 
-    // Seed Firestore User Docs and Admins collection
     console.log('Seeding Firestore user documents and admin roles...');
     for (const user of usersWithUids) {
         const isPengelola = user.role === 'pengelola';
@@ -72,7 +67,6 @@ export async function GET() {
         const userRef = adminDb.collection('users').doc(user.uid);
         batch.set(userRef, { ...user, assignedLocations: assignedLocationsIds });
 
-        // If the user is an admin, add them to the 'admins' collection
         if (user.role === 'admin') {
             const adminRef = adminDb.collection('admins').doc(user.uid);
             batch.set(adminRef, { role: 'admin' });
@@ -114,7 +108,6 @@ export async function GET() {
     }, { merge: true });
     console.log('App settings queued for batch.');
 
-
     console.log('Committing batch...');
     await batch.commit();
     console.log('Batch committed successfully.');
@@ -132,5 +125,3 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to seed database', details: error.message }, { status: 500 });
   }
 }
-
-    
