@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -76,8 +75,8 @@ function AppSettingsCard() {
     const handleExportData = async () => {
         if (!firestore) return;
         setIsExporting(true);
-        toast({ title: "Mengekspor data...", description: "Harap tunggu, proses ini mungkin memakan waktu beberapa saat." });
-
+        toast({ title: "Mengekspor data...", description: "Harap tunggu, ini mungkin butuh beberapa saat." });
+    
         const exportedData: Record<string, any> = {};
         const collectionsToExport: { key: string, query: Query<unknown> }[] = [
             { key: 'users', query: collection(firestore, 'users') },
@@ -85,20 +84,33 @@ function AppSettingsCard() {
             { key: 'destinations', query: collection(firestore, 'destinations') },
             { key: 'unlockRequests', query: collection(firestore, 'unlock-requests') },
             { key: 'countries', query: collection(firestore, 'countries') },
-            { key: 'visits', query: collectionGroup(firestore, 'visits') },
         ];
-
+    
         try {
+            // Export simple collections
             for (const { key, query } of collectionsToExport) {
                 const snapshot = await getDocs(query);
                 exportedData[key] = snapshot.docs.map(d => d.data());
             }
-
+    
+            // Handle 'visits' subcollection separately and safely
+            const allVisits: VisitData[] = [];
+            if (exportedData.destinations && exportedData.destinations.length > 0) {
+                for (const dest of exportedData.destinations) {
+                    const visitsRef = collection(firestore, 'destinations', dest.id, 'visits');
+                    const visitsSnapshot = await getDocs(visitsRef);
+                    visitsSnapshot.forEach(visitDoc => {
+                        allVisits.push(visitDoc.data() as VisitData);
+                    });
+                }
+            }
+            exportedData.visits = allVisits;
+    
             const appSettingsDoc = await getDoc(doc(firestore, 'settings/app'));
             if (appSettingsDoc.exists()) {
                 exportedData.appSettings = appSettingsDoc.data();
             }
-
+    
             const jsonString = JSON.stringify(exportedData, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -107,12 +119,12 @@ function AppSettingsCard() {
             a.download = `backup-visitdata-hub-${new Date().toISOString().split('T')[0]}.json`;
             a.click();
             URL.revokeObjectURL(url);
-
+    
             toast({ title: "Ekspor Berhasil", description: "Data Anda telah diunduh sebagai file JSON." });
-
+    
         } catch (error: any) {
-            const permissionError = new FirestorePermissionError({
-                path: error.customData?.failedCollection || 'multiple collections',
+             const permissionError = new FirestorePermissionError({
+                path: 'multiple collections',
                 operation: 'list',
                 details: `Gagal mengekspor data. Periksa izin baca Anda. Penyebab: ${error.message}`,
             });
@@ -487,4 +499,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
