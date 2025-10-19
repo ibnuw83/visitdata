@@ -77,50 +77,31 @@ function AppSettingsCard() {
         if (!firestore) return;
         setIsExporting(true);
         toast({ title: "Mengekspor data...", description: "Harap tunggu, proses ini mungkin memakan waktu beberapa saat." });
-    
+
         const exportedData: Record<string, any> = {};
-        const collectionsToExport: Record<string, Query<unknown>> = {
-            users: collection(firestore, 'users'),
-            categories: collection(firestore, 'categories'),
-            destinations: collection(firestore, 'destinations'),
-            unlockRequests: collection(firestore, 'unlock-requests'),
-            countries: collection(firestore, 'countries'),
-            visits: collectionGroup(firestore, 'visits'),
-        };
-    
+        const collectionsToExport: { key: string, query: Query<unknown> }[] = [
+            { key: 'users', query: collection(firestore, 'users') },
+            { key: 'categories', query: collection(firestore, 'categories') },
+            { key: 'destinations', query: collection(firestore, 'destinations') },
+            { key: 'unlockRequests', query: collection(firestore, 'unlock-requests') },
+            { key: 'countries', query: collection(firestore, 'countries') },
+            { key: 'visits', query: collectionGroup(firestore, 'visits') },
+        ];
+
         try {
-            for (const [key, coll] of Object.entries(collectionsToExport)) {
-                try {
-                    const snapshot = await getDocs(coll);
-                    exportedData[key] = snapshot.docs.map(d => d.data());
-                } catch (error) {
-                     const permissionError = new FirestorePermissionError({
-                        path: key, // collection name
-                        operation: 'list',
-                        details: `Gagal mengekspor koleksi '${key}'.`,
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
-                    setIsExporting(false);
-                    return; // Stop the export process
-                }
+            // Fetch all collections
+            for (const { key, query } of collectionsToExport) {
+                const snapshot = await getDocs(query);
+                exportedData[key] = snapshot.docs.map(d => d.data());
             }
-    
-            try {
-                const appSettingsDoc = await getDoc(doc(firestore, 'settings/app'));
-                if (appSettingsDoc.exists()) {
-                    exportedData.appSettings = appSettingsDoc.data();
-                }
-            } catch (error) {
-                 const permissionError = new FirestorePermissionError({
-                    path: 'settings/app',
-                    operation: 'get',
-                    details: 'Gagal mengekspor pengaturan aplikasi.',
-                });
-                errorEmitter.emit('permission-error', permissionError);
-                setIsExporting(false);
-                return; // Stop the export process
+
+            // Fetch app settings separately
+            const appSettingsDoc = await getDoc(doc(firestore, 'settings/app'));
+            if (appSettingsDoc.exists()) {
+                exportedData.appSettings = appSettingsDoc.data();
             }
-    
+
+            // If all fetches are successful, create and download the file
             const jsonString = JSON.stringify(exportedData, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -129,17 +110,22 @@ function AppSettingsCard() {
             a.download = `backup-visitdata-hub-${new Date().toISOString().split('T')[0]}.json`;
             a.click();
             URL.revokeObjectURL(url);
-    
+
             toast({ title: "Ekspor Berhasil", description: "Data Anda telah diunduh sebagai file JSON." });
-    
+
         } catch (error: any) {
-            // This is a fallback for any other unexpected errors during the process.
-            const genericError = new FirestorePermissionError({
-                path: 'unknown',
+            // This single catch block will handle any failure from any of the getDocs/getDoc calls
+            let failedCollection = 'unknown';
+            // A simple way to guess which collection failed based on what was last attempted
+            // Note: this is an approximation. The underlying error is what matters.
+            const queryPath = error.customData?.path || '(unknown path)';
+
+            const permissionError = new FirestorePermissionError({
+                path: queryPath,
                 operation: 'list',
-                details: error.message || 'Terjadi kesalahan tidak terduga saat mengekspor.',
+                details: `Gagal mengekspor data. Periksa izin baca Anda. Penyebab: ${error.message}`,
             });
-            errorEmitter.emit('permission-error', genericError);
+            errorEmitter.emit('permission-error', permissionError);
         } finally {
             setIsExporting(false);
         }
@@ -510,3 +496,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+
