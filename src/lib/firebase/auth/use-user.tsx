@@ -18,6 +18,11 @@ export const useUser = () => {
   
   const { data: appUser, loading: loadingUser, error } = useDoc<AppUser>(userDocRef);
 
+  // This is the crucial fix.
+  // The overall loading state is true if:
+  // 1. The initial auth check is running (loadingAuth is true).
+  // 2. The auth check is done and we have an authUser, but we are still waiting
+  //    for the corresponding Firestore user profile to load (loadingUser is true).
   const isLoading = loadingAuth || (!!authUser && loadingUser);
 
   return {
