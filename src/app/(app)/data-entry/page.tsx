@@ -117,67 +117,53 @@ const colorPalette = [
 ];
 
 function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRequest, colorClass, selectedYear, onManualSave, hasUnsavedChanges, pendingChanges }: { destination: Destination, onDataChange: (updatedData: VisitData) => void, onLockChange: (updatedData: VisitData) => void, onNewRequest: (req: Omit<UnlockRequest, 'id' | 'timestamp'>) => void, colorClass: string, selectedYear: number, onManualSave: () => void, hasUnsavedChanges: boolean, pendingChanges: Record<string, VisitData> }) {
-  const [data, setData] = useState<VisitData[]>([]);
   const { appUser } = useUser();
   const firestore = useFirestore();
-  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
+  const [accordionValue, setAccordionValue] = useState<string[]>([]);
+  const isAccordionOpen = accordionValue.includes(destination.id);
 
-  useEffect(() => {
-    const fetchData = async () => {
-        if (!isAccordionOpen || !firestore || !appUser) return;
+  const visitsQuery = useMemoFirebase(() => {
+    if (!firestore || !isAccordionOpen) return null;
+    return query(collection(firestore, 'destinations', destination.id, 'visits'), where('year', '==', selectedYear));
+  }, [firestore, destination.id, selectedYear, isAccordionOpen]);
+
+  const { data: fetchedVisitData } = useCollection<VisitData>(visitsQuery);
+  
+  const displayData = useMemo(() => {
+    return months.map((monthName, index) => {
+        const monthIndex = index + 1;
+        const id = `${destination.id}-${selectedYear}-${monthIndex}`;
         
-        try {
-            const visitsRef = collection(firestore, 'destinations', destination.id, 'visits');
-            const q = query(visitsRef, where('year', '==', selectedYear));
-            const snapshot = await getDocs(q);
-            const fetchedVisitData = snapshot.docs.map(doc => doc.data() as VisitData);
-            
-            const fullYearData = months.map((monthName, index) => {
-                const monthIndex = index + 1;
-                const id = `${destination.id}-${selectedYear}-${monthIndex}`;
-                
-                // Prioritize pending changes, then fetched data, then create placeholder
-                if (pendingChanges[id]) {
-                    return pendingChanges[id];
-                }
-
-                const existingData = fetchedVisitData.find(d => d.month === monthIndex);
-                if (existingData) return existingData;
-                
-                const currentYear = new Date().getFullYear();
-                const currentMonth = new Date().getMonth() + 1;
-                const isFutureOrLocked = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
-
-                return {
-                    id: id,
-                    destinationId: destination.id,
-                    year: selectedYear,
-                    month: monthIndex,
-                    monthName: monthName,
-                    wisnus: 0,
-                    wisman: 0,
-                    wismanDetails: [],
-                    totalVisitors: 0,
-                    locked: appUser?.role === 'admin' ? true : isFutureOrLocked,
-                };
-            });
-            setData(fullYearData.sort((a,b) => a.month - b.month));
-        } catch (serverError) {
-            const permissionError = new FirestorePermissionError({
-                path: `destinations/${destination.id}/visits`,
-                operation: 'list',
-                requestResourceData: { year: selectedYear }
-            });
-            errorEmitter.emit('permission-error', permissionError);
+        if (pendingChanges[id]) {
+            return pendingChanges[id];
         }
-    };
-    
-    fetchData();
-  }, [isAccordionOpen, firestore, appUser, destination.id, selectedYear, pendingChanges]);
+
+        const existingData = fetchedVisitData?.find(d => d.month === monthIndex);
+        if (existingData) {
+            return existingData;
+        }
+        
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth() + 1;
+        const isFutureOrLocked = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
+
+        return {
+            id: id,
+            destinationId: destination.id,
+            year: selectedYear,
+            month: monthIndex,
+            monthName: monthName,
+            wisnus: 0,
+            wisman: 0,
+            wismanDetails: [],
+            totalVisitors: 0,
+            locked: appUser?.role === 'admin' ? true : isFutureOrLocked,
+        };
+    }).sort((a, b) => a.month - b.month);
+  }, [fetchedVisitData, pendingChanges, destination.id, selectedYear, appUser?.role]);
   
   const handleLocalDataChange = (monthIndex: number, field: 'wisnus', value: number) => {
-    const newData = [...data];
-    const monthData = newData.find(d => d.month === monthIndex + 1);
+    const monthData = displayData.find(d => d.month === monthIndex + 1);
 
     if (monthData) {
         const updatedMonthData: VisitData = {
@@ -192,8 +178,7 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
   };
 
   const handleWismanDetailsChange = (monthIndex: number, wismanDetails: WismanDetail[]) => {
-     const newData = [...data];
-     const monthData = newData.find(d => d.month === monthIndex + 1);
+     const monthData = displayData.find(d => d.month === monthIndex + 1);
      if (monthData) {
         const wisman = wismanDetails.reduce((sum, detail) => sum + (detail.count || 0), 0);
         const updatedMonthData: VisitData = {
@@ -209,7 +194,7 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
   }
 
   const handleLockChange = (monthIndex: number, locked: boolean) => {
-    const monthData = data.find(d => d.month === monthIndex + 1);
+    const monthData = displayData.find(d => d.month === monthIndex + 1);
     if (monthData) {
         const updatedMonthData: VisitData = { ...monthData, locked };
         if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
@@ -219,24 +204,18 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
   }
 
   const yearlyTotals = useMemo(() => {
-    const currentData = months.map((_, index) => {
-        const monthIndex = index + 1;
-        const id = `${destination.id}-${selectedYear}-${monthIndex}`;
-        return pendingChanges[id] || data.find(d => d.month === monthIndex);
-    });
-
-    return currentData.reduce((acc, curr) => {
+    return displayData.reduce((acc, curr) => {
         if (!curr) return acc;
         acc.wisnus += curr.wisnus || 0;
         acc.wisman += curr.wisman || 0;
         acc.totalVisitors += curr.totalVisitors || 0;
         return acc;
     }, { wisnus: 0, wisman: 0, totalVisitors: 0});
-  }, [data, pendingChanges, destination.id, selectedYear]);
+  }, [displayData]);
 
   return (
-    <AccordionItem value={destination.id}>
-      <AccordionTrigger className="hover:no-underline" onClick={() => setIsAccordionOpen(prev => !prev)}>
+    <AccordionItem value={destination.id} onFocus={() => setAccordionValue([destination.id])} onClick={() => setAccordionValue(isAccordionOpen ? [] : [destination.id])}>
+      <AccordionTrigger className="hover:no-underline">
         <div className="flex w-full items-center justify-between pr-4">
           <span className={cn("font-semibold", colorClass)}>{destination.name} - {selectedYear}</span>
           <div className="flex items-center gap-4 text-sm font-normal">
@@ -268,34 +247,31 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {months.map((monthName, index) => {
-                        const monthData = data.find(d => d.month === index + 1);
-                        const displayData = (monthData && pendingChanges[monthData.id]) || monthData;
-
-                        if (!displayData) return null;
-                        const isLocked = displayData.locked || false;
+                    {displayData.map((monthData, index) => {
+                        if (!monthData) return null;
+                        const isLocked = monthData.locked || false;
 
                         return (
                             <TableRow key={index} className={isLocked ? 'bg-muted/30' : ''}>
-                                <TableCell className="font-medium">{monthName}</TableCell>
+                                <TableCell className="font-medium">{monthData.monthName}</TableCell>
                                 <TableCell>
                                     <Input
                                         type="number"
                                         className="h-8 w-24 border-0 shadow-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:bg-transparent disabled:opacity-70"
-                                        value={displayData.wisnus || 0}
+                                        value={monthData.wisnus || 0}
                                         onChange={(e) => handleLocalDataChange(index, 'wisnus', parseInt(e.target.value, 10) || 0)}
                                         disabled={isLocked}
                                     />
                                 </TableCell>
                                 <TableCell>
                                     <WismanPopover 
-                                        details={displayData.wismanDetails || []}
-                                        totalWisman={displayData.wisman || 0}
+                                        details={monthData.wismanDetails || []}
+                                        totalWisman={monthData.wisman || 0}
                                         onSave={(newDetails) => handleWismanDetailsChange(index, newDetails)}
                                         disabled={isLocked}
                                     />
                                 </TableCell>
-                                <TableCell className="text-right font-medium">{displayData.totalVisitors.toLocaleString() || 0}</TableCell>
+                                <TableCell className="text-right font-medium">{monthData.totalVisitors.toLocaleString() || 0}</TableCell>
                                 <TableCell className="text-center">
                                     {appUser?.role === 'admin' ? (
                                         <div className="flex items-center justify-center gap-2">
@@ -310,7 +286,7 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
                                         isLocked ? (
                                             <UnlockRequestDialog 
                                                 destination={destination}
-                                                monthData={displayData}
+                                                monthData={monthData}
                                                 onNewRequest={onNewRequest as any}
                                             />
                                         ) : (
@@ -774,3 +750,5 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+    
