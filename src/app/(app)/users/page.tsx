@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -51,9 +51,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useFirestore, useCollection, errorEmitter, FirestorePermissionError, AuthError, useAuth, useUser } from '@/firebase';
-import { collection, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, deleteDoc, setDoc, query } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { Skeleton } from '@/components/ui/skeleton';
 
 function MultiSelect({
   options,
@@ -154,63 +153,15 @@ function MultiSelect({
   );
 }
 
-function PageSkeleton() {
-  return (
-    <div className="flex flex-col gap-8">
-        <div className="flex flex-col gap-2">
-            <h1 className="font-headline text-3xl font-bold tracking-tight">Pengguna</h1>
-            <p className="text-muted-foreground">
-            Kelola pengguna (admin dan pengelola) di sini.
-            </p>
-        </div>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div className="space-y-1.5">
-                <CardTitle>Daftar Pengguna</CardTitle>
-                <CardDescription>Berikut adalah daftar semua pengguna yang terdaftar di sistem.</CardDescription>
-            </div>
-            <Skeleton className="h-10 w-36" />
-          </CardHeader>
-          <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Nama</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Peran</TableHead>
-                        <TableHead>Lokasi Kelolaan</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Aksi</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <TableRow key={i}>
-                          <TableCell><Skeleton className="h-8 w-32" /></TableCell>
-                          <TableCell><Skeleton className="h-8 w-40" /></TableCell>
-                          <TableCell><Skeleton className="h-8 w-20" /></TableCell>
-                          <TableCell><Skeleton className="h-8 w-48" /></TableCell>
-                          <TableCell><Skeleton className="h-8 w-16" /></TableCell>
-                          <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-    </div>
-  )
-}
-
 export default function UsersPage() {
   const firestore = useFirestore();
   const auth = useAuth();
-  const { appUser, isLoading: isAppUserLoading } = useUser();
+  const { appUser } = useUser();
 
   const usersQuery = useMemo(() => {
     if (!firestore || appUser?.role !== 'admin') return null;
-    return collection(firestore, 'users');
-  }, [firestore, appUser]);
+    return query(collection(firestore, 'users'));
+  }, [firestore, appUser?.role]);
   
   const destinationsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -218,9 +169,8 @@ export default function UsersPage() {
   }, [firestore]);
 
   const { data: users, loading: usersLoading, error: usersError } = useCollection<AppUser>(usersQuery);
-  const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-  const loading = usersLoading || destinationsLoading;
-
+  const { data: destinations } = useCollection<Destination>(destinationsQuery);
+  
   const { toast } = useToast();
 
   // State for Add User Dialog
@@ -375,11 +325,8 @@ export default function UsersPage() {
     if (!destinations || !locationIds || locationIds.length === 0) return '-';
     return locationIds.map(id => destinations.find(d => d.id === id)?.name).filter(Boolean).join(', ');
   }
-  
-  if (isAppUserLoading) {
-    return <PageSkeleton />;
-  }
 
+  // AppLayout now guarantees appUser is loaded, so we can safely check the role.
   if (appUser?.role !== 'admin') {
     return (
         <div className="flex flex-col gap-8">
@@ -498,7 +445,7 @@ export default function UsersPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {loading ? (
+                    {usersLoading ? (
                       <TableRow key="loading-row">
                         <TableCell colSpan={6} className="h-24 text-center">
                           Memuat data pengguna...

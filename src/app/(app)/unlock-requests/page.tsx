@@ -13,62 +13,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, doc, updateDoc, writeBatch, query } from 'firebase/firestore';
-import { Skeleton } from '@/components/ui/skeleton';
-
-function PageSkeleton() {
-  return (
-    <div className="flex flex-col gap-8">
-        <div className="flex flex-col gap-2">
-            <h1 className="font-headline text-3xl font-bold tracking-tight">Permintaan Revisi</h1>
-            <p className="text-muted-foreground">
-            Kelola permintaan buka kunci data dari pengelola destinasi.
-            </p>
-        </div>
-        <Card>
-            <CardHeader>
-                <CardTitle>Daftar Permintaan</CardTitle>
-                <CardDescription>Tinjau dan proses permintaan yang masuk.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Destinasi</TableHead>
-                            <TableHead>Periode</TableHead>
-                            <TableHead>Pemohon</TableHead>
-                            <TableHead className="max-w-xs">Alasan</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Tanggal</TableHead>
-                            <TableHead className="text-right">Aksi</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {Array.from({ length: 3 }).map((_, i) => (
-                           <TableRow key={i}>
-                                <TableCell><Skeleton className="h-6 w-32" /></TableCell>
-                                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                                <TableCell><Skeleton className="h-6 w-28" /></TableCell>
-                                <TableCell><Skeleton className="h-6 w-48" /></TableCell>
-                                <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                                <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                           </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-    </div>
-  )
-}
 
 export default function UnlockRequestsPage() {
-  const { appUser, isLoading: isAppUserLoading } = useUser();
+  const { appUser } = useUser();
   const firestore = useFirestore();
+
   const requestsQuery = useMemo(() => {
-    if (!firestore || !appUser || appUser.role !== 'admin') return null;
+    if (!firestore || appUser?.role !== 'admin') return null;
     return query(collection(firestore, 'unlock-requests'));
-  }, [firestore, appUser]);
+  }, [firestore, appUser?.role]);
   
   const { data: unlockRequests, loading: requestsLoading, setData: setUnlockRequests } = useCollection<UnlockRequest>(requestsQuery);
   const { toast } = useToast();
@@ -141,10 +94,7 @@ export default function UnlockRequestsPage() {
     });
   }, [unlockRequests]);
 
-  if (isAppUserLoading) {
-    return <PageSkeleton />;
-  }
-
+  // AppLayout now guarantees appUser is loaded, so we can safely check the role.
   if (appUser?.role !== 'admin') {
     return (
         <div className="flex flex-col gap-8">

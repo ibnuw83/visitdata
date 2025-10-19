@@ -8,7 +8,7 @@ import { useDoc } from '../firestore/use-doc';
 import { User as AppUser } from '@/lib/types';
 
 export const useUser = () => {
-  const { user: authUser, isLoading: loadingAuth } = useAuthUser();
+  const { user: authUser, isLoading: isAuthLoading } = useAuthUser();
   const firestore = useFirestore();
 
   const userDocRef = useMemo(() => {
@@ -16,14 +16,12 @@ export const useUser = () => {
       return doc(firestore, 'users', authUser.uid) as DocumentReference<AppUser>;
   }, [authUser?.uid, firestore]);
   
-  const { data: appUser, loading: loadingUser, error } = useDoc<AppUser>(userDocRef);
+  const { data: appUser, loading: isAppUserLoading, error } = useDoc<AppUser>(userDocRef);
 
-  // This is the crucial fix.
-  // The overall loading state is true if:
-  // 1. The initial auth check is running (loadingAuth is true).
-  // 2. The auth check is done and we have an authUser, but we are still waiting
-  //    for the corresponding Firestore user profile to load (loadingUser is true).
-  const isLoading = loadingAuth || (!!authUser && loadingUser);
+  // The isLoading flag is true if the initial auth check is running,
+  // OR if we have an authUser but are still waiting for the Firestore profile.
+  // This provides a single, reliable loading state for the entire user object.
+  const isLoading = isAuthLoading || (!!authUser && isAppUserLoading);
 
   return {
     user: authUser,
