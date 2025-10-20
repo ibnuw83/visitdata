@@ -2,62 +2,66 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { doc, getDoc, DocumentReference } from 'firebase/firestore';
+import { doc, DocumentReference } from 'firebase/firestore';
 import { useAuthUser, useFirestore } from '@/app/providers';
 import { useDoc } from '../firestore/use-doc';
 import { User as AppUser } from '@/lib/types';
+import { getIdTokenResult } from 'firebase/auth';
 
 export const useUser = () => {
   const { user: authUser, isLoading: isAuthLoading, logout } = useAuthUser();
   const firestore = useFirestore();
-  const [isUserAdmin, setIsUserAdmin] = useState(false);
-  const [isAdminLoading, setIsAdminLoading] = useState(true);
 
+  // State for the Firestore user profile
   const userDocRef = useMemo(() => {
       if (!authUser?.uid || !firestore) return null;
       return doc(firestore, 'users', authUser.uid) as DocumentReference<AppUser>;
   }, [authUser?.uid, firestore]);
-  
   const { data: appUser, loading: isAppUserLoading, error } = useDoc<AppUser>(userDocRef);
+  
+  // State for custom claims (role)
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
+  const [claimsLoading, setClaimsLoading] = useState(true);
 
   useEffect(() => {
-    // This effect is now the primary source of truth for admin status.
-    const checkAdminStatus = async () => {
-      // If auth is still loading or there's no user, we can't check admin status yet.
-      if (isAuthLoading || !authUser?.uid || !firestore) {
-        setIsUserAdmin(false);
-        // We set loading to false only if we are sure there is no user.
-        if (!isAuthLoading && !authUser?.uid) {
-          setIsAdminLoading(false);
+    if (!authUser) {
+      setIsUserAdmin(false);
+      setClaimsLoading(false);
+      return;
+    }
+
+    setClaimsLoading(true);
+    let isMounted = true;
+
+    getIdTokenResult(authUser)
+      .then((idTokenResult) => {
+        if (isMounted) {
+          const claims = idTokenResult.claims;
+          setIsUserAdmin(claims.role === 'admin');
         }
-        return;
-      }
+      })
+      .catch((e) => {
+        if (isMounted) {
+          console.error("Failed to get user claims:", e);
+          setIsUserAdmin(false);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setClaimsLoading(false);
+        }
+      });
       
-      setIsAdminLoading(true);
-      try {
-        const adminDocRef = doc(firestore, 'admins', authUser.uid);
-        const adminDoc = await getDoc(adminDocRef);
-        setIsUserAdmin(adminDoc.exists());
-      } catch (e) {
-        console.error("Failed to check admin status:", e);
-        setIsUserAdmin(false);
-      } finally {
-        setIsAdminLoading(false);
-      }
-    };
+    return () => { isMounted = false; }
+  }, [authUser]);
 
-    checkAdminStatus();
-  }, [authUser?.uid, firestore, isAuthLoading]);
-
-
-  // The main isLoading state now primarily depends on auth and admin check.
-  // The appUser profile loading is secondary and shouldn't block the main app layout.
-  const isLoading = isAuthLoading || isAdminLoading;
+  // Overall loading is complete when auth is done AND claims are checked AND app user profile is loaded (or fails).
+  const isLoading = isAuthLoading || claimsLoading || isAppUserLoading;
 
   return {
     user: authUser,
     appUser: appUser,
-    isUserAdmin: isUserAdmin, // Use the state derived from the /admins collection check.
+    isUserAdmin: isUserAdmin,
     isLoading: isLoading,
     error,
     logout

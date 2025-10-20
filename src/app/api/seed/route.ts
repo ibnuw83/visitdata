@@ -50,13 +50,8 @@ export async function GET() {
         }
         
         // Tetapkan custom claims untuk peran
-        if (user.role === 'admin') {
-            await adminAuth.setCustomUserClaims(uid, { admin: true });
-            console.log(`Set custom claim 'admin:true' for ${user.email}`);
-        } else {
-            // Hapus klaim admin jika ada untuk pengelola
-            await adminAuth.setCustomUserClaims(uid, { admin: false });
-        }
+        await adminAuth.setCustomUserClaims(uid, { role: user.role });
+        console.log(`Set custom claim 'role:${user.role}' for ${user.email}`);
 
         usersWithUids.push({ ...user, uid });
     }
