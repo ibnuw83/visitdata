@@ -4,30 +4,34 @@ import { User } from '../src/lib/types';
 import { seedUsers, seedCategories, seedDestinations, seedCountries, generateSeedVisitData } from './seed-data';
 
 // Helper function to create or update a user and return their UID.
-async function ensureAuthUser(adminAuth: AdminAuth, user: Omit<User, 'uid'>, password: string): Promise<string> {
+async function createAuthUser(adminAuth: AdminAuth, user: Omit<User, 'uid'>, password: string): Promise<string> {
+    // Try to delete user first to ensure a clean state
     try {
-        const userRecord = await adminAuth.getUserByEmail(user.email);
-        console.log(`Updating existing user: ${user.email}`);
-        await adminAuth.updateUser(userRecord.uid, {
-            password: password,
-            displayName: user.name,
-            photoURL: user.avatarUrl,
-        });
-        return userRecord.uid;
+        const existingUser = await adminAuth.getUserByEmail(user.email);
+        console.log(`Deleting existing user: ${user.email} to ensure clean state.`);
+        await adminAuth.deleteUser(existingUser.uid);
     } catch (error: any) {
-        if (error.code === 'auth/user-not-found') {
-            console.log(`Creating new user: ${user.email}`);
-            const userRecord = await adminAuth.createUser({
-                email: user.email,
-                password: password,
-                displayName: user.name,
-                photoURL: user.avatarUrl,
-            });
-            return userRecord.uid;
+        if (error.code !== 'auth/user-not-found') {
+            throw error; // Re-throw errors that are not 'user-not-found'
         }
-        // Re-throw other errors
-        throw error;
+        // If user not found, that's good, we can proceed.
     }
+
+    // Create the user
+    console.log(`Creating new user: ${user.email}`);
+    const userRecord = await adminAuth.createUser({
+        email: user.email,
+        password: password,
+        displayName: user.name,
+        photoURL: user.avatarUrl,
+        emailVerified: true, // It's a trusted environment
+    });
+    
+    // Set custom claims AFTER user is created
+    console.log(`Setting custom claims for ${user.email}`);
+    await adminAuth.setCustomUserClaims(userRecord.uid, { role: user.role });
+    
+    return userRecord.uid;
 }
 
 export async function seedDatabase(adminDb: Firestore, adminAuth: AdminAuth) {
@@ -37,25 +41,18 @@ export async function seedDatabase(adminDb: Firestore, adminAuth: AdminAuth) {
 
     console.log('--- Starting Database Seeding ---');
 
-    // Step 1: Ensure all auth users exist and get their UIDs.
-    console.log('Step 1: Ensuring authentication users exist...');
+    // Step 1: Create all auth users and get their UIDs. This is now a "delete and recreate" operation.
+    console.log('Step 1: Ensuring authentication users are created cleanly...');
     const usersWithUids: User[] = [];
     const password = "password123";
     for (const user of seedUsers) {
-        const uid = await ensureAuthUser(adminAuth, user, password);
+        const uid = await createAuthUser(adminAuth, user, password);
         usersWithUids.push({ ...user, uid });
     }
-    console.log(`Successfully created/updated ${usersWithUids.length} auth users.`);
-
-    // Step 2: Set custom claims for all users.
-    console.log('Step 2: Setting custom user claims...');
-    for (const user of usersWithUids) {
-        await adminAuth.setCustomUserClaims(user.uid, { role: user.role });
-    }
-    console.log('Successfully set custom claims.');
+    console.log(`Successfully created ${usersWithUids.length} auth users.`);
     
-    // Step 3: Prepare all Firestore writes in a single batch.
-    console.log('Step 3: Preparing Firestore batch write...');
+    // Step 2: Prepare all Firestore writes in a single batch.
+    console.log('Step 2: Preparing Firestore batch write...');
     const batch = adminDb.batch();
 
     // Destinations
@@ -113,8 +110,8 @@ export async function seedDatabase(adminDb: Firestore, adminAuth: AdminAuth) {
     }, { merge: true });
     console.log('- Queued app settings.');
 
-    // Step 4: Commit the batch.
-    console.log('Step 4: Committing batch to Firestore...');
+    // Step 3: Commit the batch.
+    console.log('Step 3: Committing batch to Firestore...');
     await batch.commit();
     console.log('Batch committed successfully.');
 

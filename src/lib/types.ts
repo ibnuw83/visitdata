@@ -5,7 +5,7 @@ export type User = {
   role: 'admin' | 'pengelola';
   assignedLocations: string[]; // Array of destination IDs
   status: 'aktif' | 'nonaktif';
-  avatarUrl: string;
+  avatarUrl?: string;
 };
 
 export type Destination = {
