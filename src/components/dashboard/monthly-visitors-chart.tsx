@@ -15,16 +15,21 @@ export default function MonthlyVisitorsChart({ data }: { data: VisitData[] }) {
     const monthlyTotals = Array.from({ length: 12 }, (_, i) => {
         const month = i + 1;
         const monthName = new Date(2023, i, 1).toLocaleString('id-ID', { month: 'short' });
-        const monthData = data.filter(d => d.month === month);
-        const wisnus = monthData.reduce((sum, item) => sum + item.wisnus, 0);
-        const wisman = monthData.reduce((sum, item) => sum + item.wisman, 0);
-        const total = wisnus + wisman;
+        
+        // Correctly reduce the data for each month
+        const totalsForMonth = data
+            .filter(d => d.month === month)
+            .reduce((acc, current) => {
+                acc.wisnus += current.wisnus || 0;
+                acc.wisman += current.wisman || 0;
+                return acc;
+            }, { wisnus: 0, wisman: 0 });
 
         return { 
             month: monthName, 
-            "Total Pengunjung": total,
-            "Nusantara": wisnus,
-            "Mancanegara": wisman,
+            "Total Pengunjung": totalsForMonth.wisnus + totalsForMonth.wisman,
+            "Nusantara": totalsForMonth.wisnus,
+            "Mancanegara": totalsForMonth.wisman,
         };
     });
 
