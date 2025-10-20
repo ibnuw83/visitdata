@@ -72,7 +72,7 @@ function DashboardContent() {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Gagal Memuat Data</AlertTitle>
                 <AlertDescription>
-                    Tidak dapat mengambil data dasbor publik. Silakan coba lagi nanti.
+                    Tidak dapat mengambil data dasbor publik. Pastikan aturan keamanan Firestore mengizinkan pembacaan publik untuk koleksi 'visits' dan 'destinations'.
                 </AlertDescription>
             </Alert>
         )
