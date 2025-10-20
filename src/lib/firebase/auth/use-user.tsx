@@ -33,7 +33,7 @@ export const useUser = () => {
     setClaimsLoading(true);
     let isMounted = true;
 
-    getIdTokenResult(authUser)
+    getIdTokenResult(authUser, true) // Force refresh token
       .then((idTokenResult) => {
         if (isMounted) {
           const claims = idTokenResult.claims;
@@ -56,7 +56,7 @@ export const useUser = () => {
   }, [authUser]);
 
   // Overall loading is complete when auth is done AND claims are checked AND app user profile is loaded (or fails).
-  const isLoading = isAuthLoading || claimsLoading || isAppUserLoading;
+  const isLoading = isAuthLoading || isAppUserLoading;
 
   return {
     user: authUser,
