@@ -5,10 +5,10 @@ import { BarChart } from '@tremor/react';
 import { VisitData } from '@/lib/types';
 
 const valueFormatter = (number: number) => {
-    if (number > 1000) {
-        return `${(number / 1000).toFixed(1)}K`
+    if (number >= 1000) {
+        return `${(number / 1000).toFixed(1)}K`;
     }
-    return number.toString();
+    return number.toLocaleString();
 };
 
 export default function VisitorBreakdownChart({ data }: { data: VisitData[] }) {
@@ -30,7 +30,11 @@ export default function VisitorBreakdownChart({ data }: { data: VisitData[] }) {
         colors={['blue', 'green']}
         yAxisWidth={30}
         valueFormatter={valueFormatter}
-        stack={true}
+        stack={false} // Mengubah dari tumpuk menjadi berjajar
+        showAnimation
+        showLegend
+        showYAxis
+        showGridLines
     />
   );
 }
