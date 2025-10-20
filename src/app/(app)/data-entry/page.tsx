@@ -35,6 +35,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { collection, query, where, doc, setDoc, writeBatch, getDocs, serverTimestamp, addDoc, getDoc, collectionGroup } from 'firebase/firestore';
+import { Combobox } from '@/components/ui/combobox';
 
 
 const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('id-ID', { month: 'long' }));
@@ -316,7 +317,15 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
 }
 
 function WismanPopover({ details, totalWisman, onChange, disabled }: { details: WismanDetail[], totalWisman: number, onChange: (details: WismanDetail[]) => void, disabled?: boolean }) {
+    const firestore = useFirestore();
+    const countriesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'countries') : null, [firestore]);
+    const { data: countries } = useCollection<Country>(countriesQuery);
     
+    const countryOptions = useMemo(() => {
+        if (!countries) return [];
+        return countries.map(c => ({ value: c.name, label: c.name }));
+    }, [countries]);
+
     const handleDetailChange = (index: number, field: keyof WismanDetail, value: string | number) => {
         const newDetails = [...details];
         if (field === 'country') {
@@ -356,12 +365,12 @@ function WismanPopover({ details, totalWisman, onChange, disabled }: { details: 
                     <div className="grid gap-2 max-h-60 overflow-y-auto pr-3">
                         {details.map((detail, index) => (
                            <div key={index} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-                                <Input
-                                    type="text"
-                                    placeholder="Nama Negara"
+                                <Combobox
+                                    options={countryOptions}
                                     value={detail.country}
-                                    className="h-9"
-                                    onChange={(e) => handleDetailChange(index, 'country', e.target.value)}
+                                    onChange={(value) => handleDetailChange(index, 'country', value)}
+                                    placeholder="Pilih negara..."
+                                    inputPlaceholder="Cari negara..."
                                 />
                                 <Input
                                     type="number"
@@ -683,3 +692,5 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+    
