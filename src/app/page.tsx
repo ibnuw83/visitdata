@@ -32,6 +32,7 @@ function useAllVisitsForYear(firestore: Firestore | null, destinationIds: string
         const allData: { [key: string]: VisitData[] } = {};
         const unsubscribers: Unsubscribe[] = [];
 
+        // Failsafe timeout
         const loadingTimeout = setTimeout(() => {
              if (Object.keys(allData).length !== destinationIds.length) {
                 setLoading(false);
