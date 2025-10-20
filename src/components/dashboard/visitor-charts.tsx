@@ -1,4 +1,3 @@
-
 'use client';
 
 import { BarChart, LineChart } from '@tremor/react';
@@ -23,13 +22,15 @@ const aggregateMonthlyData = (data: VisitData[]) => {
             .reduce((acc, current) => {
                 acc.wisnus += current.wisnus || 0;
                 acc.wisman += current.wisman || 0;
+                acc.totalVisitors += current.totalVisitors || 0;
                 return acc;
-            }, { wisnus: 0, wisman: 0 });
+            }, { wisnus: 0, wisman: 0, totalVisitors: 0 });
 
         return { 
             month: monthName, 
             'Domestik': monthlyTotals.wisnus, 
-            'Asing': monthlyTotals.wisman 
+            'Asing': monthlyTotals.wisman,
+            'Total Pengunjung': monthlyTotals.totalVisitors
         };
     });
 };
@@ -37,13 +38,13 @@ const aggregateMonthlyData = (data: VisitData[]) => {
 
 export function MonthlyLineChart({ data }: { data: VisitData[] }) {
     const chartData = useMemo(() => aggregateMonthlyData(data), [data]);
-    const hasData = useMemo(() => chartData.some(d => d.Domestik > 0 || d.Asing > 0), [chartData]);
+    const hasData = useMemo(() => chartData.some(d => d['Total Pengunjung'] > 0), [chartData]);
     
     return (
         <Card>
             <CardHeader>
                 <CardTitle>Tren Pengunjung Bulanan</CardTitle>
-                <CardDescription>Grafik garis total pengunjung domestik dan asing per bulan.</CardDescription>
+                <CardDescription>Grafik garis total pengunjung per bulan.</CardDescription>
             </CardHeader>
             <CardContent>
                 {hasData ? (
@@ -51,8 +52,8 @@ export function MonthlyLineChart({ data }: { data: VisitData[] }) {
                         className="h-72 mt-4"
                         data={chartData}
                         index="month"
-                        categories={["Domestik", "Asing"]}
-                        colors={["blue", "green"]}
+                        categories={["Total Pengunjung"]}
+                        colors={["blue"]}
                         yAxisWidth={40}
                         valueFormatter={valueFormatter}
                         showLegend={true}
@@ -77,7 +78,7 @@ export function MonthlyBarChart({ data }: { data: VisitData[] }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Perbandingan Pengunjung</CardTitle>
+                <CardTitle>Komposisi Pengunjung</CardTitle>
                 <CardDescription>Grafik batang perbandingan pengunjung domestik vs. asing per bulan.</CardDescription>
             </CardHeader>
             <CardContent>
