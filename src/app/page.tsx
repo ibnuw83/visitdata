@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, Unsubscribe, onSnapshot, Firestore } from "firebase/firestore";
+import VisitorCharts from '@/components/dashboard/visitor-charts';
 
 
 function useAllVisitsForYear(firestore: Firestore | null, destinationIds: string[], year: number) {
@@ -137,7 +138,7 @@ function DashboardContent() {
         <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="font-headline text-3xl font-bold tracking-tight">Dasbor Publik</h1>
+                    <h2 className="font-headline text-3xl font-bold tracking-tight">Dasbor Publik</h2>
                     <p className="text-muted-foreground">Ringkasan data pariwisata untuk tahun {selectedYear}.</p>
                 </div>
                 <div className="w-full sm:w-auto">
@@ -163,8 +164,13 @@ function DashboardContent() {
                 <StatCard title="Total Destinasi Aktif" value={destinations?.length.toString() || '0'} icon={<Landmark />} className="bg-purple-600 text-white"/>
             </div>
             
-             <div className="grid gap-4">
-                <TopDestinationsCarousel data={allVisitData} destinations={destinations || []} />
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                <div className="lg:col-span-3">
+                    <VisitorCharts data={allVisitData} />
+                </div>
+                <div className="lg:col-span-2">
+                    <TopDestinationsCarousel data={allVisitData} destinations={destinations || []} />
+                </div>
             </div>
         </div>
     )
