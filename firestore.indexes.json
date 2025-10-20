@@ -5,8 +5,8 @@
       "collectionGroup": "visits",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "destinationId", "order": "ASCENDING" },
-        { "fieldPath": "year", "order": "ASCENDING" }
+        { "fieldPath": "year", "order": "ASCENDING" },
+        { "fieldPath": "destinationId", "order": "ASCENDING" }
       ]
     }
   ],
