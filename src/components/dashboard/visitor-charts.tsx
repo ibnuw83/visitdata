@@ -13,7 +13,8 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  LabelList
+  LabelList,
+  DotProps
 } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { VisitData } from '@/lib/types';
@@ -77,10 +78,38 @@ const valueFormatter = (value: number) => {
     return value.toLocaleString();
 };
 
+const chartColors = [
+    '#3b82f6', // blue-500
+    '#22c55e', // green-500
+    '#f97316', // orange-500
+    '#8b5cf6', // violet-500
+    '#ef4444', // red-500
+    '#eab308', // yellow-500
+    '#ec4899', // pink-500
+    '#6366f1', // indigo-500
+    '#14b8a6', // teal-500
+    '#06b6d4', // cyan-500
+    '#d946ef', // fuchsia-500
+    '#f43f5e', // rose-500
+];
+
+const CustomizedDot = (props: DotProps) => {
+    const { cx, cy, stroke, payload, value, index } = props;
+  
+    if (index === undefined) return null;
+
+    return (
+      <svg x={cx! - 5} y={cy! - 5} width={10} height={10} fill={chartColors[index % chartColors.length]} viewBox="0 0 1024 1024">
+        <circle cx="512" cy="512" r="512" />
+      </svg>
+    );
+};
+
 export function MonthlyLineChart({ data }: { data: VisitData[] }) {
     const chartData = useMemo(() => aggregateMonthlyData(data), [data]);
     const { theme } = useTheme();
     const axisColor = theme === 'dark' ? '#888888' : '#AAAAAA';
+    const labelColor = theme === 'dark' ? '#FFFFFF' : '#333333';
 
     return (
         <Card>
@@ -91,13 +120,15 @@ export function MonthlyLineChart({ data }: { data: VisitData[] }) {
             <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                     {chartData && chartData.length > 0 ? (
-                        <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                        <LineChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                             <XAxis dataKey="month" stroke={axisColor} fontSize={12} tickLine={false} axisLine={false} />
                             <YAxis stroke={axisColor} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value: number) => value > 1000 ? `${value/1000}k` : value.toString()}/>
                             <Tooltip content={<CustomTooltip />} />
                             <Legend />
-                            <Line type="monotone" dataKey="Total Pengunjung" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                            <Line type="monotone" dataKey="Total Pengunjung" stroke="#3b82f6" strokeWidth={2} activeDot={{ r: 6 }} dot={<CustomizedDot />}>
+                               <LabelList dataKey="Total Pengunjung" position="top" formatter={valueFormatter} fill={labelColor} fontSize={12} />
+                            </Line>
                         </LineChart>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full">
