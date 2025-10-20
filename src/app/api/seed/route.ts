@@ -23,7 +23,12 @@ export async function GET() {
         try {
             const existingUser = await adminAuth.getUserByEmail(user.email);
             uid = existingUser.uid;
-            console.log(`User ${user.email} already exists. Using existing UID: ${uid}`);
+            // Update existing user to match seed data (e.g., photoURL)
+            await adminAuth.updateUser(uid, {
+                displayName: user.name,
+                photoURL: user.avatarUrl,
+            });
+            console.log(`User ${user.email} already exists. Updated and using existing UID: ${uid}`);
         } catch (error: any) {
             if (error.code === 'auth/user-not-found') {
                 const userRecord = await adminAuth.createUser({
