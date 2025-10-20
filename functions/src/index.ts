@@ -78,3 +78,56 @@ exports.setAdminClaimOnFirstUser = functions.auth.user().onCreate(async (user) =
         }
     }
 });
+
+// HTTP-callable function to get all necessary data for the public dashboard
+exports.getPublicDashboardData = functions.https.onCall(async (data, context) => {
+  const year = data.year || new Date().getFullYear();
+
+  try {
+    // 1. Get all active destinations
+    const destinationsSnapshot = await db.collection("destinations").where("status", "==", "aktif").get();
+    const activeDestinations = destinationsSnapshot.docs.map((doc) => ({id: doc.id, ...doc.data()}));
+    const activeDestinationIds = new Set(activeDestinations.map((d) => d.id));
+
+
+    if (activeDestinationIds.size === 0) {
+        return {
+            activeDestinations: [],
+            allVisitDataForYear: [],
+            availableYears: [new Date().getFullYear().toString()],
+        };
+    }
+
+    // 2. Fetch all visit data for the given year for active destinations
+    // This is more robust than a single collectionGroup query if indexes are an issue.
+    const visitPromises = [];
+    for (const destId of activeDestinationIds) {
+        visitPromises.push(db.collection("destinations").doc(destId).collection("visits").where("year", "==", year).get());
+    }
+
+    const visitSnapshots = await Promise.all(visitPromises);
+    const allVisitDataForYear = visitSnapshots.flatMap((snapshot) =>
+        snapshot.docs.map((doc) => doc.data())
+    );
+
+    // 3. Determine available years from all visits in the database
+    // To keep this function performant, we'll construct the list on the client.
+    // A simplified year list is better than a failing function.
+    const currentYear = new Date().getFullYear();
+    const yearsSet = new Set<string>();
+    allVisitDataForYear.forEach((d: any) => yearsSet.add(d.year.toString()));
+    yearsSet.add(currentYear.toString());
+    const availableYears = Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
+
+
+    return {
+      activeDestinations,
+      allVisitDataForYear,
+      availableYears,
+    };
+  } catch (error) {
+    functions.logger.error("Error in getPublicDashboardData:", error);
+    // Throwing an HttpsError is the standard way to return errors to the client.
+    throw new functions.https.HttpsError("internal", "Gagal mengambil data dasbor publik.", error);
+  }
+});
