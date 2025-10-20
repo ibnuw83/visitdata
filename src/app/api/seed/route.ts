@@ -11,6 +11,10 @@ import {
 import type { Destination } from '@/lib/types';
 
 export async function GET() {
+  if (!adminAuth || !adminDb) {
+    return NextResponse.json({ error: 'Firebase Admin not initialized. Check server environment variables.' }, { status: 500 });
+  }
+
   try {
     const batch = adminDb.batch();
 
@@ -21,14 +25,15 @@ export async function GET() {
     for (const user of seedUsers) {
         let uid: string;
         try {
-            const existingUser = await adminAuth.getUserByEmail(user.email);
-            uid = existingUser.uid;
-            // Update existing user to match seed data (e.g., photoURL)
+            const userRecord = await adminAuth.getUserByEmail(user.email);
+            uid = userRecord.uid;
+            // SELALU perbarui pengguna yang ada untuk memastikan konsistensi
             await adminAuth.updateUser(uid, {
+                password: "password123", // Atur ulang kata sandi
                 displayName: user.name,
                 photoURL: user.avatarUrl,
             });
-            console.log(`User ${user.email} already exists. Updated and using existing UID: ${uid}`);
+            console.log(`User ${user.email} already exists. Updated and reset password. UID: ${uid}`);
         } catch (error: any) {
             if (error.code === 'auth/user-not-found') {
                 const userRecord = await adminAuth.createUser({
@@ -40,14 +45,24 @@ export async function GET() {
                 uid = userRecord.uid;
                 console.log(`Successfully created new auth user: ${user.email} with UID: ${uid}.`);
             } else {
-                throw error; // Re-throw other auth errors
+                throw error; // Lemparkan kembali error auth lainnya
             }
         }
+        
+        // Tetapkan custom claims untuk peran
+        if (user.role === 'admin') {
+            await adminAuth.setCustomUserClaims(uid, { admin: true });
+            console.log(`Set custom claim 'admin:true' for ${user.email}`);
+        } else {
+            // Hapus klaim admin jika ada untuk pengelola
+            await adminAuth.setCustomUserClaims(uid, { admin: false });
+        }
+
         usersWithUids.push({ ...user, uid });
     }
-    console.log('Finished auth user creation/retrieval.');
+    console.log('Finished auth user creation/retrieval and custom claims.');
 
-    // Seed Destinations first to get their IDs
+    // Seed Destinations terlebih dahulu untuk mendapatkan ID mereka
     const seededDestinations: (Destination & { id: string })[] = [];
     seedDestinations.forEach(destination => {
       const slug = destination.name.toLowerCase().replace(/\s+/g, '-');
@@ -58,7 +73,7 @@ export async function GET() {
     });
     console.log('Destinations queued for batch.');
 
-    console.log('Seeding Firestore user documents and admin roles...');
+    console.log('Seeding Firestore user documents...');
     for (const user of usersWithUids) {
         const isPengelola = user.role === 'pengelola';
         
@@ -71,14 +86,8 @@ export async function GET() {
         
         const userRef = adminDb.collection('users').doc(user.uid);
         batch.set(userRef, { ...user, assignedLocations: assignedLocationsIds });
-
-        if (user.role === 'admin') {
-            const adminRef = adminDb.collection('admins').doc(user.uid);
-            batch.set(adminRef, { role: 'admin' });
-            console.log(`User ${user.email} (${user.uid}) marked as admin.`);
-        }
     }
-    console.log('Finished queueing user documents and admin roles.');
+    console.log('Finished queueing user documents.');
 
     // Seed Categories
     seedCategories.forEach(category => {
