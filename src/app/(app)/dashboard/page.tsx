@@ -12,69 +12,7 @@ import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, onSnapshot, Unsubscribe, Firestore } from 'firebase/firestore';
-
-/**
- * Custom hook to fetch all visit data from multiple destinations in real-time.
- * This hook is now safe and will only run when it has a non-empty array of destination IDs.
- */
-function useAllVisits(firestore: Firestore | null, destinationIds: string[]) {
-    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        // Critical safety check: Do not run if firestore is not ready or if there are no destination IDs.
-        if (!firestore || destinationIds.length === 0) {
-            setLoading(false);
-            setAllVisitData([]);
-            return;
-        }
-
-        setLoading(true);
-        const allData: { [key: string]: VisitData[] } = {};
-        const unsubscribers: Unsubscribe[] = [];
-
-        // Set a timeout to mark loading as finished if some listeners don't return.
-        const loadingTimeout = setTimeout(() => {
-            setLoading(false);
-        }, 5000); // 5-second timeout
-
-        const checkCompletion = () => {
-            if (Object.keys(allData).length === destinationIds.length) {
-                setLoading(false);
-                clearTimeout(loadingTimeout);
-            }
-        };
-
-        destinationIds.forEach(destId => {
-            const visitsRef = collection(firestore, 'destinations', destId, 'visits');
-            const unsubscribe = onSnapshot(visitsRef, (snapshot) => {
-                allData[destId] = snapshot.docs.map(doc => ({...doc.data(), id: doc.id} as VisitData));
-                
-                const combinedData = Object.values(allData).flat();
-                setAllVisitData(combinedData);
-                
-                checkCompletion();
-
-            }, (error) => {
-                console.error(`Error fetching visits for destination ${destId}:`, error);
-                allData[destId] = []; // On error, assume no data for this listener
-                checkCompletion();
-            });
-            unsubscribers.push(unsubscribe);
-        });
-
-        return () => {
-            unsubscribers.forEach(unsub => unsub());
-            clearTimeout(loadingTimeout);
-        };
-    // Re-run this effect ONLY if the stringified version of destinationIds changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore, JSON.stringify(destinationIds)]);
-
-    return { data: allVisitData, loading };
-}
-
+import { collection, query, where, collectionGroup } from 'firebase/firestore';
 
 export default function DashboardPage() {
     const { appUser } = useUser();
@@ -88,7 +26,6 @@ export default function DashboardPage() {
         let q = query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
 
         if (appUser.role === 'pengelola') {
-            // Safety check: if a manager has no assigned locations, return a query for a non-existent ID.
             if (!appUser.assignedLocations || appUser.assignedLocations.length === 0) {
                 return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
             }
@@ -99,13 +36,16 @@ export default function DashboardPage() {
 
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     
-    // Stabilize destinationIds to prevent re-renders
     const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
 
-    // Use the new custom hook for fetching visits
-    const { data: allVisitData, loading: visitsLoading } = useAllVisits(firestore, destinationIds);
+    const visitsQuery = useMemoFirebase(() => {
+        if (!firestore || destinationIds.length === 0) return null;
+        return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
+    }, [firestore, destinationIds]);
 
-    const loading = destinationsLoading || visitsLoading;
+    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
+    
+    const loading = destinationsLoading || (destinationIds.length > 0 && visitsLoading);
 
     const currentYear = new Date().getFullYear();
     const availableYears = useMemo(() => {
