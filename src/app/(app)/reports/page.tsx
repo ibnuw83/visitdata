@@ -13,66 +13,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, Unsubscribe, onSnapshot, Firestore } from 'firebase/firestore';
-
-
-/**
- * Custom hook to fetch all visit data for a specific year from multiple destinations.
- * This is more performant than a collectionGroup query for this specific use case.
- */
-function useAllVisitsForYear(firestore: Firestore | null, destinationIds: string[], year: number) {
-    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        if (!firestore || destinationIds.length === 0) {
-            setLoading(false);
-            setAllVisitData([]);
-            return;
-        }
-
-        setLoading(true);
-        const allData: { [key: string]: VisitData[] } = {};
-        const unsubscribers: Unsubscribe[] = [];
-
-        const loadingTimeout = setTimeout(() => setLoading(false), 5000); // Failsafe
-
-        const checkCompletion = () => {
-            if (Object.keys(allData).length === destinationIds.length) {
-                setLoading(false);
-                clearTimeout(loadingTimeout);
-            }
-        };
-
-        destinationIds.forEach(destId => {
-            const visitsRef = collection(firestore, 'destinations', destId, 'visits');
-            const q = query(visitsRef, where('year', '==', year));
-            
-            const unsubscribe = onSnapshot(q, (snapshot) => {
-                allData[destId] = snapshot.docs.map(doc => ({...doc.data(), id: doc.id} as VisitData));
-                
-                const combinedData = Object.values(allData).flat();
-                setAllVisitData(combinedData);
-                
-                checkCompletion();
-
-            }, (error) => {
-                console.error(`Error fetching visits for destination ${destId} in year ${year}:`, error);
-                allData[destId] = []; // On error, assume no data
-                checkCompletion();
-            });
-            unsubscribers.push(unsubscribe);
-        });
-
-        return () => {
-            unsubscribers.forEach(unsub => unsub());
-            clearTimeout(loadingTimeout);
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore, JSON.stringify(destinationIds), year]);
-
-    return { data: allVisitData, loading };
-}
+import { collection, query, where } from 'firebase/firestore';
+import { useAllVisitsForYear } from "@/hooks/use-all-visits-for-year";
 
 
 export default function ReportsPage() {
