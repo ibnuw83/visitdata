@@ -8,6 +8,11 @@ const dotenv = require('dotenv');
 dotenv.config({ path: '.env.local' });
 
 async function initializeFirebaseAdmin() {
+  // Hanya jalankan jika di lingkungan non-produksi
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Proses seeding tidak boleh dijalankan di lingkungan produksi.');
+  }
+
   const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (!serviceAccountString || serviceAccountString.startsWith('GANTI_DENGAN')) {
     throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set or is still the default value. Please add it to your .env.local file.');
