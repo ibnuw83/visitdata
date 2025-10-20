@@ -12,53 +12,38 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from "firebase/firestore";
+import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, collection, query, where } from "firebase/firestore";
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
-
-type PublicDashboardData = {
-  destinations: Destination[];
-  allVisitData: VisitData[];
-  availableYears: string[];
-};
-
-function usePublicDashboardData(year: number) {
-    const [data, setData] = useState<PublicDashboardData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const functions = getFunctions();
-                const getPublicDashboardData = httpsCallable(functions, 'getPublicDashboardData');
-                const result: any = await getPublicDashboardData({ year });
-                setData(result.data);
-            } catch (err: any) {
-                console.error("Error fetching public dashboard data:", err);
-                setError(err.message || "Tidak dapat mengambil data dasbor publik. Silakan coba lagi nanti.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [year]);
-
-    return { data, loading, error };
-}
+import { useAllVisitsForYear } from '@/hooks/use-all-visits-for-year';
 
 
 function DashboardContent() {
+    const firestore = useFirestore();
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-    const { data, loading, error } = usePublicDashboardData(selectedYear);
 
-    const { destinations, allVisitData, availableYears } = data || { destinations: [], allVisitData: [], availableYears: [] };
+    const destinationsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
+    }, [firestore]);
+
+    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
+    const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
+
+    const { data: allVisitData, loading: visitsLoading } = useAllVisitsForYear(firestore, destinationIds, selectedYear);
+    
+    const availableYears = useMemo(() => {
+        const yearsSet = new Set<string>();
+        if (allVisitData) {
+            allVisitData.forEach(d => yearsSet.add(d.year.toString()));
+        }
+        const currentYearStr = new Date().getFullYear().toString();
+        if (!yearsSet.has(currentYearStr)) {
+            yearsSet.add(currentYearStr);
+        }
+        return Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
+    }, [allVisitData]);
 
     useEffect(() => {
         if (availableYears.length > 0 && !availableYears.includes(selectedYear.toString())) {
@@ -69,6 +54,8 @@ function DashboardContent() {
     const totalVisitors = useMemo(() => allVisitData.reduce((sum: number, item: VisitData) => sum + item.totalVisitors, 0), [allVisitData]);
     const totalWisnus = useMemo(() => allVisitData.reduce((sum: number, item: VisitData) => sum + item.wisnus, 0), [allVisitData]);
     const totalWisman = useMemo(() => allVisitData.reduce((sum: number, item: VisitData) => sum + item.wisman, 0), [allVisitData]);
+    
+    const loading = destinationsLoading || visitsLoading;
 
     if (loading) {
         return (
@@ -94,18 +81,6 @@ function DashboardContent() {
                     <Skeleton className="h-96" />
                 </div>
             </div>
-        )
-    }
-    
-    if (error) {
-        return (
-             <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Gagal Memuat Data</AlertTitle>
-                <AlertDescription>
-                    {error}
-                </AlertDescription>
-            </Alert>
         )
     }
 

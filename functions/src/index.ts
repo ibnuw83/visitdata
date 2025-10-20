@@ -14,69 +14,6 @@ import * as admin from "firebase-admin";
 admin.initializeApp();
 const db = admin.firestore();
 
-// Callable function to get public dashboard data
-export const getPublicDashboardData = functions.https.onCall(
-  async (data, context) => {
-    const year = data.year || new Date().getFullYear();
-
-    try {
-      // 1. Get all active destinations first. This is a lightweight query.
-      const destinationsSnapshot = await db
-        .collection("destinations")
-        .where("status", "==", "aktif")
-        .get();
-      
-      const destinations = destinationsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      const activeDestinationIds = new Set(destinations.map(d => d.id));
-      
-      // If there are no active destinations, return early with empty data.
-      if (activeDestinationIds.size === 0) {
-        return {
-          destinations: [],
-          allVisitData: [],
-          availableYears: [new Date().getFullYear().toString()],
-        };
-      }
-
-      // 2. Get all visit data from all destinations for the requested year.
-      const visitsForYearSnapshot = await db.collectionGroup("visits").where("year", "==", year).get();
-      
-      // 3. Filter the visits to only include those from active destinations.
-      const allVisitData = visitsForYearSnapshot.docs
-        .map(doc => doc.data())
-        .filter(visit => activeDestinationIds.has(visit.destinationId));
-        
-      // 4. To get available years, we need to query ALL visits, but only the 'year' field.
-      // This is more efficient than fetching all visit data for all years.
-      const allYearsSnapshot = await db.collectionGroup("visits").select('year').get();
-      const yearsSet = new Set<string>();
-      allYearsSnapshot.docs.forEach(doc => {
-          if (doc.data().year) {
-            yearsSet.add(doc.data().year.toString());
-          }
-      });
-      yearsSet.add(new Date().getFullYear().toString()); // Always include the current year
-      
-      const availableYears = Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
-      
-      return {
-        destinations,
-        allVisitData,
-        availableYears,
-      };
-
-    } catch (error) {
-      functions.logger.error("Error fetching public dashboard data:", error);
-      throw new functions.https.HttpsError(
-        "internal",
-        "Tidak dapat mengambil data dasbor publik. Silakan coba lagi nanti.",
-        (error as Error).message
-      );
-    }
-  }
-);
-
-
 // Cloud Function to sync user role to custom claims
 exports.syncUserRole = functions.firestore
   .document("users/{userId}")
