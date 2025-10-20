@@ -19,32 +19,38 @@ export const useUser = () => {
 
   const { data: appUser, loading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
   
-  const [isUserAdmin, setIsUserAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isClaimsLoading, setClaimsLoading] = useState(true);
   
   useEffect(() => {
     if (!authUser) {
-      setIsUserAdmin(false);
+      setIsAdmin(false);
+      setClaimsLoading(false);
       return;
     }
-
-    // Force refresh of the token to get the latest custom claims.
-    getIdTokenResult(authUser, true)
+    
+    setClaimsLoading(true);
+    getIdTokenResult(authUser, true) // Force refresh
       .then((idTokenResult) => {
         const claims = idTokenResult.claims;
-        setIsUserAdmin(claims.role === 'admin');
+        setIsAdmin(claims.role === 'admin');
       })
-      .catch((e) => {
-        console.error("Failed to get user claims:", e);
-        setIsUserAdmin(false);
+      .catch((error) => {
+        console.error("Failed to get user claims:", error);
+        setIsAdmin(false);
+      })
+      .finally(() => {
+        setClaimsLoading(false);
       });
+
   }, [authUser]);
 
-  const isLoading = isAuthLoading || isAppUserLoading;
+  const isLoading = isAuthLoading || isAppUserLoading || isClaimsLoading;
 
   return {
     user: authUser,
     appUser: appUser,
-    isUserAdmin: isUserAdmin,
+    isUserAdmin: isAdmin,
     isLoading: isLoading,
     logout
   };
