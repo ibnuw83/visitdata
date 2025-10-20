@@ -17,11 +17,10 @@ const db = admin.firestore();
 // Callable function to get public dashboard data
 export const getPublicDashboardData = functions.https.onCall(
   async (data, context) => {
-    // This function is public, so we don't check for auth (context.auth)
     const year = data.year || new Date().getFullYear();
 
     try {
-      // 1. Get all active destinations
+      // 1. Get all active destinations first. This is a lightweight query.
       const destinationsSnapshot = await db
         .collection("destinations")
         .where("status", "==", "aktif")
@@ -29,24 +28,36 @@ export const getPublicDashboardData = functions.https.onCall(
       
       const destinations = destinationsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const activeDestinationIds = new Set(destinations.map(d => d.id));
-
-      // 2. Get all visit data from all destinations using a collection group query
-      const allVisitsSnapshot = await db.collectionGroup("visits").where("year", "==", year).get();
       
-      // 3. Filter the visits to only include those from active destinations
-      const allVisitData = allVisitsSnapshot.docs
+      // If there are no active destinations, return early with empty data.
+      if (activeDestinationIds.size === 0) {
+        return {
+          destinations: [],
+          allVisitData: [],
+          availableYears: [new Date().getFullYear().toString()],
+        };
+      }
+
+      // 2. Get all visit data from all destinations for the requested year.
+      const visitsForYearSnapshot = await db.collectionGroup("visits").where("year", "==", year).get();
+      
+      // 3. Filter the visits to only include those from active destinations.
+      const allVisitData = visitsForYearSnapshot.docs
         .map(doc => doc.data())
         .filter(visit => activeDestinationIds.has(visit.destinationId));
         
-      // 4. Determine available years from ALL visits, not just the current year's
+      // 4. To get available years, we need to query ALL visits, but only the 'year' field.
+      // This is more efficient than fetching all visit data for all years.
       const allYearsSnapshot = await db.collectionGroup("visits").select('year').get();
-      const yearsSet = new Set(
-        allYearsSnapshot.docs.map((doc) => doc.data().year.toString())
-      );
+      const yearsSet = new Set<string>();
+      allYearsSnapshot.docs.forEach(doc => {
+          if (doc.data().year) {
+            yearsSet.add(doc.data().year.toString());
+          }
+      });
       yearsSet.add(new Date().getFullYear().toString()); // Always include the current year
-      const availableYears = Array.from(yearsSet).sort(
-        (a, b) => parseInt(b) - parseInt(a)
-      );
+      
+      const availableYears = Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
       
       return {
         destinations,
