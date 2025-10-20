@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, ReactNode, createContext, useContext } from 'react';
@@ -5,6 +6,7 @@ import { onAuthStateChanged, type User, signOut } from 'firebase/auth';
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 import { firebaseConfig, isFirebaseConfigValid } from '@/lib/firebase/config';
 import { Logo } from '@/components/logo';
 
@@ -29,6 +31,8 @@ if (configIsValid) {
   }
   auth = getAuth(firebaseApp);
   firestore = getFirestore(firebaseApp);
+  // Initialize functions
+  getFunctions(firebaseApp);
 }
 
 // --- PROVIDER COMPONENT ---

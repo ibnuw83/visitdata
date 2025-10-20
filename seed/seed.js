@@ -75,7 +75,11 @@ async function seedDatabase() {
             }
         }
 
-        console.log(`2. Menulis profil Firestore untuk ${email}...`);
+        console.log(`2. Menetapkan Custom Claim 'admin' untuk pengguna ${email}...`);
+        await adminAuth.setCustomUserClaims(uid, { role: 'admin' });
+        console.log(`   - Custom Claim { role: 'admin' } berhasil ditetapkan.`);
+
+        console.log(`3. Menulis profil Firestore untuk ${email}...`);
         const userRef = adminDb.collection('users').doc(uid);
         await userRef.set({
           ...profileData,
@@ -84,10 +88,6 @@ async function seedDatabase() {
         }, { merge: true });
         console.log(`   - Profil Firestore berhasil ditulis.`);
         
-        console.log(`3. Menjadikan pengguna sebagai admin dengan menulis ke koleksi 'admins'...`);
-        const adminRef = adminDb.collection('admins').doc(uid);
-        await adminRef.set({ role: 'admin', addedAt: new Date().toISOString() });
-        console.log(`   - Dokumen admin berhasil dibuat di /admins/${uid}`);
 
         console.log('--- Proses Seeding Berhasil! ---');
         return 'Proses seeding pengguna admin selesai.';

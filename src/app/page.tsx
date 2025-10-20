@@ -12,107 +12,64 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where, Unsubscribe, onSnapshot, Firestore } from "firebase/firestore";
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from "firebase/firestore";
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
 
-
-function useAllVisitsForYear(firestore: Firestore | null, destinationIds: string[], year: number) {
-    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
+// --- New Hook to fetch public data ---
+function usePublicDashboardData(year: number) {
+    const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
-        if (!firestore || destinationIds.length === 0) {
-            setLoading(false);
-            setAllVisitData([]);
-            return;
-        }
-
-        setLoading(true);
-        const allData: { [key: string]: VisitData[] } = {};
-        const unsubscribers: Unsubscribe[] = [];
-
-        // Failsafe timeout
-        const loadingTimeout = setTimeout(() => {
-             if (Object.keys(allData).length !== destinationIds.length) {
+        const fetchData = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const functions = getFunctions();
+                const getPublicData = httpsCallable(functions, 'getPublicDashboardData');
+                const result = await getPublicData({ year });
+                setData(result.data);
+            } catch (err: any) {
+                console.error("Error fetching public data:", err);
+                setError(err);
+            } finally {
                 setLoading(false);
-            }
-        }, 5000);
-
-        const checkCompletion = () => {
-            if (Object.keys(allData).length === destinationIds.length) {
-                setLoading(false);
-                clearTimeout(loadingTimeout);
             }
         };
 
-        destinationIds.forEach(destId => {
-            const visitsRef = collection(firestore, 'destinations', destId, 'visits');
-            const q = query(visitsRef, where('year', '==', year));
-            
-            const unsubscribe = onSnapshot(q, (snapshot) => {
-                allData[destId] = snapshot.docs.map(doc => ({...doc.data(), id: doc.id} as VisitData));
-                
-                const combinedData = Object.values(allData).flat();
-                setAllVisitData(combinedData);
-                
-                checkCompletion();
+        fetchData();
+    }, [year]);
 
-            }, (error) => {
-                console.error(`Error fetching visits for destination ${destId} in year ${year}:`, error);
-                allData[destId] = []; // On error, assume no data
-                checkCompletion();
-            });
-            unsubscribers.push(unsubscribe);
-        });
-
-        return () => {
-            unsubscribers.forEach(unsub => unsub());
-            clearTimeout(loadingTimeout);
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore, JSON.stringify(destinationIds), year]);
-
-    return { data: allVisitData, loading: loading };
+    return { 
+        data, 
+        loading, 
+        error,
+        destinations: data?.destinations || [],
+        allVisitData: data?.allVisitData || [],
+        availableYears: data?.availableYears || [year.toString()]
+    };
 }
 
 
 function DashboardContent() {
-    const firestore = useFirestore();
-    const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
+    const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
 
-    const destinationsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
-    }, [firestore]);
-    
-    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-    const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
-
-    const { data: allVisitData, loading: visitsLoading } = useAllVisitsForYear(firestore, destinationIds, parseInt(selectedYear));
-    
-    const loading = destinationsLoading || visitsLoading;
+    const { destinations, allVisitData, availableYears, loading, error } = usePublicDashboardData(selectedYear);
 
     const currentYear = useMemo(() => new Date().getFullYear(), []);
-    
-    const availableYears = useMemo(() => {
-        const allYearsSet = new Set<string>();
-        if (allVisitData) {
-            allVisitData.forEach(d => allYearsSet.add(d.year.toString()));
-        }
-        allYearsSet.add(currentYear.toString());
-        return Array.from(allYearsSet).sort((a,b) => parseInt(b) - parseInt(a));
-    }, [allVisitData, currentYear]);
 
     useEffect(() => {
-        if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
-            setSelectedYear(availableYears[0]);
+        if (availableYears.length > 0 && !availableYears.includes(selectedYear.toString())) {
+            setSelectedYear(parseInt(availableYears[0]));
         }
     }, [availableYears, selectedYear]);
 
-    const totalVisitors = useMemo(() => allVisitData.reduce((sum, item) => sum + item.totalVisitors, 0), [allVisitData]);
-    const totalWisnus = useMemo(() => allVisitData.reduce((sum, item) => sum + item.wisnus, 0), [allVisitData]);
-    const totalWisman = useMemo(() => allVisitData.reduce((sum, item) => sum + item.wisman, 0), [allVisitData]);
+    const totalVisitors = useMemo(() => allVisitData.reduce((sum: number, item: VisitData) => sum + item.totalVisitors, 0), [allVisitData]);
+    const totalWisnus = useMemo(() => allVisitData.reduce((sum: number, item: VisitData) => sum + item.wisnus, 0), [allVisitData]);
+    const totalWisman = useMemo(() => allVisitData.reduce((sum: number, item: VisitData) => sum + item.wisman, 0), [allVisitData]);
 
     if (loading) {
         return (
@@ -141,6 +98,22 @@ function DashboardContent() {
         )
     }
 
+    if (error) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-destructive">Gagal Memuat Data</CardTitle>
+                    <CardDescription>
+                        Tidak dapat mengambil data dasbor publik. Silakan coba lagi nanti.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground">{error.message}</p>
+                </CardContent>
+            </Card>
+        )
+    }
+
     return (
         <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -149,12 +122,12 @@ function DashboardContent() {
                     <p className="text-muted-foreground">Ringkasan data pariwisata untuk tahun {selectedYear}.</p>
                 </div>
                 <div className="w-full sm:w-auto">
-                   <Select value={selectedYear} onValueChange={setSelectedYear} disabled={availableYears.length === 0}>
+                   <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))} disabled={availableYears.length === 0}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Pilih Tahun" />
                     </SelectTrigger>
                     <SelectContent>
-                        {availableYears.map(year => (
+                        {availableYears.map((year: string) => (
                             <SelectItem key={year} value={year}>
                                 Tahun {year}
                             </SelectItem>
