@@ -23,7 +23,6 @@ const nextConfig = {
       },
     ],
   },
-  serverExternalPackages: ['bcrypt'],
 };
 
 module.exports = nextConfig;
