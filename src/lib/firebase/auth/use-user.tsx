@@ -21,10 +21,15 @@ export const useUser = () => {
   const { data: appUser, loading: isAppUserLoading, error } = useDoc<AppUser>(userDocRef);
 
   useEffect(() => {
+    // This effect is now the primary source of truth for admin status.
     const checkAdminStatus = async () => {
-      if (!authUser?.uid || !firestore) {
-        setIsAdminLoading(false);
+      // If auth is still loading or there's no user, we can't check admin status yet.
+      if (isAuthLoading || !authUser?.uid || !firestore) {
         setIsUserAdmin(false);
+        // We set loading to false only if we are sure there is no user.
+        if (!isAuthLoading && !authUser?.uid) {
+          setIsAdminLoading(false);
+        }
         return;
       }
       
@@ -42,20 +47,17 @@ export const useUser = () => {
     };
 
     checkAdminStatus();
-  }, [authUser?.uid, firestore]);
+  }, [authUser?.uid, firestore, isAuthLoading]);
 
 
-  // isLoading is true if auth is still initializing OR if we have an auth user but NOT a firestore profile yet, OR we are still checking admin status.
-  const isLoading = isAuthLoading || (!!authUser && !appUser) || isAdminLoading;
-
-  // Add a specific check for the user's role from the appUser object once it's loaded.
-  // This can override the isUserAdmin state if there are discrepancies.
-  const finalIsAdmin = appUser?.role === 'admin' || isUserAdmin;
+  // The main isLoading state now primarily depends on auth and admin check.
+  // The appUser profile loading is secondary and shouldn't block the main app layout.
+  const isLoading = isAuthLoading || isAdminLoading;
 
   return {
     user: authUser,
     appUser: appUser,
-    isUserAdmin: finalIsAdmin,
+    isUserAdmin: isUserAdmin, // Use the state derived from the /admins collection check.
     isLoading: isLoading,
     error,
     logout
