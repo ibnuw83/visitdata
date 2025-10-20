@@ -133,7 +133,6 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
         const monthIndex = index + 1;
         const id = `${destination.id}-${selectedYear}-${monthIndex}`;
         
-        // Priority: 1. Pending Changes -> 2. Fetched Data -> 3. New Default Data
         if (pendingChanges[id]) {
             return pendingChanges[id];
         }
@@ -153,7 +152,6 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
         const currentMonth = new Date().getMonth() + 1;
         const isFutureOrLocked = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
 
-        // Return a default structure if no data exists
         return {
             id: id,
             destinationId: destination.id,
@@ -180,7 +178,7 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
         };
         if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
       
-      onDataChange(updatedMonthData); // Bubble up the single change to parent
+      onDataChange(updatedMonthData); 
     }
   };
 
@@ -196,7 +194,7 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
         };
         if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
 
-        onDataChange(updatedMonthData); // Bubble up the single change to parent
+        onDataChange(updatedMonthData); 
      }
   }
 
@@ -206,7 +204,7 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
         const updatedMonthData: VisitData = { ...monthData, locked };
         if(appUser?.uid) updatedMonthData.lastUpdatedBy = appUser.uid;
 
-        onLockChange(updatedMonthData); // Save immediately
+        onLockChange(updatedMonthData); 
     }
   }
 
@@ -599,7 +597,7 @@ export default function DataEntryPage() {
   }, [destinations, selectedDestinationFilter]);
 
   if (!appUser) {
-    return null; // or a loading skeleton
+    return null; 
   }
 
   return (
@@ -700,6 +698,8 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+    
 
     
 
