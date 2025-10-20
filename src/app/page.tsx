@@ -31,7 +31,7 @@ function usePublicDashboardData(year: number) {
                 const functions = getFunctions();
                 const getPublicData = httpsCallable(functions, 'getPublicDashboardData');
                 const result = await getPublicData({ year });
-                setData(result.data);
+                setData(result.data); // Correctly read from result.data
             } catch (err: any) {
                 console.error("Error fetching public data:", err);
                 setError(err);
@@ -44,7 +44,6 @@ function usePublicDashboardData(year: number) {
     }, [year]);
 
     return { 
-        data, 
         loading, 
         error,
         destinations: data?.destinations || [],
