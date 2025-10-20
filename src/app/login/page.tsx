@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -81,7 +80,6 @@ export default function LoginPage() {
                 name="email"
                 placeholder="email@example.com"
                 required
-                defaultValue="admin@dinas.com"
               />
             </div>
             <div className="grid gap-2">
@@ -91,7 +89,6 @@ export default function LoginPage() {
                 type="password" 
                 name="password" 
                 required 
-                defaultValue="password123"
               />
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
