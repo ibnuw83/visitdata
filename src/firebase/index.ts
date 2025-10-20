@@ -14,7 +14,6 @@ export { useUser } from '@/lib/firebase/auth/use-user';
 // Firestore hooks
 export { useCollection } from '@/lib/firebase/firestore/use-collection';
 export { useDoc } from '@/lib/firebase/firestore/use-doc';
-export { useQuery } from '@/lib/firebase/firestore/use-query';
 
 /**
  * A custom hook that memoizes a Firebase query or document reference.

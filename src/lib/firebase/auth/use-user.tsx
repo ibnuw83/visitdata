@@ -12,14 +12,13 @@ export const useUser = () => {
   const { user: authUser, isLoading: isAuthLoading, logout } = useAuthUser();
   const firestore = useFirestore();
 
-  // State for the Firestore user profile
   const userDocRef = useMemo(() => {
       if (!authUser?.uid || !firestore) return null;
       return doc(firestore, 'users', authUser.uid) as DocumentReference<AppUser>;
   }, [authUser?.uid, firestore]);
+
   const { data: appUser, loading: isAppUserLoading, error } = useDoc<AppUser>(userDocRef);
   
-  // State for custom claims (role)
   const [isUserAdmin, setIsUserAdmin] = useState(false);
   const [claimsLoading, setClaimsLoading] = useState(true);
 
@@ -31,32 +30,21 @@ export const useUser = () => {
     }
 
     setClaimsLoading(true);
-    let isMounted = true;
-
-    getIdTokenResult(authUser, true) // Force refresh token
+    getIdTokenResult(authUser, true)
       .then((idTokenResult) => {
-        if (isMounted) {
-          const claims = idTokenResult.claims;
-          setIsUserAdmin(claims.role === 'admin');
-        }
+        const claims = idTokenResult.claims;
+        setIsUserAdmin(claims.role === 'admin');
       })
       .catch((e) => {
-        if (isMounted) {
-          console.error("Failed to get user claims:", e);
-          setIsUserAdmin(false);
-        }
+        console.error("Failed to get user claims:", e);
+        setIsUserAdmin(false);
       })
       .finally(() => {
-        if (isMounted) {
-          setClaimsLoading(false);
-        }
+        setClaimsLoading(false);
       });
-      
-    return () => { isMounted = false; }
   }, [authUser]);
 
-  // Overall loading is complete when auth is done AND claims are checked AND app user profile is loaded (or fails).
-  const isLoading = isAuthLoading || isAppUserLoading;
+  const isLoading = isAuthLoading || isAppUserLoading || claimsLoading;
 
   return {
     user: authUser,
