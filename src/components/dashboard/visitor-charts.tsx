@@ -13,26 +13,34 @@ const valueFormatter = (number: number) => {
 };
 
 const aggregateMonthlyData = (data: VisitData[]) => {
-    return Array.from({ length: 12 }, (_, i) => {
+    // Create an initial structure for all 12 months with zero values
+    const monthlyDataTemplate = Array.from({ length: 12 }, (_, i) => {
         const monthIndex = i + 1;
         const monthName = new Date(0, i).toLocaleString('id-ID', { month: 'short' });
-        
-        const monthlyTotals = data
-            .filter(d => d.month === monthIndex)
-            .reduce((acc, current) => {
-                acc.wisnus += current.wisnus || 0;
-                acc.wisman += current.wisman || 0;
-                acc.totalVisitors += current.totalVisitors || 0;
-                return acc;
-            }, { wisnus: 0, wisman: 0, totalVisitors: 0 });
-
-        return { 
-            month: monthName, 
-            'Domestik': monthlyTotals.wisnus, 
-            'Asing': monthlyTotals.wisman,
-            'Total Pengunjung': monthlyTotals.totalVisitors
+        return {
+            month: monthName,
+            'Domestik': 0,
+            'Asing': 0,
+            'Total Pengunjung': 0,
         };
     });
+
+    // If there's no data, return the zero-filled template
+    if (!data || data.length === 0) {
+        return monthlyDataTemplate;
+    }
+
+    // Sum up the data into the template
+    data.forEach(visit => {
+        if (visit.month >= 1 && visit.month <= 12) {
+            const monthIndex = visit.month - 1;
+            monthlyDataTemplate[monthIndex]['Domestik'] += visit.wisnus || 0;
+            monthlyDataTemplate[monthIndex]['Asing'] += visit.wisman || 0;
+            monthlyDataTemplate[monthIndex]['Total Pengunjung'] += visit.totalVisitors || 0;
+        }
+    });
+
+    return monthlyDataTemplate;
 };
 
 
@@ -70,38 +78,4 @@ export function MonthlyLineChart({ data }: { data: VisitData[] }) {
     );
 }
 
-export function MonthlyBarChart({ data }: { data: VisitData[] }) {
-    const chartData = useMemo(() => aggregateMonthlyData(data), [data]);
-    
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Komposisi Pengunjung</CardTitle>
-                <CardDescription>Grafik batang perbandingan pengunjung domestik vs. asing per bulan.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 {chartData && chartData.length > 0 ? (
-                    <BarChart
-                        className="h-72 mt-4"
-                        data={chartData}
-                        index="month"
-                        categories={['Domestik', 'Asing']}
-                        colors={['blue', 'green']}
-                        yAxisWidth={40}
-                        valueFormatter={valueFormatter}
-                        stack={false}
-                        showAnimation
-                        showLegend
-                        showYAxis
-                        showGridLines
-                        showLabel={true}
-                    />
-                 ) : (
-                    <div className="flex flex-col items-center justify-center h-80">
-                        <p className="text-muted-foreground">Tidak ada data untuk ditampilkan.</p>
-                    </div>
-                 )}
-            </CardContent>
-        </Card>
-    );
-}
+export function MonthlyBarChart({ data }: { data: VisitData[] })
