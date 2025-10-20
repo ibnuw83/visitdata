@@ -101,12 +101,12 @@ exports.getPublicDashboardData = functions.https.onCall(async (data, context) =>
     }
 
     // 2. Fetch all visit data for the selected year from active destinations
-    // Firestore 'in' queries are limited to 30 items. We need to batch if necessary.
+    // Firestore 'in' queries are limited to 10 items. We need to batch if necessary.
     const visitData: any[] = [];
     const allYearsSet = new Set<string>();
     
     // Batching the 'in' query
-    const BATCH_SIZE = 30;
+    const BATCH_SIZE = 10;
     for (let i = 0; i < activeDestinationIds.length; i += BATCH_SIZE) {
         const batchIds = activeDestinationIds.slice(i, i + BATCH_SIZE);
         const visitsSnapshot = await db.collectionGroup("visits")
