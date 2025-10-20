@@ -8,7 +8,6 @@ import { getAuth, Auth, signOut } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { firebaseConfig } from '@/lib/firebase/config';
 import { useToast } from '@/hooks/use-toast';
-import { handleFirestoreError } from '@/lib/firebase/listeners/firestore-error-handler';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/logo';
 
@@ -16,6 +15,22 @@ const FirebaseAppContext = createContext<FirebaseApp | null>(null);
 const FirestoreContext = createContext<Firestore | null>(null);
 const AuthContext = createContext<Auth | null>(null);
 const AuthUserContext = createContext<{ user: User | null, isLoading: boolean, logout: () => Promise<void> } | undefined>(undefined);
+
+function handleFirestoreError(toast: any, error: { code: string, message: string }) {
+    if (error.code === 'permission-denied') {
+        toast({
+            variant: 'destructive',
+            title: 'Akses Firestore Ditolak 🔒',
+            description: `Anda tidak memiliki izin untuk melakukan tindakan ini.`,
+        });
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Kesalahan Firestore ⚠️',
+            description: error.message || 'Terjadi kesalahan pada operasi Firestore.',
+        });
+    }
+}
 
 export function FirebaseClientProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
