@@ -28,11 +28,12 @@ function useAllVisitsForYear(firestore: Firestore | null, destinationIds: string
         const allData: { [key: string]: VisitData[] } = {};
         const unsubscribers: Unsubscribe[] = [];
 
+        // Failsafe timeout
         const loadingTimeout = setTimeout(() => {
-            if (Object.keys(allData).length !== destinationIds.length) {
-                setLoading(false); // Only set loading to false if it hasn't completed
+             if (Object.keys(allData).length !== destinationIds.length) {
+                setLoading(false);
             }
-        }, 5000); // Failsafe timeout
+        }, 5000);
 
         const checkCompletion = () => {
             if (Object.keys(allData).length === destinationIds.length) {
@@ -102,12 +103,12 @@ export default function DashboardPage() {
 
     const currentYear = new Date().getFullYear();
     const availableYears = useMemo(() => {
-        if (!allVisitData) return [currentYear.toString()];
-        const allYears = [...new Set(allVisitData.map(d => d.year.toString()))].sort((a, b) => parseInt(b) - parseInt(a));
-        if (!allYears.includes(currentYear.toString())) {
-            allYears.unshift(currentYear.toString());
+        const yearsSet = new Set<string>();
+        if (allVisitData) {
+            allVisitData.forEach(d => yearsSet.add(d.year.toString()));
         }
-        return allYears.length > 0 ? allYears : [currentYear.toString()];
+        yearsSet.add(currentYear.toString());
+        return Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
     }, [allVisitData, currentYear]);
     
     useEffect(() => {

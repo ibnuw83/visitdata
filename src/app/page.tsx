@@ -95,8 +95,10 @@ function DashboardContent() {
     const currentYear = useMemo(() => new Date().getFullYear(), []);
     
     const availableYears = useMemo(() => {
-        if (!allVisitData || allVisitData.length === 0) return [currentYear.toString()];
-        const allYearsSet = new Set(allVisitData.map(d => d.year.toString()));
+        const allYearsSet = new Set<string>();
+        if (allVisitData) {
+            allVisitData.forEach(d => allYearsSet.add(d.year.toString()));
+        }
         allYearsSet.add(currentYear.toString());
         return Array.from(allYearsSet).sort((a,b) => parseInt(b) - parseInt(a));
     }, [allVisitData, currentYear]);
