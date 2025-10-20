@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { doc, DocumentReference } from 'firebase/firestore';
 import { useAuthUser, useFirestore } from '@/firebase';
 import { useDoc } from '@/firebase/firestore/use-doc';
-import { User as AppUser } from '@/lib/types';
+import { User as AppUserType } from '@/lib/types';
 import { getIdTokenResult } from 'firebase/auth';
 
 export const useUser = () => {
@@ -13,17 +13,17 @@ export const useUser = () => {
 
   const userDocRef = useMemo(() => {
     if (!authUser?.uid || !firestore) return null;
-    return doc(firestore, 'users', authUser.uid) as DocumentReference<AppUser>;
+    return doc(firestore, 'users', authUser.uid) as DocumentReference<AppUserType>;
   }, [authUser?.uid, firestore]);
 
-  const { data: appUser, loading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
+  const { data: appUser, loading: isAppUserLoading } = useDoc<AppUserType>(userDocRef);
   
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
   const [isClaimsLoading, setClaimsLoading] = useState(true);
   
   useEffect(() => {
     if (!authUser) {
-      setIsAdmin(false);
+      setRole(null);
       setClaimsLoading(false);
       return;
     }
@@ -32,42 +32,35 @@ export const useUser = () => {
     getIdTokenResult(authUser)
       .then((idTokenResult) => {
         const claims = idTokenResult.claims;
-        setIsAdmin(claims.role === 'admin');
-        if (appUser) {
-          // Manually add role to appUser from claims if not present
-          // This helps bridge the gap if Firestore data is slightly out of sync
-          if (!appUser.role && claims.role) {
-            appUser.role = claims.role;
-          }
-        }
+        setRole(claims.role as string || null);
       })
       .catch((error) => {
         console.error("Failed to get user claims:", error);
-        setIsAdmin(false);
+        setRole(null);
       })
       .finally(() => {
         setClaimsLoading(false);
       });
 
-  }, [authUser, appUser]);
+  }, [authUser]);
 
   const isLoading = isAuthLoading || isAppUserLoading || isClaimsLoading;
   
   // Combine authUser and Firestore appUser into one object
   const mergedUser = useMemo(() => {
-      if (!authUser || !appUser) return null;
+      if (isLoading || !authUser || !appUser) return null;
       return {
           ...authUser, // from 'firebase/auth'
           ...appUser,  // from 'firestore' collection
-          isAdmin: isAdmin
-      }
-  }, [authUser, appUser, isAdmin])
+          role: role || appUser.role, // Prioritize claim role
+      } as AppUserType & { isAdmin: boolean };
+  }, [authUser, appUser, isLoading, role])
 
 
   return {
     user: authUser, // The raw firebase auth user
-    appUser: mergedUser, // The combined user profile with data from firestore
-    isUserAdmin: isAdmin,
+    appUser: mergedUser, 
+    isUserAdmin: mergedUser?.role === 'admin',
     isLoading: isLoading,
     logout
   };

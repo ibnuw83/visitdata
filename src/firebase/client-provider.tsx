@@ -6,32 +6,31 @@ import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { firebaseConfig } from '@/lib/firebase/config';
-import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/logo';
 
 // --- CONTEXT DEFINITIONS ---
 const FirebaseAppContext = createContext<FirebaseApp | null>(null);
 const FirestoreContext = createContext<Firestore | null>(null);
 const AuthContext = createContext<Auth | null>(null);
-const AuthUserContext = createContext<{ user: User | null; isLoading: boolean; logout: () => Promise<void> } | undefined>(undefined);
+const AuthUserContext = createContext<{ user: User | null; isLoading: boolean; logout: () => Promise<void> }>({ user: null, isLoading: true, logout: async () => {} });
 
 // --- FIREBASE INITIALIZATION (SINGLETON PATTERN) ---
-let firebaseApp: FirebaseApp;
-if (getApps().length === 0) {
+function initializeFirebase() {
+  if (getApps().length > 0) {
+    return getApps()[0];
+  }
   if (!firebaseConfig.apiKey) {
     throw new Error("Firebase config is missing. Please check your environment variables and src/lib/firebase/config.ts");
   }
-  firebaseApp = initializeApp(firebaseConfig);
-} else {
-  firebaseApp = getApps()[0];
+  return initializeApp(firebaseConfig);
 }
 
+const firebaseApp = initializeFirebase();
 const auth = getAuth(firebaseApp);
 const firestore = getFirestore(firebaseApp);
 
 // --- PROVIDER COMPONENT ---
 export function FirebaseClientProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
