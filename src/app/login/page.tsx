@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useAuth, useAuthUser } from '@/app/provider';
+import { useAuth, useAuthUser } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 

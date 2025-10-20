@@ -3,6 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { getDocs, Query } from 'firebase/firestore';
+import { errorEmitter } from '@/lib/firebase/error-emitter';
+import { FirestorePermissionError } from '@/lib/firebase/errors';
 
 export function useQuery<T>(
   q: Query | null
@@ -35,8 +37,23 @@ export function useQuery<T>(
       })
       .catch((err) => {
         if (isMounted) {
-          console.error(err);
-          setError(err);
+          if (err.code === 'permission-denied') {
+            let errorPath = '(unknown)';
+            try {
+              // @ts-ignore
+              errorPath = q?._query?.path?.segments?.join('/') ?? '(unknown)';
+            } catch {}
+
+            const permissionError = new FirestorePermissionError({
+              path: errorPath,
+              operation: 'list',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            setError(permissionError);
+          } else {
+            console.error("An unexpected error occurred in useQuery:", err);
+            setError(err);
+          }
         }
       })
       .finally(() => {
