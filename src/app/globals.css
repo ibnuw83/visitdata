@@ -23,13 +23,36 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 216 54% 31%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    
+    /* Tremor variables */
+    --tremor-brand: hsl(var(--primary));
+    --tremor-brand-faint: 216 54% 90%;
+    --tremor-brand-muted: 216 54% 70%;
+    --tremor-brand-subtle: 216 54% 50%;
+    --tremor-brand-emphasis: 216 54% 20%;
+    
+    --tremor-background: hsl(var(--background));
+    --tremor-background-muted: 220 20% 90%;
+    --tremor-background-subtle: 220 20% 94%;
+    --tremor-background-emphasis: 0 0% 100%;
+
+    --tremor-border: hsl(var(--border));
+    --tremor-ring: hsl(var(--ring));
+
+    --tremor-content: 222.2 47.4% 11.2%;
+    --tremor-content-muted: 215.4 16.3% 46.9%;
+    --tremor-content-subtle: 215.4 16.3% 60%;
+    --tremor-content-emphasis: 222.2 84% 4.9%;
+    --tremor-content-strong: 222.2 84% 4.9%;
+
+    --tremor-chart-1: 220 70% 50%;
+    --tremor-chart-2: 160 60% 45%;
+    --tremor-chart-3: 30 80% 55%;
+    --tremor-chart-4: 280 65% 60%;
+    --tremor-chart-5: 340 75% 55%;
   }
+
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
@@ -50,11 +73,33 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 216 54% 41%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+
+    /* Tremor dark variables */
+    --tremor-brand: hsl(var(--primary));
+    --tremor-brand-faint: 216 54% 20%;
+    --tremor-brand-muted: 216 54% 40%;
+    --tremor-brand-subtle: 216 54% 60%;
+    --tremor-brand-emphasis: 216 54% 80%;
+
+    --tremor-background: 222.2 84% 4.9%;
+    --tremor-background-muted: 222.2 84% 10%;
+    --tremor-background-subtle: 222.2 84% 8%;
+    --tremor-background-emphasis: 222.2 84% 15%;
+
+    --tremor-border: hsl(var(--border));
+    --tremor-ring: hsl(var(--ring));
+
+    --tremor-content: 210 40% 80%;
+    --tremor-content-muted: 215 20.2% 55%;
+    --tremor-content-subtle: 215 20.2% 45%;
+    --tremor-content-emphasis: 210 40% 98%;
+    --tremor-content-strong: 210 40% 98%;
+
+    --tremor-chart-1: 220 70% 50%;
+    --tremor-chart-2: 160 60% 45%;
+    --tremor-chart-3: 30 80% 55%;
+    --tremor-chart-4: 280 65% 60%;
+    --tremor-chart-5: 340 75% 55%;
   }
 }
 
