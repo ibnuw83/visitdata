@@ -17,7 +17,7 @@ import { doc, collection, query, where, Unsubscribe, onSnapshot, Firestore } fro
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
 
 
-// This hook is adapted from the admin dashboard to fetch public data
+// This hook is adapted from the admin dashboard to fetch public data in real-time
 function useAllVisitsForYear(firestore: Firestore | null, destinationIds: string[], year: number) {
     const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
     const [loading, setLoading] = useState(true);
