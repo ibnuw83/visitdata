@@ -4,74 +4,96 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isRole(role) {
-      return isSignedIn() && request.auth.token.role == role;
+    function isUser(uid) {
+      return isSignedIn() && request.auth.uid == uid;
     }
 
-    function isDataOwner(userId) {
-      return request.auth.uid == userId;
-    }
-    
-    function isAssignedToDest(destId) {
-      return destId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedLocations;
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // --- Public Read Rules ---
-    // Anyone can read destinations, categories, public app settings, and aggregated visit data.
-    match /destinations/{destinationId} {
-      allow read: if true;
-      allow write: if isRole('admin');
-    }
-    
-    match /categories/{categoryId} {
-      allow read: if true;
-      allow write: if isRole('admin');
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'admin';
     }
 
+    function isPengelola() {
+        return isSignedIn() && getUserData().role == 'pengelola';
+    }
+
+    // --- PUBLIC ACCESS ---
+    // Anyone can read general app settings, destination lists, and categories.
     match /settings/app {
+      allow read: if true;
+      allow write: if isAdmin(); // Only admins can change settings
+    }
+
+    match /destinations/{destinationId} {
         allow read: if true;
-        allow write: if isRole('admin');
+        allow write: if isAdmin(); // Only admins can create/update/delete destinations
+    }
+
+    match /categories/{categoryId} {
+        allow read: if true;
+        allow write: if isAdmin();
     }
     
     match /countries/{countryId} {
-      allow read: if true;
-      allow write: if isRole('admin');
+        allow read: if true;
+        allow write: if isAdmin();
     }
 
-    // This allows collectionGroup query for 'visits' by the public.
+    // --- VISIT DATA ACCESS ---
+    // Collection group for visits. This allows public read for reports.
     match /{path=**}/visits/{visitId} {
-       allow read: if true;
+        allow read: if true;
+
+        // Write rules are more specific and defined on the direct path below
+        allow write: if false; 
     }
 
-    // --- User Profile Rules ---
-    match /users/{userId} {
-      // Anyone signed in can read any user's profile (for display names, etc.)
-      allow read: if isSignedIn();
-      // Only the user themselves or an admin can update their profile.
-      allow write: if isDataOwner(userId) || isRole('admin');
-    }
-    
-    // --- Data Entry (Visits) Rules ---
+    // Specific write rules for visits, checked against the destination document
     match /destinations/{destinationId}/visits/{visitId} {
-      // Read access is public via collectionGroup rule above.
-      
-      // Allow write for admins OR for assigned managers if the data is not locked.
-      allow write: if isRole('admin') || 
-                      (isRole('pengelola') && 
-                       isAssignedToDest(destinationId) && 
-                       !resource.data.locked);
+        // A manager can write to a visit doc IF:
+        // 1. They are a manager
+        // 2. The destination is assigned to them
+        // 3. The data is NOT locked
+        allow write: if (isPengelola() && destinationId in getUserData().assignedLocations && resource.data.locked == false)
+                     || isAdmin(); // Admins can always write/lock/unlock
+    }
+
+
+    // --- USER PROFILE ACCESS ---
+    match /users/{userId} {
+      // Admins can read any user profile.
+      // A user can read their own profile.
+      allow read: if isAdmin() || isUser(userId);
+
+      // Admins can write to any user profile (to change roles, etc.).
+      // A user can update their own profile (name, avatar, but not role).
+      allow write: if isAdmin();
+      allow update: if isUser(userId) && !(request.resource.data.role != resource.data.role);
     }
     
-    // --- Unlock Request Rules ---
+    // --- UNLOCK REQUESTS ACCESS ---
     match /unlock-requests/{requestId} {
-        allow read, write: if isRole('admin');
-        allow create: if isRole('pengelola');
+        // Admins can see all requests
+        allow read, list: if isAdmin();
+        
+        // Managers can create requests
+        allow create: if isPengelola() && request.resource.data.requestedBy == request.auth.uid;
+        
+        // Admins can update status (approve/reject)
+        allow update: if isAdmin();
+        
+        // No one can delete for auditing purposes
+        allow delete: if false;
     }
-    
   }
 }
+
+    

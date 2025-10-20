@@ -13,10 +13,9 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where } from "firebase/firestore";
+import { doc, collection, query, where, collectionGroup } from "firebase/firestore";
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useAllVisitsForYear } from '@/hooks/use-all-visits-for-year';
 
 function DashboardContent() {
     const firestore = useFirestore();
@@ -29,15 +28,20 @@ function DashboardContent() {
     }, [firestore]);
     const { data: activeDestinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
 
-    // 2. Fetch ALL visit data for the selected year.
-    const { data: allVisitDataForYear, loading: visitsLoading } = useAllVisitsForYear(firestore, selectedYear);
+    // 2. Fetch ALL visit data for the selected year using a collectionGroup query
+    const visitsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collectionGroup(firestore, 'visits'), where('year', '==', selectedYear));
+    }, [firestore, selectedYear]);
+    const { data: allVisitDataForYear, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
+
 
     // 3. Memoize the set of active destination IDs for efficient filtering.
     const activeDestinationIds = useMemo(() => new Set(activeDestinations?.map(d => d.id) || []), [activeDestinations]);
     
     // 4. Filter the raw visit data to include only visits from active destinations.
     const filteredVisitData = useMemo(() => {
-        if (!allVisitDataForYear || activeDestinationIds.size === 0) return [];
+        if (!allVisitDataForYear || !activeDestinationIds) return [];
         return allVisitDataForYear.filter(visit => activeDestinationIds.has(visit.destinationId));
     }, [allVisitDataForYear, activeDestinationIds]);
 
@@ -215,3 +219,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
