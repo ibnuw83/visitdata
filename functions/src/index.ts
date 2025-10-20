@@ -26,62 +26,58 @@ export const getPublicDashboardData = functions.https.onCall(
         .collection("destinations")
         .where("status", "==", "aktif")
         .get();
-      const destinations = destinationsSnapshot.docs.map((doc) => doc.data());
-      const destinationIds = destinations.map((d) => d.id);
 
-      // Handle case where there are no active destinations
-      if (destinationIds.length === 0) {
+      if (destinationsSnapshot.empty) {
         return {
           destinations: [],
           allVisitData: [],
           availableYears: [currentYearStr],
         };
       }
+      
+      const destinations = destinationsSnapshot.docs.map((doc) => doc.data());
+      const activeDestinationIds = new Set(destinations.map((d) => d.id));
 
-      // 2. Get all visit data for the requested year for all active destinations
-      const visitPromises = destinationIds.map((destId) =>
-        db
-          .collection(`destinations/${destId}/visits`)
-          .where("year", "==", year)
-          .get()
+      // 2. Get all visit data from all destinations using a collection group query
+      const allVisitsSnapshot = await db.collectionGroup("visits").get();
+
+      const allVisits = allVisitsSnapshot.docs.map(doc => doc.data());
+
+      // 3. Filter visits to only include those from active destinations
+      const allActiveVisits = allVisits.filter(visit => 
+          activeDestinationIds.has(visit.destinationId)
       );
-      const visitSnapshots = await Promise.all(visitPromises);
-      const allVisitDataForYear = visitSnapshots
-        .flatMap((snap) => snap.docs.map((doc) => doc.data()))
-        .filter(Boolean);
 
-      // 3. Get all visit data from all time to determine available years
-      const allTimeVisitPromises = destinationIds.map((destId) =>
-        db.collection(`destinations/${destId}/visits`).get()
-      );
-      const allTimeVisitSnapshots = await Promise.all(allTimeVisitPromises);
-      const allVisitsFromAllTime = allTimeVisitSnapshots
-        .flatMap((snap) => snap.docs.map((doc) => doc.data()))
-        .filter(Boolean);
-
+      // 4. Get visits for the requested year
+      const allVisitDataForYear = allActiveVisits.filter(visit => visit.year === year);
+      
+      // 5. Determine available years from all active visits
       const yearsSet = new Set(
-        allVisitsFromAllTime.map((visit) => visit.year.toString())
+        allActiveVisits.map((visit) => visit.year.toString())
       );
       yearsSet.add(currentYearStr); // Always include the current year
 
       const availableYears = Array.from(yearsSet).sort(
         (a, b) => parseInt(b) - parseInt(a)
       );
-
+      
       return {
         destinations,
         allVisitData: allVisitDataForYear,
         availableYears,
       };
+
     } catch (error) {
       functions.logger.error("Error fetching public dashboard data:", error);
       throw new functions.https.HttpsError(
         "internal",
-        "Unable to fetch public dashboard data."
+        "Unable to fetch public dashboard data.",
+        error.message
       );
     }
   }
 );
+
 
 // Cloud Function to sync user role to custom claims
 exports.syncUserRole = functions.firestore
