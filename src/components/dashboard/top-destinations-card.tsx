@@ -1,6 +1,7 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Destination, VisitData } from "@/lib/types";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge, List, ListItem } from "@tremor/react";
 
 export default function TopDestinationsCard({ data, destinations }: { data: VisitData[], destinations: Destination[] }) {
     const destinationTotals = destinations.map(dest => {
@@ -19,20 +20,20 @@ export default function TopDestinationsCard({ data, destinations }: { data: Visi
                 <CardDescription>Berdasarkan total kunjungan tertinggi.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="space-y-4">
+                <List>
                     {top5.map((dest, index) => (
-                        <div key={dest.id} className="flex items-center gap-4">
-                            <Avatar className="h-9 w-9">
-                                <AvatarFallback className="bg-primary text-primary-foreground">{index + 1}</AvatarFallback>
-                            </Avatar>
-                            <div className="grid gap-1">
-                                <p className="text-sm font-medium leading-none">{dest.name}</p>
-                                <p className="text-sm text-muted-foreground">{dest.location}</p>
+                        <ListItem key={dest.id}>
+                            <div className="flex items-center gap-4 w-full">
+                                <Badge className="bg-primary text-primary-foreground">{index + 1}</Badge>
+                                <div>
+                                    <p className="text-sm font-medium text-tremor-content-strong dark:text-dark-tremor-content-strong">{dest.name}</p>
+                                    <p className="text-sm text-tremor-content dark:text-dark-tremor-content">{dest.location}</p>
+                                </div>
+                                <p className="ml-auto font-medium">{dest.totalVisitors.toLocaleString()}</p>
                             </div>
-                            <div className="ml-auto font-medium">{dest.totalVisitors.toLocaleString()}</div>
-                        </div>
+                        </ListItem>
                     ))}
-                </div>
+                </List>
             </CardContent>
         </Card>
     );
