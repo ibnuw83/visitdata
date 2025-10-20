@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Users, Landmark, Plane, Globe, AlertTriangle } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-card";
@@ -12,77 +12,60 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from "firebase/firestore";
+import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, collection, query, where } from "firebase/firestore";
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-
-// Define the expected structure of the data returned by the cloud function
-type PublicDashboardData = {
-    totalVisitors: number;
-    totalWisnus: number;
-    totalWisman: number;
-    activeDestinations: Destination[];
-    visitData: VisitData[];
-    availableYears: string[];
-};
+import { useAllVisitsForYear } from '@/hooks/use-all-visits-for-year';
 
 function DashboardContent() {
     const firestore = useFirestore();
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-    const [dashboardData, setDashboardData] = useState<PublicDashboardData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    
-    const fetchDashboardData = useCallback(async (year: number) => {
-        setLoading(true);
-        setError(null);
 
-        if (!firestore) {
-            setError("Koneksi ke server gagal.");
-            setLoading(false);
-            return;
-        }
-
-        try {
-            const functions = getFunctions();
-            const getPublicDashboardData = httpsCallable(functions, 'getPublicDashboardData');
-            const result = await getPublicDashboardData({ year });
-            const data = result.data as PublicDashboardData;
-
-            setDashboardData(data);
-
-            // Ensure the selected year is valid after fetching
-            if (data.availableYears.length > 0 && !data.availableYears.includes(year.toString())) {
-                const latestYear = parseInt(data.availableYears[0], 10);
-                setSelectedYear(latestYear);
-            }
-
-        } catch (err: any) {
-            console.error("Error fetching public dashboard data:", err);
-            setError(err.message || "Gagal mengambil data. Silakan coba lagi.");
-        } finally {
-            setLoading(false);
-        }
+    // 1. Fetch all active destinations
+    const destinationsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
     }, [firestore]);
+    const { data: activeDestinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
+
+    // 2. Fetch ALL visit data for the selected year.
+    const { data: allVisitDataForYear, loading: visitsLoading } = useAllVisitsForYear(firestore, selectedYear);
+
+    // 3. Memoize the set of active destination IDs for efficient filtering.
+    const activeDestinationIds = useMemo(() => new Set(activeDestinations?.map(d => d.id) || []), [activeDestinations]);
+    
+    // 4. Filter the raw visit data to include only visits from active destinations.
+    const filteredVisitData = useMemo(() => {
+        if (!allVisitDataForYear || activeDestinationIds.size === 0) return [];
+        return allVisitDataForYear.filter(visit => activeDestinationIds.has(visit.destinationId));
+    }, [allVisitDataForYear, activeDestinationIds]);
+
+    const loading = destinationsLoading || visitsLoading;
+
+    // 5. Determine available years from the full dataset for the dropdown
+    const availableYears = useMemo(() => {
+        const yearsSet = new Set<string>();
+        if (allVisitDataForYear) {
+            allVisitDataForYear.forEach(d => yearsSet.add(d.year.toString()));
+        }
+        const currentYearStr = new Date().getFullYear().toString();
+        if (!yearsSet.has(currentYearStr)) {
+          yearsSet.add(currentYearStr);
+        }
+        return Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
+    }, [allVisitDataForYear]);
 
     useEffect(() => {
-        fetchDashboardData(selectedYear);
-    }, [selectedYear, fetchDashboardData]);
-    
-     if (error) {
-        return (
-            <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Gagal Memuat Data</AlertTitle>
-                <AlertDescription>
-                    {error}
-                </AlertDescription>
-            </Alert>
-        )
-    }
+        if (availableYears.length > 0 && !availableYears.includes(selectedYear.toString())) {
+            setSelectedYear(parseInt(availableYears[0]));
+        }
+    }, [availableYears, selectedYear]);
 
+    const totalVisitors = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.totalVisitors, 0), [filteredVisitData]);
+    const totalWisnus = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.wisnus, 0), [filteredVisitData]);
+    const totalWisman = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.wisman, 0), [filteredVisitData]);
+    
     if (loading) {
         return (
              <div className="flex flex-col gap-8">
@@ -110,21 +93,19 @@ function DashboardContent() {
         )
     }
 
-    if (!dashboardData || dashboardData.activeDestinations.length === 0) {
+    if (!loading && (!activeDestinations || activeDestinations.length === 0)) {
        return (
             <Card>
                 <CardHeader>
                     <CardTitle className="text-muted-foreground">Dasbor Publik</CardTitle>
                 </CardHeader>
                 <CardContent className="flex h-48 items-center justify-center">
-                    <p className="text-muted-foreground">Belum ada data destinasi untuk ditampilkan.</p>
+                    <p className="text-muted-foreground">Belum ada data destinasi aktif untuk ditampilkan.</p>
                 </CardContent>
             </Card>
         )
     }
     
-    const { totalVisitors, totalWisnus, totalWisman, activeDestinations, visitData, availableYears } = dashboardData;
-
     return (
         <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -156,11 +137,11 @@ function DashboardContent() {
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <MonthlyLineChart data={visitData} />
-                <MonthlyBarChart data={visitData} />
+                <MonthlyLineChart data={filteredVisitData} />
+                <MonthlyBarChart data={filteredVisitData} />
             </div>
 
-            <TopDestinationsCarousel data={visitData} destinations={activeDestinations || []} />
+            <TopDestinationsCarousel data={filteredVisitData} destinations={activeDestinations || []} />
         </div>
     )
 }
