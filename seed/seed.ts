@@ -14,22 +14,25 @@ export async function seedDatabase(adminDb: Firestore, adminAuth: AdminAuth) {
     console.log('Starting user authentication seeding...');
     
     const usersWithUids: User[] = [];
+    const password = "password123";
 
     for (const user of seedUsers) {
         let uid: string;
         try {
             const userRecord = await adminAuth.getUserByEmail(user.email);
             uid = userRecord.uid;
+            console.log(`Updating existing user: ${user.email}`);
             await adminAuth.updateUser(uid, {
-                password: "password123",
+                password: password,
                 displayName: user.name,
                 photoURL: user.avatarUrl,
             });
         } catch (error: any) {
             if (error.code === 'auth/user-not-found') {
+                 console.log(`Creating new user: ${user.email}`);
                 const userRecord = await adminAuth.createUser({
                     email: user.email,
-                    password: "password123",
+                    password: password,
                     displayName: user.name,
                     photoURL: user.avatarUrl,
                 });

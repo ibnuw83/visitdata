@@ -1,4 +1,3 @@
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -7,6 +6,10 @@ import { seedDatabase } from '../../../../seed/seed';
 
 
 export async function GET() {
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({ error: 'Seeding is only allowed in development environment.' }, { status: 403 });
+  }
+
   if (!adminAuth || !adminDb) {
     return NextResponse.json({ error: 'Firebase Admin not initialized. Check server environment variables.' }, { status: 500 });
   }
