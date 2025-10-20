@@ -12,53 +12,107 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from "firebase/firestore";
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, collection, query, where, Unsubscribe, onSnapshot, Firestore } from "firebase/firestore";
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
 
-// --- New Hook to fetch public data ---
-function usePublicDashboardData(year: number) {
-    const [data, setData] = useState<any>(null);
+
+// This hook is adapted from the admin dashboard to fetch public data
+function useAllVisitsForYear(firestore: Firestore | null, destinationIds: string[], year: number) {
+    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const functions = getFunctions();
-                const getPublicData = httpsCallable(functions, 'getPublicDashboardData');
-                const result = await getPublicData({ year });
-                setData(result.data); // Correctly read from result.data
-            } catch (err: any) {
-                console.error("Error fetching public data:", err);
-                setError(err);
-            } finally {
+        if (!firestore || destinationIds.length === 0) {
+            // If there are no destination IDs, it means destinations are loaded but there are none.
+            // So we can stop loading and return empty data.
+            setLoading(false);
+            setAllVisitData([]);
+            return;
+        }
+
+        setLoading(true);
+        const allData: { [key: string]: VisitData[] } = {};
+        const unsubscribers: Unsubscribe[] = [];
+
+        // Failsafe timeout
+        const loadingTimeout = setTimeout(() => {
+             if (Object.keys(allData).length !== destinationIds.length) {
                 setLoading(false);
+            }
+        }, 5000);
+
+        const checkCompletion = () => {
+            if (Object.keys(allData).length === destinationIds.length) {
+                setLoading(false);
+                clearTimeout(loadingTimeout);
             }
         };
 
-        fetchData();
-    }, [year]);
+        destinationIds.forEach(destId => {
+            const visitsRef = collection(firestore, 'destinations', destId, 'visits');
+            const q = query(visitsRef, where('year', '==', year));
+            
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                allData[destId] = snapshot.docs.map(doc => ({...doc.data(), id: doc.id} as VisitData));
+                
+                const combinedData = Object.values(allData).flat();
+                setAllVisitData(combinedData);
+                
+                checkCompletion();
 
-    return { 
-        loading, 
-        error,
-        destinations: data?.destinations || [],
-        allVisitData: data?.allVisitData || [],
-        availableYears: data?.availableYears || [year.toString()]
-    };
+            }, (error) => {
+                console.error(`Error fetching visits for destination ${destId} in year ${year}:`, error);
+                allData[destId] = []; // On error, assume no data
+                checkCompletion();
+            });
+            unsubscribers.push(unsubscribe);
+        });
+
+        return () => {
+            unsubscribers.forEach(unsub => unsub());
+            clearTimeout(loadingTimeout);
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [firestore, JSON.stringify(destinationIds), year]);
+
+    return { data: allVisitData, loading: loading };
 }
 
 
 function DashboardContent() {
+    const firestore = useFirestore();
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
 
-    const { destinations, allVisitData, availableYears, loading, error } = usePublicDashboardData(selectedYear);
+    const destinationsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        // Fetch all active destinations for the public dashboard
+        return query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
+    }, [firestore]);
 
+    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
+    const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
+
+    const { data: allVisitData, loading: visitsLoading } = useAllVisitsForYear(firestore, destinationIds, selectedYear);
+    
+    const loading = destinationsLoading || visitsLoading;
     const currentYear = useMemo(() => new Date().getFullYear(), []);
+
+    // A simple way to get available years from the first destination's data
+    const sampleVisitsQuery = useMemoFirebase(() => {
+        if (!firestore || destinationIds.length === 0) return null;
+        return query(collection(firestore, 'destinations', destinationIds[0], 'visits'));
+    }, [firestore, destinationIds]);
+    const { data: sampleVisits } = useCollection<VisitData>(sampleVisitsQuery);
+
+    const availableYears = useMemo(() => {
+        const yearsSet = new Set<string>();
+        if (sampleVisits) {
+            sampleVisits.forEach(d => yearsSet.add(d.year.toString()));
+        }
+        yearsSet.add(currentYear.toString());
+        return Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
+    }, [sampleVisits, currentYear]);
 
     useEffect(() => {
         if (availableYears.length > 0 && !availableYears.includes(selectedYear.toString())) {
@@ -97,17 +151,14 @@ function DashboardContent() {
         )
     }
 
-    if (error) {
-        return (
+    if (!destinations || destinations.length === 0) {
+       return (
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-destructive">Gagal Memuat Data</CardTitle>
-                    <CardDescription>
-                        Tidak dapat mengambil data dasbor publik. Silakan coba lagi nanti.
-                    </CardDescription>
+                    <CardTitle className="text-muted-foreground">Dasbor Publik</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-sm text-muted-foreground">{error.message}</p>
+                <CardContent className="flex h-48 items-center justify-center">
+                    <p className="text-muted-foreground">Belum ada data destinasi untuk ditampilkan.</p>
                 </CardContent>
             </Card>
         )
