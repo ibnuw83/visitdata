@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where } from "firebase/firestore";
+import { doc, collection, query, where, collectionGroup } from "firebase/firestore";
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAllVisitsForYear } from '@/hooks/use-all-visits-for-year';
@@ -28,7 +28,13 @@ function DashboardContent() {
     }, [firestore]);
     
     const { data: activeDestinations, loading: destinationsLoading, error: destinationsError } = useCollection<Destination>(destinationsQuery);
-    const { data: allVisitDataForYear, loading: visitsLoading, error: visitsError } = useAllVisitsForYear(firestore, selectedYear);
+    
+    const visitsQuery = useMemoFirebase(() => {
+        if(!firestore) return null;
+        return query(collectionGroup(firestore, 'visits'), where('year', '==', selectedYear));
+    }, [firestore, selectedYear]);
+
+    const { data: allVisitDataForYear, loading: visitsLoading, error: visitsError } = useCollection<VisitData>(visitsQuery);
     
     const loading = destinationsLoading || visitsLoading;
     const error = destinationsError || visitsError;
