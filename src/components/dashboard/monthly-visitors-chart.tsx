@@ -5,10 +5,10 @@ import { LineChart } from "@tremor/react"
 import { VisitData } from "@/lib/types"
 
 const valueFormatter = (number: number) => {
-    if (number > 1000) {
+    if (number >= 1000) {
         return `${(number / 1000).toFixed(1)}K`
     }
-    return number.toString();
+    return number.toLocaleString();
 }
 
 export default function MonthlyVisitorsChart({ data }: { data: VisitData[] }) {
@@ -18,9 +18,11 @@ export default function MonthlyVisitorsChart({ data }: { data: VisitData[] }) {
         const monthData = data.filter(d => d.month === month);
         const wisnus = monthData.reduce((sum, item) => sum + item.wisnus, 0);
         const wisman = monthData.reduce((sum, item) => sum + item.wisman, 0);
+        const total = wisnus + wisman;
 
         return { 
             month: monthName, 
+            "Total Pengunjung": total,
             "Nusantara": wisnus,
             "Mancanegara": wisman,
         };
@@ -33,9 +35,10 @@ export default function MonthlyVisitorsChart({ data }: { data: VisitData[] }) {
         index="month"
         categories={["Nusantara", "Mancanegara"]}
         colors={["blue", "green"]}
-        yAxisWidth={30}
+        yAxisWidth={40}
         valueFormatter={valueFormatter}
         showLegend={true}
+        showAnimation
     />
   )
 }

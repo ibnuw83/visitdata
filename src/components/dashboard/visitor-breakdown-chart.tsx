@@ -28,9 +28,9 @@ export default function VisitorBreakdownChart({ data }: { data: VisitData[] }) {
         index="month"
         categories={['Nusantara', 'Mancanegara']}
         colors={['blue', 'green']}
-        yAxisWidth={30}
+        yAxisWidth={40}
         valueFormatter={valueFormatter}
-        stack={false} // Mengubah dari tumpuk menjadi berjajar
+        stack={false}
         showAnimation
         showLegend
         showYAxis
