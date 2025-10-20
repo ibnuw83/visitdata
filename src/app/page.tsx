@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Users, Landmark, Plane, Globe, AlertTriangle } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-card";
@@ -12,62 +12,47 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from "firebase/firestore";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, collection, query, where, collectionGroup } from "firebase/firestore";
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAllVisitsForYear } from '@/hooks/use-all-visits-for-year';
 
-
-type PublicDashboardData = {
-    totalVisitors: number;
-    totalWisnus: number;
-    totalWisman: number;
-    activeDestinations: Destination[];
-    visitData: VisitData[];
-    availableYears: string[];
-}
 
 function DashboardContent() {
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [dashboardData, setDashboardData] = useState<PublicDashboardData | null>(null);
     const firestore = useFirestore();
 
-    const fetchDashboardData = useCallback(async (year: number) => {
-        if (!firestore) return;
-        setLoading(true);
-        setError(null);
-        try {
-            const functions = getFunctions(firestore.app);
-            const getPublicDashboardData = httpsCallable(functions, 'getPublicDashboardData');
-            const result = await getPublicDashboardData({ year });
-            const data = result.data as PublicDashboardData;
-
-            // Simple validation
-            if (!data || typeof data.totalVisitors !== 'number') {
-                throw new Error("Data respons tidak valid dari server.");
-            }
-
-            setDashboardData(data);
-        } catch (err: any) {
-            console.error("Error calling getPublicDashboardData:", err);
-            setError(err.message || "Terjadi kesalahan yang tidak diketahui saat mengambil data.");
-        } finally {
-            setLoading(false);
-        }
+    const destinationsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
     }, [firestore]);
 
-    useEffect(() => {
-        fetchDashboardData(selectedYear);
-    }, [selectedYear, fetchDashboardData]);
-
-    const handleYearChange = (yearValue: string) => {
-        const year = parseInt(yearValue, 10);
-        setSelectedYear(year);
-    }
+    const { data: activeDestinations, loading: destinationsLoading, error: destinationsError } = useCollection<Destination>(destinationsQuery);
+    const { data: visitData, loading: visitsLoading, error: visitsError } = useAllVisitsForYear(firestore, selectedYear);
     
+    const loading = destinationsLoading || visitsLoading;
+    const error = destinationsError || visitsError;
+
+    const availableYears = useMemo(() => {
+        const yearsSet = new Set<string>();
+        if (visitData) {
+            visitData.forEach(d => yearsSet.add(d.year.toString()));
+        }
+        yearsSet.add(new Date().getFullYear().toString());
+        return Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
+    }, [visitData]);
+
+    const filteredVisitData = useMemo(() => {
+        if (!visitData || !activeDestinations) return [];
+        const activeIds = new Set(activeDestinations.map(d => d.id));
+        return visitData.filter(v => activeIds.has(v.destinationId));
+    }, [visitData, activeDestinations]);
+
+    const totalVisitors = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.totalVisitors, 0), [filteredVisitData]);
+    const totalWisnus = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.wisnus, 0), [filteredVisitData]);
+    const totalWisman = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.wisman, 0), [filteredVisitData]);
+
     if (loading) {
         return (
              <div className="flex flex-col gap-8">
@@ -101,28 +86,26 @@ function DashboardContent() {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Gagal Memuat Data Dasbor</AlertTitle>
                 <AlertDescription>
-                    Terjadi kesalahan saat mengambil data dari server. Silakan coba lagi nanti.
-                    <p className="mt-2 text-xs font-mono bg-destructive-foreground/10 p-2 rounded">Pesan error: {error}</p>
+                    Terjadi kesalahan saat mengambil data dari server. Ini mungkin karena aturan keamanan Firestore yang belum diterapkan atau salah. Pastikan `firestore.rules` telah di-deploy.
+                    <p className="mt-2 text-xs font-mono bg-destructive-foreground/10 p-2 rounded">Pesan error: {error.message}</p>
                 </AlertDescription>
             </Alert>
         )
     }
 
-    if (!dashboardData || dashboardData.activeDestinations.length === 0) {
+    if (!activeDestinations || activeDestinations.length === 0) {
        return (
             <Card>
                 <CardHeader>
                     <CardTitle className="text-muted-foreground">Dasbor Publik</CardTitle>
                 </CardHeader>
                 <CardContent className="flex h-48 items-center justify-center">
-                    <p className="text-muted-foreground">Belum ada data untuk ditampilkan.</p>
+                    <p className="text-muted-foreground">Belum ada destinasi aktif untuk ditampilkan.</p>
                 </CardContent>
             </Card>
         )
     }
     
-    const { totalVisitors, totalWisnus, totalWisman, activeDestinations, visitData, availableYears } = dashboardData;
-
     return (
         <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -131,7 +114,7 @@ function DashboardContent() {
                     <p className="text-muted-foreground">Ringkasan data pariwisata untuk tahun {selectedYear}.</p>
                 </div>
                 <div className="w-full sm:w-auto">
-                   <Select value={selectedYear.toString()} onValueChange={handleYearChange} disabled={availableYears.length === 0}>
+                   <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))} disabled={availableYears.length === 0}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Pilih Tahun" />
                     </SelectTrigger>
@@ -154,11 +137,11 @@ function DashboardContent() {
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <MonthlyLineChart data={visitData} />
-                <MonthlyBarChart data={visitData} />
+                <MonthlyLineChart data={filteredVisitData} />
+                <MonthlyBarChart data={filteredVisitData} />
             </div>
 
-            <TopDestinationsCarousel data={visitData} destinations={activeDestinations} />
+            <TopDestinationsCarousel data={filteredVisitData} destinations={activeDestinations} />
         </div>
     )
 }
