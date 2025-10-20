@@ -130,40 +130,40 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
   
   const displayData = useMemo(() => {
     return months.map((monthName, index) => {
-        const monthIndex = index + 1;
-        const id = `${destination.id}-${selectedYear}-${monthIndex}`;
-        
-        if (pendingChanges[id]) {
-            return pendingChanges[id];
-        }
+      const monthIndex = index + 1;
+      const id = `${destination.id}-${selectedYear}-${monthIndex}`;
+      
+      if (pendingChanges[id]) {
+        return pendingChanges[id];
+      }
 
-        const existingData = fetchedVisitData?.find(d => d.month === monthIndex);
-        if (existingData) {
-            return {
-                ...existingData,
-                wisnus: existingData.wisnus || 0,
-                wisman: existingData.wisman || 0,
-                totalVisitors: existingData.totalVisitors || 0,
-                wismanDetails: existingData.wismanDetails || [],
-            };
-        }
-        
-        const currentYear = new Date().getFullYear();
-        const currentMonth = new Date().getMonth() + 1;
-        const isFutureOrLocked = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
-
+      const existingData = fetchedVisitData?.find(d => d.month === monthIndex);
+      if (existingData) {
         return {
-            id: id,
-            destinationId: destination.id,
-            year: selectedYear,
-            month: monthIndex,
-            monthName: monthName,
-            wisnus: 0,
-            wisman: 0,
-            wismanDetails: [],
-            totalVisitors: 0,
-            locked: appUser?.role === 'admin' ? true : isFutureOrLocked,
+          ...existingData,
+          wisnus: existingData.wisnus || 0,
+          wisman: existingData.wisman || 0,
+          totalVisitors: existingData.totalVisitors || 0,
+          wismanDetails: existingData.wismanDetails || [],
         };
+      }
+      
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth() + 1;
+      const isFutureOrLocked = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
+
+      return {
+        id: id,
+        destinationId: destination.id,
+        year: selectedYear,
+        month: monthIndex,
+        monthName: monthName,
+        wisnus: 0,
+        wisman: 0,
+        wismanDetails: [],
+        totalVisitors: 0,
+        locked: appUser?.role === 'admin' ? true : isFutureOrLocked,
+      };
     }).sort((a, b) => a.month - b.month);
   }, [fetchedVisitData, pendingChanges, destination.id, selectedYear, appUser?.role]);
   
@@ -209,7 +209,7 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
   }
 
   const yearlyTotals = useMemo(() => {
-    return displayData.reduce((acc, curr) => {
+    return (displayData || []).reduce((acc, curr) => {
         if (!curr) return acc;
         acc.wisnus += curr.wisnus || 0;
         acc.wisman += curr.wisman || 0;
@@ -698,9 +698,3 @@ export default function DataEntryPage() {
     </div>
   );
 }
-
-    
-
-    
-
-    
