@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Landmark, Plane, Globe } from "lucide-react";
+import { Users, Landmark, Plane, Globe, AlertTriangle } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-card";
 import TopDestinationsCarousel from "@/components/dashboard/top-destinations-carousel";
 import type { VisitData, Destination, AppSettings } from '@/lib/types';
@@ -12,45 +12,53 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, query, where } from "firebase/firestore";
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from "firebase/firestore";
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
-import { useAllVisitsForYear } from '@/hooks/use-all-visits-for-year';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+
+type PublicDashboardData = {
+  destinations: Destination[];
+  allVisitData: VisitData[];
+  availableYears: string[];
+};
+
+function usePublicDashboardData(year: number) {
+    const [data, setData] = useState<PublicDashboardData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const functions = getFunctions();
+                const getPublicDashboardData = httpsCallable(functions, 'getPublicDashboardData');
+                const result: any = await getPublicDashboardData({ year });
+                setData(result.data);
+            } catch (err: any) {
+                console.error("Error fetching public dashboard data:", err);
+                setError(err.message || "Tidak dapat mengambil data dasbor publik. Silakan coba lagi nanti.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [year]);
+
+    return { data, loading, error };
+}
 
 
 function DashboardContent() {
-    const firestore = useFirestore();
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+    const { data, loading, error } = usePublicDashboardData(selectedYear);
 
-    const destinationsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        // Fetch all active destinations for the public dashboard
-        return query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
-    }, [firestore]);
-
-    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-    const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
-
-    const { data: allVisitData, loading: visitsLoading } = useAllVisitsForYear(firestore, destinationIds, selectedYear);
-    
-    const loading = destinationsLoading || visitsLoading;
-    const currentYear = useMemo(() => new Date().getFullYear(), []);
-
-    // A simple way to get available years from the first destination's data
-    const sampleVisitsQuery = useMemoFirebase(() => {
-        if (!firestore || destinationIds.length === 0) return null;
-        return query(collection(firestore, 'destinations', destinationIds[0], 'visits'));
-    }, [firestore, destinationIds]);
-    const { data: sampleVisits } = useCollection<VisitData>(sampleVisitsQuery);
-
-    const availableYears = useMemo(() => {
-        const yearsSet = new Set<string>();
-        if (sampleVisits) {
-            sampleVisits.forEach(d => yearsSet.add(d.year.toString()));
-        }
-        yearsSet.add(currentYear.toString());
-        return Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
-    }, [sampleVisits, currentYear]);
+    const { destinations, allVisitData, availableYears } = data || { destinations: [], allVisitData: [], availableYears: [] };
 
     useEffect(() => {
         if (availableYears.length > 0 && !availableYears.includes(selectedYear.toString())) {
@@ -86,6 +94,18 @@ function DashboardContent() {
                     <Skeleton className="h-96" />
                 </div>
             </div>
+        )
+    }
+    
+    if (error) {
+        return (
+             <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Gagal Memuat Data</AlertTitle>
+                <AlertDescription>
+                    {error}
+                </AlertDescription>
+            </Alert>
         )
     }
 

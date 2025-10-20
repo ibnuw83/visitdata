@@ -17,6 +17,7 @@ const db = admin.firestore();
 // Callable function to get public dashboard data
 export const getPublicDashboardData = functions.https.onCall(
   async (data, context) => {
+    // This function is public, so we don't check for auth (context.auth)
     const year = data.year || new Date().getFullYear();
 
     try {
@@ -27,40 +28,29 @@ export const getPublicDashboardData = functions.https.onCall(
         .get();
       
       const destinations = destinationsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const activeDestinationIds = new Set(destinations.map(d => d.id));
 
       // 2. Get all visit data from all destinations using a collection group query
-      const allVisitsSnapshot = await db.collectionGroup("visits").get();
-      const allVisits = allVisitsSnapshot.docs.map(doc => doc.data());
-
-      // 3. Determine available years from ALL visits, not just active ones to be safe
-      const currentYearStr = new Date().getFullYear().toString();
+      const allVisitsSnapshot = await db.collectionGroup("visits").where("year", "==", year).get();
+      
+      // 3. Filter the visits to only include those from active destinations
+      const allVisitData = allVisitsSnapshot.docs
+        .map(doc => doc.data())
+        .filter(visit => activeDestinationIds.has(visit.destinationId));
+        
+      // 4. Determine available years from ALL visits, not just the current year's
+      const allYearsSnapshot = await db.collectionGroup("visits").select('year').get();
       const yearsSet = new Set(
-        allVisits.map((visit) => visit.year.toString())
+        allYearsSnapshot.docs.map((doc) => doc.data().year.toString())
       );
-      yearsSet.add(currentYearStr); // Always include the current year
+      yearsSet.add(new Date().getFullYear().toString()); // Always include the current year
       const availableYears = Array.from(yearsSet).sort(
         (a, b) => parseInt(b) - parseInt(a)
-      );
-
-      // 4. If there are no active destinations, return early with empty data for the year
-      if (destinations.length === 0) {
-        return {
-          destinations: [],
-          allVisitData: [],
-          availableYears,
-        };
-      }
-      
-      const activeDestinationIds = new Set(destinations.map((d) => d.id));
-
-      // 5. Filter all visits to only include those from active destinations AND for the requested year
-      const allVisitDataForYear = allVisits.filter(visit => 
-          activeDestinationIds.has(visit.destinationId) && visit.year === year
       );
       
       return {
         destinations,
-        allVisitData: allVisitDataForYear,
+        allVisitData,
         availableYears,
       };
 
@@ -68,7 +58,7 @@ export const getPublicDashboardData = functions.https.onCall(
       functions.logger.error("Error fetching public dashboard data:", error);
       throw new functions.https.HttpsError(
         "internal",
-        "Unable to fetch public dashboard data.",
+        "Tidak dapat mengambil data dasbor publik. Silakan coba lagi nanti.",
         (error as Error).message
       );
     }
