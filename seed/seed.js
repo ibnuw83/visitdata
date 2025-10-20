@@ -35,10 +35,10 @@ const adminUserData = {
   uid: 'eZIY6FKbXcglAWS9J6GgxnnLJ553',
   email: 'admin@dinas.com',
   password: 'password123',
-  role: 'admin',
   profileData: {
     name: 'Admin Dinas',
     status: 'aktif',
+    role: 'admin',
     assignedLocations: [],
     avatarUrl: `https://avatar.vercel.sh/admin@dinas.com.png`
   }
@@ -48,7 +48,7 @@ async function seedDatabase() {
     const { adminAuth, adminDb } = await initializeFirebaseAdmin();
     console.log('--- Memulai Proses Seeding Admin ---');
     
-    const { uid, email, password, role, profileData } = adminUserData;
+    const { uid, email, password, profileData } = adminUserData;
     
     try {
         console.log(`1. Memastikan pengguna Auth untuk ${email} dengan UID ${uid}...`);
@@ -75,20 +75,20 @@ async function seedDatabase() {
             }
         }
 
-        console.log(`2. Mengatur custom claim '{ role: "${role}" }' untuk ${email}...`);
-        await adminAuth.setCustomUserClaims(uid, { role: role });
-        console.log(`   - Custom claim berhasil diatur.`);
-
-        console.log(`3. Menulis profil Firestore untuk ${email}...`);
+        console.log(`2. Menulis profil Firestore untuk ${email}...`);
         const userRef = adminDb.collection('users').doc(uid);
         await userRef.set({
           ...profileData,
           uid: uid,
           email: email,
-          role: role,
         }, { merge: true });
         console.log(`   - Profil Firestore berhasil ditulis.`);
         
+        console.log(`3. Menjadikan pengguna sebagai admin dengan menulis ke koleksi 'admins'...`);
+        const adminRef = adminDb.collection('admins').doc(uid);
+        await adminRef.set({ role: 'admin', addedAt: new Date().toISOString() });
+        console.log(`   - Dokumen admin berhasil dibuat di /admins/${uid}`);
+
         console.log('--- Proses Seeding Berhasil! ---');
         return 'Proses seeding pengguna admin selesai.';
 
