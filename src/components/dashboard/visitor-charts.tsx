@@ -14,7 +14,6 @@ const valueFormatter = (number: number) => {
 };
 
 const aggregateMonthlyData = (data: VisitData[]) => {
-    // Create an initial structure for all 12 months with zero values
     const monthlyDataTemplate = Array.from({ length: 12 }, (_, i) => {
         const monthIndex = i + 1;
         const monthName = new Date(0, i).toLocaleString('id-ID', { month: 'short' });
@@ -26,12 +25,10 @@ const aggregateMonthlyData = (data: VisitData[]) => {
         };
     });
 
-    // If there's no data, return the zero-filled template
     if (!data || data.length === 0) {
         return monthlyDataTemplate;
     }
 
-    // Sum up the data into the template
     data.forEach(visit => {
         if (visit.month >= 1 && visit.month <= 12) {
             const monthIndex = visit.month - 1;
@@ -95,7 +92,7 @@ export function MonthlyBarChart({ data }: { data: VisitData[] }) {
                         data={chartData}
                         index="month"
                         categories={["Domestik", "Asing"]}
-                        colors={["blue", "orange"]}
+                        colors={["green", "orange"]}
                         yAxisWidth={40}
                         valueFormatter={valueFormatter}
                         showAnimation
