@@ -184,14 +184,12 @@ function PageSkeleton() {
 export default function UsersPage() {
   const firestore = useFirestore();
   const auth = useAuth();
-  const { appUser, isLoading: isAppUserLoading } = useUser();
+  const { isUserAdmin, isLoading: isAppUserLoading } = useUser();
 
   const usersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    // Otorisasi harus ditangani oleh Aturan Keamanan Firestore, bukan di sini.
-    // Cukup minta koleksi pengguna.
+    if (!firestore || !isUserAdmin) return null;
     return collection(firestore, 'users');
-  }, [firestore]);
+  }, [firestore, isUserAdmin]);
   
   const destinationsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -335,7 +333,7 @@ export default function UsersPage() {
       return <PageSkeleton />
   }
 
-  if (appUser?.role !== 'admin') {
+  if (!isUserAdmin) {
       return (
           <div className="flex flex-col gap-8">
               <div className="flex flex-col gap-2">
@@ -527,7 +525,7 @@ export default function UsersPage() {
                             </TableCell>
                         </TableRow>
                     )}
-                    {!usersLoading && !usersError && (!users || users.length === 0) && appUser?.role === 'admin' && (
+                    {!usersLoading && !usersError && (!users || users.length === 0) && isUserAdmin && (
                         <TableRow>
                             <TableCell colSpan={6} className="h-24 text-center">
                                 Tidak ada pengguna yang ditemukan.
