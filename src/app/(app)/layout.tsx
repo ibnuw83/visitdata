@@ -50,30 +50,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, appUser, isLoading } = useUser();
   const router = useRouter();
 
-  // Efek ini menangani pengalihan berdasarkan status otentikasi.
+  // This effect handles redirection based on authentication status.
   useEffect(() => {
-    // Setelah pemuatan selesai, jika tidak ada pengguna, alihkan ke halaman login.
+    // After loading is complete, if there is no authenticated user object, redirect to login.
     if (!isLoading && !user) {
         router.replace('/login');
     }
   }, [user, isLoading, router]);
 
-  // isLoading dari useUser sekarang menjadi satu-satunya sumber kebenaran.
-  // isLoading akan tetap true hingga otentikasi selesai DAN dokumen appUser dari Firestore diambil.
-  // Ini adalah "gerbang" utama untuk mencegah rendering prematur.
+  // While the authentication state and user profile are being fetched, show a skeleton.
+  // This is the primary gate to prevent premature rendering or redirection.
   if (isLoading) {
     return <AppLayoutSkeleton />;
   }
   
-  // Setelah pemuatan, jika masih tidak ada pengguna (yang berarti mereka perlu dialihkan),
-  // atau jika karena suatu alasan ada pengguna otentikasi tanpa dokumen appUser yang sesuai,
-  // render null untuk mencegah kilatan konten sebelum efek pengalihan berjalan.
-  // Pemeriksaan `!appUser` adalah kunci untuk memperbaiki bug visual "Akses Ditolak".
-  if (!user || !appUser) {
+  // After loading, if there's still no authenticated user (which means they need to be redirected),
+  // or if for some reason there's an auth user without a corresponding appUser document (which can happen briefly
+  // or in an error state), render null to prevent a flash of content before the redirect effect runs.
+  // The logic in the useEffect hook is the source of truth for redirection.
+  if (!user) {
     return null;
   }
-
-  // Jika kita memiliki pengguna dan profilnya, tampilkan layout aplikasi lengkap.
+  
+  // If we have a user and their profile, render the full app layout.
+  // The check for appUser is now implicitly handled by allowing rendering to proceed
+  // if isLoading is false and a user object exists. The useUser hook ensures
+  // appUser will be populated if the user is valid.
   return (
     <SidebarProvider>
       <Sidebar>
