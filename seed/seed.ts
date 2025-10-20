@@ -1,52 +1,64 @@
-
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Auth as AdminAuth } from 'firebase-admin/auth';
 import { User } from '../src/lib/types';
 import { seedUsers, seedCategories, seedDestinations, seedCountries, generateSeedVisitData } from './seed-data';
+
+// Helper function to create or update a user and return their UID.
+async function ensureAuthUser(adminAuth: AdminAuth, user: Omit<User, 'uid'>, password: string): Promise<string> {
+    try {
+        const userRecord = await adminAuth.getUserByEmail(user.email);
+        console.log(`Updating existing user: ${user.email}`);
+        await adminAuth.updateUser(userRecord.uid, {
+            password: password,
+            displayName: user.name,
+            photoURL: user.avatarUrl,
+        });
+        return userRecord.uid;
+    } catch (error: any) {
+        if (error.code === 'auth/user-not-found') {
+            console.log(`Creating new user: ${user.email}`);
+            const userRecord = await adminAuth.createUser({
+                email: user.email,
+                password: password,
+                displayName: user.name,
+                photoURL: user.avatarUrl,
+            });
+            return userRecord.uid;
+        }
+        // Re-throw other errors
+        throw error;
+    }
+}
 
 export async function seedDatabase(adminDb: Firestore, adminAuth: AdminAuth) {
     if (!adminAuth || !adminDb) {
         throw new Error('Firebase Admin not initialized.');
     }
 
-    const batch = adminDb.batch();
+    console.log('--- Starting Database Seeding ---');
 
-    console.log('Starting user authentication seeding...');
-    
+    // Step 1: Ensure all auth users exist and get their UIDs.
+    console.log('Step 1: Ensuring authentication users exist...');
     const usersWithUids: User[] = [];
     const password = "password123";
-
     for (const user of seedUsers) {
-        let uid: string;
-        try {
-            const userRecord = await adminAuth.getUserByEmail(user.email);
-            uid = userRecord.uid;
-            console.log(`Updating existing user: ${user.email}`);
-            await adminAuth.updateUser(uid, {
-                password: password,
-                displayName: user.name,
-                photoURL: user.avatarUrl,
-            });
-        } catch (error: any) {
-            if (error.code === 'auth/user-not-found') {
-                 console.log(`Creating new user: ${user.email}`);
-                const userRecord = await adminAuth.createUser({
-                    email: user.email,
-                    password: password,
-                    displayName: user.name,
-                    photoURL: user.avatarUrl,
-                });
-                uid = userRecord.uid;
-            } else {
-                throw error;
-            }
-        }
-        
-        await adminAuth.setCustomUserClaims(uid, { role: user.role });
+        const uid = await ensureAuthUser(adminAuth, user, password);
         usersWithUids.push({ ...user, uid });
     }
-    console.log('Finished auth user creation/retrieval and custom claims.');
+    console.log(`Successfully created/updated ${usersWithUids.length} auth users.`);
+
+    // Step 2: Set custom claims for all users.
+    console.log('Step 2: Setting custom user claims...');
+    for (const user of usersWithUids) {
+        await adminAuth.setCustomUserClaims(user.uid, { role: user.role });
+    }
+    console.log('Successfully set custom claims.');
     
+    // Step 3: Prepare all Firestore writes in a single batch.
+    console.log('Step 3: Preparing Firestore batch write...');
+    const batch = adminDb.batch();
+
+    // Destinations
     const seededDestinations: (typeof seedDestinations[0] & { id: string })[] = [];
     for (const destination of seedDestinations) {
       const slug = destination.name.toLowerCase().replace(/\s+/g, '-');
@@ -55,53 +67,42 @@ export async function seedDatabase(adminDb: Firestore, adminAuth: AdminAuth) {
       batch.set(docRef, destWithId, { merge: true });
       seededDestinations.push(destWithId);
     }
-    console.log('Destinations queued for batch (with merge).');
+    console.log(`- Queued ${seededDestinations.length} destinations.`);
 
-    console.log('Seeding Firestore user documents...');
+    // User Profiles
     for (const user of usersWithUids) {
         const assignedLocationsIds = user.role === 'pengelola' 
-            ? user.assignedLocations.map(slug => {
-                const dest = seededDestinations.find(d => d.id === slug);
-                return dest ? dest.id : null;
-            }).filter((id): id is string => id !== null)
+            ? user.assignedLocations.map(slug => seededDestinations.find(d => d.id === slug)?.id).filter(Boolean) as string[]
             : [];
         
         const userRef = adminDb.collection('users').doc(user.uid);
         batch.set(userRef, { ...user, assignedLocations: assignedLocationsIds }, { merge: true });
     }
-    console.log('Finished queueing user documents (with merge).');
+    console.log(`- Queued ${usersWithUids.length} user profiles.`);
 
+    // Categories
     for (const category of seedCategories) {
-        const querySnapshot = await adminDb.collection('categories').where('name', '==', category.name).limit(1).get();
-        if (querySnapshot.empty) {
-            const docRef = adminDb.collection('categories').doc();
-            batch.set(docRef, { ...category, id: docRef.id });
-        }
+        const docRef = adminDb.collection('categories').doc(category.name);
+        batch.set(docRef, { ...category, id: docRef.id }, { merge: true });
     }
-    console.log('Categories queued for batch (only if they dont exist).');
-
+    console.log(`- Queued ${seedCategories.length} categories.`);
+    
+    // Countries
     seedCountries.forEach(country => {
         const docRef = adminDb.collection('countries').doc(country.code);
         batch.set(docRef, country, { merge: true });
     });
-    console.log('Countries queued for batch (with merge).');
+    console.log(`- Queued ${seedCountries.length} countries.`);
 
-    console.log('Checking for existing visit data...');
-    const visitsCollectionGroup = adminDb.collectionGroup('visits');
-    const existingVisitsSnapshot = await visitsCollectionGroup.get();
-    const existingVisitIds = new Set(existingVisitsSnapshot.docs.map(doc => doc.id));
-    console.log(`Found ${existingVisitIds.size} existing visit documents.`);
-
-    const newVisitData = generateSeedVisitData(seededDestinations);
-    const visitsToCreate = newVisitData.filter(visit => !existingVisitIds.has(visit.id));
-    
-    console.log(`Generating ${newVisitData.length} potential visits, creating ${visitsToCreate.length} new ones.`);
-    visitsToCreate.forEach(visit => {
+    // Visit Data
+    const visitData = generateSeedVisitData(seededDestinations);
+    visitData.forEach(visit => {
         const docRef = adminDb.collection('destinations').doc(visit.destinationId).collection('visits').doc(visit.id);
-        batch.set(docRef, visit);
+        batch.set(docRef, visit, { merge: true }); // Use merge to be non-destructive
     });
-    console.log('New visit data queued for batch.');
+    console.log(`- Queued ${visitData.length} visit data documents.`);
 
+    // App Settings
     const settingsRef = adminDb.collection('settings').doc('app');
     batch.set(settingsRef, {
         appTitle: 'VisitData Hub',
@@ -110,17 +111,20 @@ export async function seedDatabase(adminDb: Firestore, adminAuth: AdminAuth) {
         heroTitle: 'Pusat Data Pariwisata Modern Anda',
         heroSubtitle: 'Kelola, analisis, dan laporkan data kunjungan wisata dengan mudah dan efisien. Berdayakan pengambilan keputusan berbasis data untuk pariwisata daerah Anda.'
     }, { merge: true });
-    console.log('App settings queued for batch (with merge).');
+    console.log('- Queued app settings.');
 
-    console.log('Committing batch...');
+    // Step 4: Commit the batch.
+    console.log('Step 4: Committing batch to Firestore...');
     await batch.commit();
     console.log('Batch committed successfully.');
 
+    console.log('--- Database Seeding Completed ---');
+    
      return {
       users: usersWithUids.length,
       categories: seedCategories.length,
       destinations: seedDestinations.length,
       countries: seedCountries.length,
-      newVisitsCreated: visitsToCreate.length,
+      visits: visitData.length,
     };
 }
