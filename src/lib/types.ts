@@ -1,3 +1,5 @@
+import type { FieldValue } from 'firebase/firestore';
+
 export type User = {
   uid: string;
   name: string;
@@ -58,7 +60,7 @@ export type UnlockRequest = {
   requestedBy: string; // uid of pengelola
   requesterName?: string; // For display purposes
   processedBy?: string; // uid of admin
-  timestamp: string;
+  timestamp: FieldValue | { seconds: number; nanoseconds: number } | string;
 };
 
 export type AppSettings = {

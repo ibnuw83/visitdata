@@ -6,12 +6,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { UnlockRequest } from '@/lib/types';
-import { format } from 'date-fns';
 import { MoreHorizontal, CheckCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
+import { formatFirestoreTimestamp } from '@/lib/date-utils';
 
 
 export default function UnlockRequestsPage() {
@@ -75,9 +75,11 @@ export default function UnlockRequestsPage() {
     return [...unlockRequests].sort((a, b) => {
         if (a.status === 'pending' && b.status !== 'pending') return -1;
         if (a.status !== 'pending' && b.status === 'pending') return 1;
-        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-        return timeB - timeA;
+        
+        const dateA = a.timestamp && typeof a.timestamp === 'object' && 'seconds' in a.timestamp ? new Date(a.timestamp.seconds * 1000) : new Date(0);
+        const dateB = b.timestamp && typeof b.timestamp === 'object' && 'seconds' in b.timestamp ? new Date(b.timestamp.seconds * 1000) : new Date(0);
+
+        return dateB.getTime() - dateA.getTime();
     });
   }, [unlockRequests]);
   
@@ -143,7 +145,7 @@ export default function UnlockRequestsPage() {
                               <TableCell>
                                   <Badge variant={statusVariant[req.status]} className="capitalize">{req.status}</Badge>
                               </TableCell>
-                              <TableCell>{req.timestamp ? format(new Date(req.timestamp), 'dd MMM yyyy') : 'N/A'}</TableCell>
+                              <TableCell>{formatFirestoreTimestamp(req.timestamp, 'dd MMM yyyy')}</TableCell>
                               <TableCell className="text-right">
                                   {req.status === 'pending' && (
                                       <DropdownMenu>
