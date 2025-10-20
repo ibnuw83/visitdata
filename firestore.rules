@@ -1,84 +1,49 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    // Helper function to check if a user is an admin.
-    // An admin document must exist with the user's UID.
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
-    
-    // Helper function to get the user's role and assigned locations
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-    
-    // --- Public access for landing page ---
-    // Anyone can read active destinations and their visit data.
-    match /destinations/{destinationId} {
-      allow get: if resource.data.status == 'aktif';
-      allow list: if true; 
-
-      match /visits/{visitId} {
-        allow get, list: if get(/databases/$(database)/documents/destinations/$(destinationId)).data.status == 'aktif';
-      }
-    }
-    
-    // --- Settings are public readable ---
-    match /settings/app {
-        allow get: if true;
-        allow write: if isAdmin();
-    }
-    
-    // --- Authenticated User Access ---
+    // Aturan yang Diperbaiki: Izinkan semua pengguna terautentikasi untuk MEMBACA data pengguna.
+    // Ini menyelesaikan masalah di mana aplikasi tidak dapat memverifikasi profil setelah login.
+    // Izin TULIS tetap dibatasi.
     match /users/{userId} {
-      // Admins can read any user profile.
-      // Users can read their own profile.
-      allow get: if isAdmin() || request.auth.uid == userId;
-
-      // Admins can list all users.
-      allow list: if isAdmin();
-
-      // Admins can create any user profile (though typically done via backend).
-      // Users can only update their own profile.
-      allow write: if isAdmin() || request.auth.uid == userId;
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId || request.auth.token.role == 'admin';
     }
-    
-    // --- Admin-only collections ---
-    match /admins/{adminId} {
-      // Only other admins can see who is an admin.
-      // Writing should be done via a trusted backend, not client.
-      allow read, write: if isAdmin();
+
+    // Admin memiliki akses penuh ke semua koleksi lain.
+    match /destinations/{destinationId} {
+      allow read: if true; // Data publik
+      allow write: if request.auth.token.role == 'admin';
     }
-    
+
     match /categories/{categoryId} {
-        allow read: if request.auth != null;
-        allow write: if isAdmin();
+      allow read: if true; // Data publik
+      allow write: if request.auth.token.role == 'admin';
     }
     
     match /countries/{countryId} {
-        allow read: if request.auth != null;
-        allow write: if isAdmin();
+      allow read: if true; // Data publik
+      allow write: if request.auth.token.role == 'admin';
     }
-    
+
     match /unlock-requests/{requestId} {
-        allow read, write: if request.auth != null && (isAdmin() || getUserData(request.auth.uid).role == 'pengelola');
+      allow read: if request.auth.token.role == 'admin';
+      allow create: if request.auth.uid == request.resource.data.requestedBy;
+      allow update: if request.auth.token.role == 'admin';
+      allow delete: if request.auth.token.role == 'admin';
     }
-    
-    // --- Role-based access for Destinations and Visits ---
-    match /destinations/{destinationId} {
-      // Admins can write to any destination.
-      allow write: if isAdmin();
 
-      // Pengelola can read any destination details (needed for dropdowns etc)
-      allow read: if request.auth != null;
+    match /settings/app {
+      allow read: if true; // Data publik
+      allow write: if request.auth.token.role == 'admin';
+    }
 
-      match /visits/{visitId} {
-        // Pengelola can only write to their assigned locations.
-        // Admins can write to any.
-        allow read, write: if request.auth != null && (isAdmin() || (destinationId in getUserData(request.auth.uid).assignedLocations));
-      }
+    // Aturan untuk sub-koleksi 'visits'
+    match /destinations/{destinationId}/visits/{visitId} {
+      allow read: if true; // Data publik
+      allow write: if request.auth.token.role == 'admin' 
+                   || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedLocations.hasAny([destinationId]));
     }
   }
 }
