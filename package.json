@@ -8,8 +8,7 @@
     "build": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
-    "seed": "node -r dotenv/config seed/seed.js"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
@@ -40,11 +39,9 @@
     "clsx": "^2.1.1",
     "cmdk": "1.0.0",
     "date-fns": "^3.6.0",
-    "dotenv": "^16.4.5",
     "embla-carousel-autoplay": "^8.0.2",
     "embla-carousel-react": "8.0.2",
     "firebase": "^10.12.0",
-    "firebase-admin": "^12.1.0",
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.378.0",
     "next": "14.2.3",
