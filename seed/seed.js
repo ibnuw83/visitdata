@@ -3,19 +3,19 @@ Object.defineProperty(exports, '__esModule', { value: true });
 const admin = require('firebase-admin');
 const dotenv = require('dotenv');
 
-// Load environment variables from .env file
-dotenv.config();
+// Load environment variables from .env.local file
+dotenv.config({ path: '.env.local' });
 
 async function initializeFirebaseAdmin() {
   const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!serviceAccountString) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.');
+  if (!serviceAccountString || serviceAccountString.startsWith('GANTI_DENGAN')) {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set or is still the default value. Please add it to your .env.local file.');
   }
   let serviceAccount;
   try {
     serviceAccount = JSON.parse(serviceAccountString);
   } catch (e) {
-    console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY.");
+    console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it's a valid JSON string with no line breaks.");
     throw e;
   }
 
@@ -30,68 +30,75 @@ async function initializeFirebaseAdmin() {
   };
 }
 
-const usersToSeed = [
-  {
-    uid: 'eZIY6FKbXcglAWS9J6GgxnnLJ553',
-    email: 'admin@dinas.com',
-    password: 'password123',
-    role: 'admin',
-    data: {
-      name: 'Admin Dinas',
-      status: 'aktif',
-      assignedLocations: [],
-      avatarUrl: `https://avatar.vercel.sh/admin@dinas.com.png`
-    }
-  },
-];
+const adminUserData = {
+  uid: 'eZIY6FKbXcglAWS9J6GgxnnLJ553',
+  email: 'admin@dinas.com',
+  password: 'password123',
+  role: 'admin',
+  profileData: {
+    name: 'Admin Dinas',
+    status: 'aktif',
+    assignedLocations: [],
+    avatarUrl: `https://avatar.vercel.sh/admin@dinas.com.png`
+  }
+};
 
 async function seedDatabase() {
     const { adminAuth, adminDb } = await initializeFirebaseAdmin();
-    console.log('Starting database seeding...');
+    console.log('--- Starting Database Seeding (Simplified) ---');
     
-    // 1. Ensure Admin User, Claims, and Profile
-    const adminUser = usersToSeed[0];
-    console.log(`- Ensuring admin user: ${adminUser.email}`);
-
+    const { uid, email, password, role, profileData } = adminUserData;
+    
     try {
-        // Create or update user in Firebase Auth
-        await adminAuth.updateUser(adminUser.uid, {
-            email: adminUser.email,
-            password: adminUser.password,
-            emailVerified: true,
-        });
-        console.log(`  - Updated existing auth user: ${adminUser.email}`);
-    } catch (error) {
-        if (error.code === 'auth/user-not-found') {
-            await adminAuth.createUser({
-                uid: adminUser.uid,
-                email: adminUser.email,
-                password: adminUser.password,
+        console.log(`1. Ensuring Auth user for ${email} with UID ${uid}...`);
+        
+        // Attempt to update user first. If it fails, create the user.
+        // This is a robust way to handle initial setup and re-seeding.
+        try {
+            await adminAuth.updateUser(uid, {
+                email: email,
+                password: password,
                 emailVerified: true,
             });
-            console.log(`  - Created new auth user: ${adminUser.email}`);
-        } else {
-            console.error(`Error ensuring auth user ${adminUser.email}:`, error);
-            throw error; // Re-throw other errors
+            console.log(`   - Auth user ${email} already existed. Updated successfully.`);
+        } catch (error) {
+            if (error.code === 'auth/user-not-found') {
+                console.log(`   - Auth user ${email} not found. Creating new user...`);
+                await adminAuth.createUser({
+                    uid: uid,
+                    email: email,
+                    password: password,
+                    emailVerified: true,
+                });
+                console.log(`   - New auth user ${email} created successfully.`);
+            } else {
+                // Re-throw other errors
+                throw error;
+            }
         }
+
+        console.log(`2. Setting custom claim '{ role: "${role}" }' for ${email}...`);
+        await adminAuth.setCustomUserClaims(uid, { role: role });
+        console.log(`   - Custom claim set successfully.`);
+
+        console.log(`3. Writing Firestore profile for ${email}...`);
+        const userRef = adminDb.collection('users').doc(uid);
+        await userRef.set({
+          ...profileData,
+          uid: uid,
+          email: email,
+          role: role,
+        }, { merge: true });
+        console.log(`   - Firestore profile written successfully.`);
+        
+        console.log('--- Seeding process completed successfully! ---');
+        return 'Admin user seeding process complete.';
+
+    } catch (error) {
+        console.error('--- Seeding process failed! ---');
+        console.error('Error:', error.message);
+        throw error;
     }
-
-    // Set custom claims to ensure role is set correctly at Auth level
-    await adminAuth.setCustomUserClaims(adminUser.uid, { role: adminUser.role });
-    console.log(`  - Set custom claim role: '${adminUser.role}' for ${adminUser.email}`);
-
-    // Create or update user profile in Firestore
-    const userRef = adminDb.collection('users').doc(adminUser.uid);
-    await userRef.set({
-      ...adminUser.data,
-      uid: adminUser.uid,
-      email: adminUser.email,
-      role: adminUser.role,
-    }, { merge: true });
-    console.log(`  - Wrote/Updated Firestore profile for ${adminUser.email}`);
-
-    console.log('Admin user seeding process complete.');
-    return 'Admin user seeding process complete.';
 }
 
 
@@ -103,7 +110,7 @@ if (require.main === module) {
       process.exit(0);
     })
     .catch(error => {
-      console.error('CLI seeding script failed:', error);
+      console.error('CLI seeding script failed:', error.message);
       process.exit(1);
     });
 }
