@@ -18,7 +18,7 @@ export default function DashboardPage() {
     const { appUser } = useUser();
     const firestore = useFirestore();
     
-    const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
+    const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
 
     const destinationsQuery = useMemoFirebase(() => {
         if (!firestore || !appUser) return null;
@@ -36,31 +36,41 @@ export default function DashboardPage() {
     }, [firestore, appUser]);
 
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-    const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
+    
+    // 1. Fetch ALL visit data for the selected year.
+    const { data: allVisitDataForYear, loading: visitsLoading } = useAllVisitsForYear(firestore, selectedYear);
+    
+    // 2. Memoize the set of assigned destination IDs for efficient filtering.
+    const assignedDestinationIds = useMemo(() => new Set(destinations?.map(d => d.id) || []), [destinations]);
 
-    const { data: allVisitData, loading: visitsLoading } = useAllVisitsForYear(firestore, destinationIds, parseInt(selectedYear));
+    // 3. Filter the raw visit data to include only visits from assigned destinations.
+    const filteredVisitData = useMemo(() => {
+        if (!allVisitDataForYear || assignedDestinationIds.size === 0) return [];
+        return allVisitDataForYear.filter(visit => assignedDestinationIds.has(visit.destinationId));
+    }, [allVisitDataForYear, assignedDestinationIds]);
+
 
     const loading = destinationsLoading || visitsLoading;
 
     const currentYear = new Date().getFullYear();
     const availableYears = useMemo(() => {
         const yearsSet = new Set<string>();
-        if (allVisitData) {
-            allVisitData.forEach(d => yearsSet.add(d.year.toString()));
+        if (allVisitDataForYear) {
+            allVisitDataForYear.forEach(d => yearsSet.add(d.year.toString()));
         }
         yearsSet.add(currentYear.toString());
         return Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
-    }, [allVisitData, currentYear]);
+    }, [allVisitDataForYear, currentYear]);
     
     useEffect(() => {
-        if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
-            setSelectedYear(availableYears[0]);
+        if (availableYears.length > 0 && !availableYears.includes(selectedYear.toString())) {
+            setSelectedYear(parseInt(availableYears[0]));
         }
     }, [availableYears, selectedYear]);
 
-    const totalVisitors = useMemo(() => allVisitData.reduce((sum, item) => sum + item.totalVisitors, 0), [allVisitData]);
-    const totalWisnus = useMemo(() => allVisitData.reduce((sum, item) => sum + item.wisnus, 0), [allVisitData]);
-    const totalWisman = useMemo(() => allVisitData.reduce((sum, item) => sum + item.wisman, 0), [allVisitData]);
+    const totalVisitors = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.totalVisitors, 0), [filteredVisitData]);
+    const totalWisnus = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.wisnus, 0), [filteredVisitData]);
+    const totalWisman = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.wisman, 0), [filteredVisitData]);
 
     const dashboardTitle = useMemo(() => {
         if (appUser?.role === 'pengelola' && destinations && destinations.length > 0) {
@@ -105,7 +115,7 @@ export default function DashboardPage() {
                     <p className="text-muted-foreground">Ringkasan data pariwisata untuk tahun {selectedYear}.</p>
                 </div>
                 <div className="w-full sm:w-auto">
-                   <Select value={selectedYear} onValueChange={setSelectedYear} disabled={availableYears.length === 0}>
+                   <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))} disabled={availableYears.length === 0}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Pilih Tahun" />
                     </SelectTrigger>
@@ -128,11 +138,11 @@ export default function DashboardPage() {
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <MonthlyLineChart data={allVisitData} />
-                <MonthlyBarChart data={allVisitData} />
+                <MonthlyLineChart data={filteredVisitData} />
+                <MonthlyBarChart data={filteredVisitData} />
             </div>
 
-            <TopDestinationsCard data={allVisitData} destinations={destinations || []} />
+            <TopDestinationsCard data={filteredVisitData} destinations={destinations || []} />
         </div>
     )
 }

@@ -28,22 +28,31 @@ function DashboardContent() {
         return query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
     }, [firestore]);
 
-    const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-    const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
-
-    const { data: allVisitData, loading: visitsLoading } = useAllVisitsForYear(firestore, destinationIds, selectedYear);
+    const { data: activeDestinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     
+    // 1. Fetch ALL visit data for the selected year.
+    const { data: allVisitDataForYear, loading: visitsLoading, error: visitsError } = useAllVisitsForYear(firestore, selectedYear);
+    
+    // 2. Memoize the set of active destination IDs for efficient filtering.
+    const activeDestinationIds = useMemo(() => new Set(activeDestinations?.map(d => d.id) || []), [activeDestinations]);
+
+    // 3. Filter the raw visit data to include only visits from active destinations.
+    const filteredVisitData = useMemo(() => {
+        if (!allVisitDataForYear || activeDestinationIds.size === 0) return [];
+        return allVisitDataForYear.filter(visit => activeDestinationIds.has(visit.destinationId));
+    }, [allVisitDataForYear, activeDestinationIds]);
+
     const availableYears = useMemo(() => {
         const yearsSet = new Set<string>();
-        if (allVisitData) {
-            allVisitData.forEach(d => yearsSet.add(d.year.toString()));
+        if (allVisitDataForYear) {
+            allVisitDataForYear.forEach(d => yearsSet.add(d.year.toString()));
         }
         const currentYearStr = new Date().getFullYear().toString();
         if (!yearsSet.has(currentYearStr)) {
             yearsSet.add(currentYearStr);
         }
         return Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
-    }, [allVisitData]);
+    }, [allVisitDataForYear]);
 
     useEffect(() => {
         if (availableYears.length > 0 && !availableYears.includes(selectedYear.toString())) {
@@ -51,11 +60,23 @@ function DashboardContent() {
         }
     }, [availableYears, selectedYear]);
 
-    const totalVisitors = useMemo(() => allVisitData.reduce((sum: number, item: VisitData) => sum + item.totalVisitors, 0), [allVisitData]);
-    const totalWisnus = useMemo(() => allVisitData.reduce((sum: number, item: VisitData) => sum + item.wisnus, 0), [allVisitData]);
-    const totalWisman = useMemo(() => allVisitData.reduce((sum: number, item: VisitData) => sum + item.wisman, 0), [allVisitData]);
+    const totalVisitors = useMemo(() => filteredVisitData.reduce((sum: number, item: VisitData) => sum + item.totalVisitors, 0), [filteredVisitData]);
+    const totalWisnus = useMemo(() => filteredVisitData.reduce((sum: number, item: VisitData) => sum + item.wisnus, 0), [filteredVisitData]);
+    const totalWisman = useMemo(() => filteredVisitData.reduce((sum: number, item: VisitData) => sum + item.wisman, 0), [filteredVisitData]);
     
     const loading = destinationsLoading || visitsLoading;
+    
+     if (visitsError) {
+        return (
+            <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Gagal Memuat Data</AlertTitle>
+                <AlertDescription>
+                    Tidak dapat mengambil data dasbor publik. Silakan coba lagi nanti.
+                </AlertDescription>
+            </Alert>
+        )
+    }
 
     if (loading) {
         return (
@@ -84,7 +105,7 @@ function DashboardContent() {
         )
     }
 
-    if (!destinations || destinations.length === 0) {
+    if (!activeDestinations || activeDestinations.length === 0) {
        return (
             <Card>
                 <CardHeader>
@@ -124,15 +145,15 @@ function DashboardContent() {
                 <StatCard title="Total Pengunjung" value={totalVisitors.toLocaleString()} icon={<Users />} className="bg-blue-600 text-white" />
                 <StatCard title="Wisatawan Nusantara" value={totalWisnus.toLocaleString()} icon={<Globe />} className="bg-green-600 text-white" />
                 <StatCard title="Wisatawan Mancanegara" value={totalWisman.toLocaleString()} icon={<Plane />} className="bg-orange-500 text-white" />
-                <StatCard title="Total Destinasi Aktif" value={destinations?.length.toString() || '0'} icon={<Landmark />} className="bg-purple-600 text-white"/>
+                <StatCard title="Total Destinasi Aktif" value={activeDestinations?.length.toString() || '0'} icon={<Landmark />} className="bg-purple-600 text-white"/>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <MonthlyLineChart data={allVisitData} />
-                <MonthlyBarChart data={allVisitData} />
+                <MonthlyLineChart data={filteredVisitData} />
+                <MonthlyBarChart data={filteredVisitData} />
             </div>
 
-            <TopDestinationsCarousel data={allVisitData} destinations={destinations || []} />
+            <TopDestinationsCarousel data={filteredVisitData} destinations={activeDestinations || []} />
         </div>
     )
 }

@@ -20,10 +20,9 @@ import { useAllVisitsForYear } from "@/hooks/use-all-visits-for-year";
 export default function ReportsPage() {
   const { appUser } = useUser();
   const firestore = useFirestore();
-  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   
   const [selectedDestination, setSelectedDestination] = useState('all');
-  const [selectedYear, setSelectedYear] = useState(currentYear.toString());
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState('all');
 
   const destinationsQuery = useMemoFirebase(() => {
@@ -41,35 +40,24 @@ export default function ReportsPage() {
   }, [firestore, appUser]);
 
   const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-  const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
-
-  // This is a one-off query just to determine the available years.
-  const allVisitsForYearsQuery = useMemoFirebase(() => {
-      if (!firestore || destinationIds.length === 0) return null;
-      return query(collection(firestore, 'destinations', destinationIds[0], 'visits'));
-  }, [firestore, destinationIds]);
-
-  const { data: sampleVisitData } = useCollection<VisitData>(allVisitsForYearsQuery);
-
-  const { data: visitDataForYear, loading: visitsLoading } = useAllVisitsForYear(firestore, destinationIds, parseInt(selectedYear));
+  const { data: visitDataForYear, loading: visitsLoading } = useAllVisitsForYear(firestore, parseInt(selectedYear));
 
   const { toast } = useToast();
 
   const years = useMemo(() => {
-    if (!sampleVisitData) return [currentYear.toString()];
-    const allYears = [...new Set(sampleVisitData.map(d => d.year.toString()))].sort((a,b) => parseInt(b) - parseInt(a));
-    if (!allYears.includes(currentYear.toString())) {
-        allYears.unshift(currentYear.toString());
+    if (!visitDataForYear) return [new Date().getFullYear().toString()];
+    const allYears = [...new Set(visitDataForYear.map(d => d.year.toString()))].sort((a,b) => parseInt(b) - parseInt(a));
+    const currentYearStr = new Date().getFullYear().toString();
+    if (!allYears.includes(currentYearStr)) {
+        allYears.unshift(currentYearStr);
     }
-    // Simple fallback to prevent no years from showing
-    if (allYears.length === 0) return [currentYear.toString()];
+    if (allYears.length === 0) return [currentYearStr];
     return allYears;
-  },[sampleVisitData, currentYear]);
+  },[visitDataForYear]);
 
   useEffect(() => {
-    setCurrentYear(new Date().getFullYear());
-    if (!years.includes(selectedYear)) {
-      setSelectedYear(years[0] || new Date().getFullYear().toString());
+    if (years.length > 0 && !years.includes(selectedYear)) {
+      setSelectedYear(years[0]);
     }
   }, [years, selectedYear]);
 
@@ -81,6 +69,12 @@ export default function ReportsPage() {
     if (!visitDataForYear || !destinations || !appUser) return [];
 
     let data = visitDataForYear;
+
+    // Filter based on manager's assigned locations first
+    if (appUser.role === 'pengelola') {
+        const assignedIds = new Set(appUser.assignedLocations);
+        data = data.filter(d => assignedIds.has(d.destinationId));
+    }
 
     if (selectedDestination !== 'all') {
       data = data.filter(d => d.destinationId === selectedDestination);
