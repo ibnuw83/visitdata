@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -14,8 +13,7 @@ import {
 import { SidebarTrigger } from "../ui/sidebar";
 import { LogOut } from "lucide-react";
 import Link from "next/link";
-import { useAuthUser } from "@/firebase";
-import { useUser } from "@/firebase";
+import { useAuthUser, useUser } from "@/firebase";
 import { ThemeToggle } from "./theme-toggle";
 
 export default function Header() {

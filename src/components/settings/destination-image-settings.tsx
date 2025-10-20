@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Destination } from '@/lib/types';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirestore } from '@/app/providers';
-import { useCollection } from '@/lib/firebase/firestore/use-collection';
+import { useFirestore, useCollection } from '@/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
 
@@ -47,10 +45,10 @@ export default function DestinationImageSettings() {
         const batch = writeBatch(firestore);
 
         destinations.forEach(dest => {
-            if(imageMap[dest.id] !== (dest.imageUrl || '')) {
+            const newUrl = imageMap[dest.id] || '';
+            if (newUrl !== (dest.imageUrl || '')) {
                 const destRef = doc(firestore, 'destinations', dest.id);
-                const updateData = { imageUrl: imageMap[dest.id] || '' };
-                batch.update(destRef, updateData);
+                batch.update(destRef, { imageUrl: newUrl });
             }
         });
         
@@ -60,8 +58,9 @@ export default function DestinationImageSettings() {
                 title: "Pengaturan Gambar Disimpan",
                 description: "URL gambar untuk destinasi unggulan telah diperbarui.",
             });
-        } catch(e) {
+        } catch(e: any) {
             console.error(e);
+            toast({ variant: 'destructive', title: "Gagal Menyimpan", description: e.message });
         }
     }
 

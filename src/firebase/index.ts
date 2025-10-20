@@ -1,18 +1,19 @@
-
 // This file serves as a central hub for re-exporting Firebase-related utilities,
 // making it easier to import them across the application.
 
 import { useMemo } from "react";
+import type { Query, DocumentReference } from "firebase/firestore";
+
 
 // Core client providers and hooks from the new client provider
-export { useFirebaseApp, useFirestore, useAuth, useAuthUser } from '@/firebase/client-provider';
+export { FirebaseClientProvider, useFirebaseApp, useFirestore, useAuth, useAuthUser } from '@/firebase/client-provider';
 
 // Authentication hook
-export { useUser } from '@/lib/firebase/auth/use-user';
+export { useUser } from '@/firebase/auth/use-user';
 
 // Firestore hooks
-export { useCollection } from '@/lib/firebase/firestore/use-collection';
-export { useDoc } from '@/lib/firebase/firestore/use-doc';
+export { useCollection } from '@/firebase/firestore/use-collection';
+export { useDoc } from '@/firebase/firestore/use-doc';
 
 /**
  * A custom hook that memoizes a Firebase query or document reference.
@@ -22,7 +23,7 @@ export { useDoc } from '@/lib/firebase/firestore/use-doc';
  * @param deps The dependency array for the `useMemo` hook.
  * @returns The memoized query or reference.
  */
-export const useMemoFirebase = <T>(factory: () => T, deps: React.DependencyList): T | null => {
+export const useMemoFirebase = <T extends Query | DocumentReference>(factory: () => T | null, deps: React.DependencyList): T | null => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return useMemo(factory, deps);
 };

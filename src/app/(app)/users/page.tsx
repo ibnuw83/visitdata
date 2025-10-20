@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -184,7 +183,7 @@ function PageSkeleton() {
 export default function UsersPage() {
   const firestore = useFirestore();
   const auth = useAuth();
-  const { isUserAdmin, isLoading: isAppUserLoading } = useUser();
+  const { appUser, isUserAdmin, isLoading: isAppUserLoading } = useUser();
 
   const usersQuery = useMemoFirebase(() => {
     if (!firestore || !isUserAdmin) return null;
@@ -239,9 +238,13 @@ export default function UsersPage() {
         assignedLocations: editedUserRole === 'admin' ? [] : editedUserAssignedLocations
     };
 
-    await updateDoc(userRef, updatedData);
-    setIsEditDialogOpen(false);
-    toast({ title: "Pengguna Diperbarui", description: `Data untuk ${editedUserName} telah diperbarui.`});
+    try {
+        await updateDoc(userRef, updatedData);
+        setIsEditDialogOpen(false);
+        toast({ title: "Pengguna Diperbarui", description: `Data untuk ${editedUserName} telah diperbarui.`});
+    } catch (e: any) {
+        toast({ variant: "destructive", title: "Gagal Memperbarui", description: e.message });
+    }
   }
 
   const handleDeleteUser = async (userId: string) => {
@@ -251,11 +254,15 @@ export default function UsersPage() {
     // Note: This only deletes the Firestore user document, not the Firebase Auth user.
     // A cloud function would be needed for a complete deletion.
     const userRef = doc(firestore, 'users', userId);
-    await deleteDoc(userRef);
-    toast({
-      title: "Pengguna Dihapus",
-      description: `Pengguna "${userToDelete.name}" telah berhasil dihapus dari daftar aplikasi.`,
-    });
+    try {
+        await deleteDoc(userRef);
+        toast({
+        title: "Pengguna Dihapus",
+        description: `Pengguna "${userToDelete.name}" telah berhasil dihapus dari daftar aplikasi.`,
+        });
+    } catch (e: any) {
+        toast({ variant: "destructive", title: "Gagal Menghapus", description: e.message });
+    }
   }
   
   const resetAddForm = () => {

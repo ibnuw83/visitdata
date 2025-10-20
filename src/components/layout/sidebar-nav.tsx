@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -14,9 +13,9 @@ import {
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
-import { BarChart2, Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree } from 'lucide-react';
+import { Edit, KeyRound, LayoutDashboard, Settings, FileText, Landmark, Users, FolderTree } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { collection, query, where, doc } from 'firebase/firestore';
 import type { UnlockRequest, AppSettings } from '@/lib/types';
 

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser, useFirestore, useDoc, useCollection } from '@/firebase';
+import { useUser, useFirestore, useDoc } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Textarea } from '@/components/ui/textarea';
 import DestinationImageSettings from '@/components/settings/destination-image-settings';
-import { doc, updateDoc, setDoc, collection, getDocs, writeBatch, getDoc, collectionGroup, Query } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, getDocs, writeBatch, getDoc, Query } from 'firebase/firestore';
 import { AppSettings, User, Category, Destination, UnlockRequest, VisitData, Country } from '@/lib/types';
 
 function AppSettingsCard() {
@@ -62,8 +61,9 @@ function AppSettingsCard() {
                 title: "Pengaturan Aplikasi Disimpan",
                 description: "Pengaturan tampilan aplikasi telah diperbarui.",
             });
-        } catch(e) {
+        } catch(e: any) {
             console.error(e);
+            toast({ variant: 'destructive', title: "Gagal Menyimpan", description: e.message });
         }
     }
 
@@ -117,6 +117,7 @@ function AppSettingsCard() {
     
         } catch (error: any) {
             console.error(error);
+            toast({ variant: 'destructive', title: "Gagal Mengekspor", description: error.message });
         } finally {
             setIsExporting(false);
         }
@@ -183,6 +184,7 @@ function AppSettingsCard() {
     
             } catch (error: any) {
                 console.error(error);
+                toast({ variant: 'destructive', title: "Gagal Mengimpor", description: error.message });
             } finally {
                 setIsImporting(false);
                 setIsImportDialogOpen(false);
@@ -366,8 +368,9 @@ export default function SettingsPage() {
           title: "Nama Disimpan",
           description: "Nama profil Anda telah berhasil diperbarui.",
         });
-    } catch(e) {
+    } catch(e: any) {
         console.error(e);
+        toast({ variant: 'destructive', title: "Gagal Menyimpan", description: e.message });
     }
   };
 
@@ -382,8 +385,9 @@ export default function SettingsPage() {
             title: "Foto Profil Diperbarui",
             description: "Foto profil Anda telah berhasil diubah.",
         })
-    } catch(e) {
+    } catch(e: any) {
         console.error(e);
+        toast({ variant: 'destructive', title: "Gagal Mengubah Foto", description: e.message });
     }
   }
   

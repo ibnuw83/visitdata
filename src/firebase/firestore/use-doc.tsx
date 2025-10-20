@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -19,30 +18,26 @@ export function useDoc<T>(
       return;
     }
 
-    let unsubscribed = false;
     setLoading(true);
     setError(null);
 
     const unsubscribe = onSnapshot(
       ref,
       (snapshot) => {
-        if (unsubscribed) return;
         setData(snapshot.exists() ? ({ ...snapshot.data(), id: snapshot.id } as T) : null);
         setLoading(false);
       },
       (err: Error) => {
-        if (unsubscribed) return;
-        console.error(err);
+        console.error(`useDoc error on path: ${ref.path}`, err);
         setError(err);
         setLoading(false);
       }
     );
 
     return () => {
-      unsubscribed = true;
       unsubscribe();
     };
-  }, [ref]);
+  }, [ref]); // Dependency array now correctly references the document reference
 
   return { data, loading, error };
 }

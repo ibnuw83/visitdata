@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, ReactNode, createContext, useContext } from 'react';
@@ -10,25 +9,27 @@ import { firebaseConfig } from '@/lib/firebase/config';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/logo';
 
+// --- CONTEXT DEFINITIONS ---
 const FirebaseAppContext = createContext<FirebaseApp | null>(null);
 const FirestoreContext = createContext<Firestore | null>(null);
 const AuthContext = createContext<Auth | null>(null);
 const AuthUserContext = createContext<{ user: User | null; isLoading: boolean; logout: () => Promise<void> } | undefined>(undefined);
 
+// --- FIREBASE INITIALIZATION (SINGLETON PATTERN) ---
 let firebaseApp: FirebaseApp;
-if (!getApps().length) {
-    if (!firebaseConfig.apiKey) {
-        // This case should ideally not be hit if config is set up correctly.
-        throw new Error("Firebase config is missing. Please check your environment variables and firebase/config.ts");
-    }
-    firebaseApp = initializeApp(firebaseConfig);
+if (getApps().length === 0) {
+  if (!firebaseConfig.apiKey) {
+    throw new Error("Firebase config is missing. Please check your environment variables and src/lib/firebase/config.ts");
+  }
+  firebaseApp = initializeApp(firebaseConfig);
 } else {
-    firebaseApp = getApps()[0];
+  firebaseApp = getApps()[0];
 }
 
 const auth = getAuth(firebaseApp);
 const firestore = getFirestore(firebaseApp);
 
+// --- PROVIDER COMPONENT ---
 export function FirebaseClientProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -44,11 +45,13 @@ export function FirebaseClientProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await signOut(auth);
-    router.push('/login');
+    // Use window.location to force a full page reload to clear all state
+    window.location.href = '/login';
   };
 
   const authUserContextValue = { user, isLoading: loading, logout };
 
+  // Display a loading indicator while auth state is being determined
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -70,23 +73,10 @@ export function FirebaseClientProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export const useFirebaseApp = (): FirebaseApp => {
-  const ctx = useContext(FirebaseAppContext);
-  if (!ctx) throw new Error('useFirebaseApp must be used within a FirebaseClientProvider');
-  return ctx;
-};
-
-export const useFirestore = (): Firestore => {
-  const ctx = useContext(FirestoreContext);
-  if (!ctx) throw new Error('useFirestore must be used within a FirebaseClientProvider');
-  return ctx;
-};
-
-export const useAuth = (): Auth => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within a FirebaseClientProvider');
-  return ctx;
-};
+// --- HOOKS ---
+export const useFirebaseApp = (): FirebaseApp | null => useContext(FirebaseAppContext);
+export const useFirestore = (): Firestore | null => useContext(FirestoreContext);
+export const useAuth = (): Auth | null => useContext(AuthContext);
 
 export const useAuthUser = () => {
   const context = useContext(AuthUserContext);

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -61,12 +60,12 @@ export default function UnlockRequestsPage() {
         title: `Permintaan ${newStatus === 'approved' ? 'Disetujui' : 'Ditolak'}`,
         description: `Status permintaan telah diperbarui.`,
       });
-    } catch(e) {
+    } catch(e: any) {
       console.error(e);
       toast({
         variant: 'destructive',
         title: 'Gagal Memperbarui',
-        description: 'Terjadi kesalahan saat memproses permintaan.'
+        description: e.message || 'Terjadi kesalahan saat memproses permintaan.'
       })
     }
   }
