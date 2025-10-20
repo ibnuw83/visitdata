@@ -22,11 +22,12 @@ export function useAllVisitsForYear(firestore: Firestore | null, destinationIds:
 
         // Failsafe timeout
         const loadingTimeout = setTimeout(() => {
-             if (Object.keys(allData).length !== destinationIds.length) {
+             // Check if all listeners have been attached but not all fired.
+             if (Object.keys(allData).length < destinationIds.length) {
                 console.warn("useAllVisitsForYear timed out. Some data might be missing.");
                 setLoading(false);
             }
-        }, 8000); // Increased timeout
+        }, 10000); // 10 second timeout
 
         const checkCompletion = () => {
             // This function is called every time a destination's data is loaded.
@@ -53,7 +54,7 @@ export function useAllVisitsForYear(firestore: Firestore | null, destinationIds:
 
             }, (error) => {
                 console.error(`Error fetching visits for destination ${destId} in year ${year}:`, error);
-                allData[destId] = []; // On error, assume no data for this destination
+                allData[destId] = []; // On error, assume no data for this destination and still count it as "processed"
                 checkCompletion();
             });
             unsubscribers.push(unsubscribe);
