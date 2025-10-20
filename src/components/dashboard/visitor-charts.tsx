@@ -1,3 +1,4 @@
+
 'use client';
 
 import { BarChart, LineChart } from '@tremor/react';
@@ -78,4 +79,34 @@ export function MonthlyLineChart({ data }: { data: VisitData[] }) {
     );
 }
 
-export function MonthlyBarChart({ data }: { data: VisitData[] })
+export function MonthlyBarChart({ data }: { data: VisitData[] }) {
+    const chartData = useMemo(() => aggregateMonthlyData(data), [data]);
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Komposisi Pengunjung</CardTitle>
+                <CardDescription>Perbandingan pengunjung Domestik vs. Asing.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {chartData && chartData.length > 0 ? (
+                    <BarChart
+                        className="h-72 mt-4"
+                        data={chartData}
+                        index="month"
+                        categories={["Domestik", "Asing"]}
+                        colors={["blue", "orange"]}
+                        yAxisWidth={40}
+                        valueFormatter={valueFormatter}
+                        showAnimation
+                        showLabel={true}
+                    />
+                ) : (
+                     <div className="flex flex-col items-center justify-center h-80">
+                        <p className="text-muted-foreground">Tidak ada data untuk ditampilkan.</p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
