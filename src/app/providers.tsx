@@ -24,8 +24,8 @@ function VisitDataAppProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   const { app, auth, firestore } = useMemo(() => {
-    if (!firebaseConfig.apiKey) {
-      console.error("Firebase config is missing. Make sure your .env file is set up correctly.");
+    if (!firebaseConfig || !firebaseConfig.apiKey) {
+      console.error("Firebase config is missing or invalid.");
       return { app: null, auth: null, firestore: null };
     }
     const existingApp = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
@@ -77,15 +77,6 @@ function VisitDataAppProvider({ children }: { children: ReactNode }) {
 
   const authUserContextValue = { user, isLoading: loading, logout };
 
-  // Loading screen while auth is not ready
-  if (loading || (!app && firebaseConfig.apiKey)) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-          <Logo className="h-10 w-10 animate-pulse" />
-      </div>
-    );
-  }
-  
   if (!app) {
      return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center">
@@ -93,11 +84,20 @@ function VisitDataAppProvider({ children }: { children: ReactNode }) {
                 <Logo className="h-10 w-10 text-destructive" />
                 <h1 className="text-xl font-bold">Konfigurasi Firebase Tidak Ditemukan</h1>
                 <p className="text-muted-foreground max-w-md">
-                    Pastikan Anda telah membuat file `.env` di root proyek dan mengisinya dengan kredensial Firebase Anda.
+                    Pastikan konfigurasi Firebase Anda benar. Hubungi administrator jika masalah berlanjut.
                 </p>
             </div>
         </div>
-     )
+     );
+  }
+
+  // Loading screen while auth is not ready
+  if (loading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+          <Logo className="h-10 w-10 animate-pulse" />
+      </div>
+    );
   }
 
   return (
