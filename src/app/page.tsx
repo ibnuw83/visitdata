@@ -24,8 +24,6 @@ function useAllVisitsForYear(firestore: Firestore | null, destinationIds: string
 
     useEffect(() => {
         if (!firestore || destinationIds.length === 0) {
-            // If there are no destination IDs, it means destinations are loaded but there are none.
-            // So we can stop loading and return empty data.
             setLoading(false);
             setAllVisitData([]);
             return;
