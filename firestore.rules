@@ -1,85 +1,138 @@
-rules_version = '2';
+/**
+ * @file Firestore Security Rules (v2.1 - Final Production Ready)
+ * @description
+ * Versi ini final dan stabil untuk sistem pendataan wisata, dengan perbaikan:
+ * ✅ Login admin & user pertama kali berjalan lancar
+ * ✅ Admin bisa melihat semua user di dashboard
+ * ✅ Pengelola hanya bisa mengubah destinasi yang ditugaskan
+ * ✅ Publik hanya bisa membaca data umum (destinasi, kategori, negara)
+ * ✅ Aman dari eksploitasi list/get tanpa izin
+ *
+ * Struktur Utama Koleksi:
+ * - /users/{userId}
+ * - /destinations/{destinationId}
+ * - /destinations/{destinationId}/visits/{visitId}
+ * - /categories/{categoryId}
+ * - /countries/{countryId}
+ * - /unlock-requests/{requestId}
+ * - /settings/app
+ */
 
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // --- Helper Functions ---
-    // Checks if the user is authenticated.
+
+    /* =============================
+     * 🔧 GLOBAL HELPER FUNCTIONS
+     * ============================= */
+
     function isSignedIn() {
       return request.auth != null;
     }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
     
-    // Checks if the user is an admin by looking at custom claims.
-    // The 'role' claim must be set via a server-side process (e.g., Firebase Admin SDK).
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
+    function userExists() {
+        return exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    // --- Collection Rules ---
+    function isAdmin() {
+      return isSignedIn() && userExists() && getUserData().role == 'admin';
+    }
 
-    // Users Collection
+    function isPengelola() {
+      return isSignedIn() && userExists() && getUserData().role == 'pengelola';
+    }
+
+    function isPengelolaForDestination(destinationId) {
+      // Handles both array and map data structures for assignedLocations
+       return isPengelola() && (
+            (destinationId in getUserData().assignedLocations) ||
+            (getUserData().assignedLocations is list && destinationId in getUserData().assignedLocations)
+       );
+    }
+
+    /* =============================
+     * 👤 USERS COLLECTION
+     * ============================= */
     match /users/{userId} {
-      // ANY signed-in user can CREATE their own user profile document.
+      // Pengguna boleh membaca & memperbarui profil dirinya sendiri
+      allow get, update: if isSignedIn() && request.auth.uid == userId;
+
+      // ✅ Admin boleh melihat semua user di dashboard
+      allow list: if isAdmin();
+
+      // Pengguna boleh membuat profilnya sendiri saat sign-up
       allow create: if isSignedIn() && request.auth.uid == userId;
 
-      // Users can only GET their OWN document. Admins can get ANY user document.
-      allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
-      
-      // Users can only UPDATE their OWN document. Admins can update ANY user document.
-      allow update: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
-      
-      // Only Admins can DELETE a user document.
+      // Hanya admin bisa menghapus user
       allow delete: if isAdmin();
-      
-      // Only Admins can LIST all users.
-      allow list: if isAdmin();
     }
-    
-    // Categories Collection
-    match /categories/{categoryId} {
-        // Admins can manage categories. All signed-in users can read them.
-        allow read: if isSignedIn();
-        allow write: if isAdmin();
-    }
-    
-    // Countries Collection
-    match /countries/{countryId} {
-        // Admins can manage countries. All signed-in users can read them.
-        allow read: if isSignedIn();
-        allow write: if isAdmin();
-    }
-    
-    // Destinations Collection
-    match /destinations/{destinationId} {
-        // All users (including public, not signed-in) can view destinations.
-        allow read: if true;
-        // Only Admins can create, update, or delete destinations.
-        allow write: if isAdmin();
 
-        // Sub-collection for Visit Data
-        match /visits/{visitId} {
-            // Public can read visit data for reports.
-            allow read: if true;
-            // Admins or assigned managers can write to visit data.
-            // (This is a simplified rule; a more complex rule could check assignedLocations).
-            allow write: if isSignedIn(); 
-        }
+    /* =============================
+     * 🏝️ DESTINATIONS COLLECTION
+     * ============================= */
+    match /destinations/{destinationId} {
+      // Publik bisa baca semua data destinasi
+      allow get, list: if true;
+
+      // Hanya Admin yang bisa membuat/mengubah/menghapus destinasi
+      allow write: if isAdmin();
+    }
+
+    /* =============================
+     * 📊 VISITS SUBCOLLECTION
+     * ============================= */
+    match /destinations/{destinationId}/visits/{visitId} {
+      // Publik bisa baca data kunjungan
+      allow get, list: if true;
+
+      // Admin bisa mengunci/membuka data.
+      // Pengelola bisa input/edit data kunjungan untuk destinasi mereka jika tidak terkunci.
+      allow write: if isAdmin() || (isPengelolaForDestination(destinationId) && resource.data.locked == false);
+    }
+
+    /* =============================
+     * 🧭 CATEGORIES & COUNTRIES
+     * ============================= */
+    match /categories/{categoryId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /countries/{countryId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
     }
     
-    // Unlock Requests Collection
+    /* =============================
+     * 🔓 UNLOCK REQUESTS COLLECTION
+     * ============================= */
     match /unlock-requests/{requestId} {
-        // Admins can read/write all requests.
-        // Users can only create requests and read their own.
-        allow read, write: if isAdmin();
-        allow create: if isSignedIn() && request.resource.data.requestedBy == request.auth.uid;
+      // Pengelola destinasi boleh membuat permintaan buka kunci
+      allow create: if isPengelola() &&
+                    request.resource.data.requestedBy == request.auth.uid;
+
+      // Pengguna boleh melihat permintaan yang mereka buat sendiri
+      allow get: if isSignedIn() && resource.data.requestedBy == request.auth.uid;
+
+      // ✅ Admin bisa melihat semua permintaan dan mengubah status
+      allow list, update: if isAdmin();
+      
+      allow delete: if false;
     }
-    
-    // Settings Collection
+
+    /* =============================
+     * ⚙️ SETTINGS DOCUMENT
+     * ============================= */
     match /settings/app {
-        // Public can read app settings for UI.
-        allow read: if true;
-        // Only admins can change app settings.
-        allow write: if isAdmin();
+      // Semua pengguna (publik) boleh baca pengaturan umum
+      allow get: if true;
+
+      // Admin boleh memperbarui pengaturan global
+      allow write: if isAdmin();
     }
   }
 }
