@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Destination } from '@/lib/types';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirestore } from '@/app/provider';
+import { useFirestore } from '@/app/providers';
 import { useCollection } from '@/lib/firebase/firestore/use-collection';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 

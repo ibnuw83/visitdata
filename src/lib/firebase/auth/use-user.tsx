@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { doc, DocumentReference } from 'firebase/firestore';
-import { useAuthUser, useFirestore } from '@/app/provider';
+import { useAuthUser, useFirestore } from '@/app/providers';
 import { useDoc } from '../firestore/use-doc';
 import { User as AppUser } from '@/lib/types';
 
