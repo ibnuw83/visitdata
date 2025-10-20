@@ -78,3 +78,71 @@ exports.setAdminClaimOnFirstUser = functions.auth.user().onCreate(async (user) =
         }
     }
 });
+
+
+exports.getPublicDashboardData = functions.https.onCall(async (data, context) => {
+  const year = data.year || new Date().getFullYear();
+
+  try {
+    // 1. Get all active destinations
+    const activeDestinationsSnapshot = await db.collection("destinations").where("status", "==", "aktif").get();
+    const activeDestinations = activeDestinationsSnapshot.docs.map((doc) => doc.data());
+    const activeDestinationIds = activeDestinations.map((dest) => dest.id);
+
+    if (activeDestinationIds.length === 0) {
+      return {
+        totalVisitors: 0,
+        totalWisnus: 0,
+        totalWisman: 0,
+        activeDestinations: [],
+        visitData: [],
+        availableYears: [new Date().getFullYear().toString()],
+      };
+    }
+
+    // 2. Fetch all visit data for the selected year from active destinations
+    // Firestore 'in' queries are limited to 30 items. We need to batch if necessary.
+    const visitData: any[] = [];
+    const allYearsSet = new Set<string>();
+    
+    // Batching the 'in' query
+    const BATCH_SIZE = 30;
+    for (let i = 0; i < activeDestinationIds.length; i += BATCH_SIZE) {
+        const batchIds = activeDestinationIds.slice(i, i + BATCH_SIZE);
+        const visitsSnapshot = await db.collectionGroup("visits")
+          .where("year", "==", year)
+          .where("destinationId", "in", batchIds)
+          .get();
+
+        visitsSnapshot.docs.forEach((doc) => {
+            visitData.push(doc.data());
+        });
+    }
+
+    // 3. Fetch all available years from the visits collection group
+    // This is an expensive query, so we do it last and with care.
+    const allYearsSnapshot = await db.collectionGroup("visits").select("year").get();
+    allYearsSnapshot.forEach((doc) => {
+      const visit = doc.data();
+      if(visit.year) allYearsSet.add(visit.year.toString());
+    });
+    allYearsSet.add(new Date().getFullYear().toString());
+
+    // 4. Calculate totals
+    const totalVisitors = visitData.reduce((sum, item) => sum + (item.totalVisitors || 0), 0);
+    const totalWisnus = visitData.reduce((sum, item) => sum + (item.wisnus || 0), 0);
+    const totalWisman = visitData.reduce((sum, item) => sum + (item.wisman || 0), 0);
+
+    return {
+      totalVisitors,
+      totalWisnus,
+      totalWisman,
+      activeDestinations,
+      visitData,
+      availableYears: Array.from(allYearsSet).sort((a, b) => parseInt(b) - parseInt(a)),
+    };
+  } catch (error) {
+    functions.logger.error("Error in getPublicDashboardData:", error);
+    throw new functions.https.HttpsError("internal", "Gagal mengambil data dasbor.", error);
+  }
+});

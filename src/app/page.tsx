@@ -12,62 +12,60 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where, collectionGroup } from "firebase/firestore";
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, collection, query, where, getFunctions, httpsCallable } from "firebase/firestore";
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useAllVisitsForYear } from '@/hooks/use-all-visits-for-year';
+
+
+type PublicDashboardData = {
+    totalVisitors: number;
+    totalWisnus: number;
+    totalWisman: number;
+    activeDestinations: Destination[];
+    visitData: VisitData[];
+    availableYears: string[];
+}
 
 function DashboardContent() {
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [dashboardData, setDashboardData] = useState<PublicDashboardData | null>(null);
     const firestore = useFirestore();
 
-    const destinationsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
-    }, [firestore]);
-    
-    const { data: activeDestinations, loading: destinationsLoading, error: destinationsError } = useCollection<Destination>(destinationsQuery);
-    
-    const visitsQuery = useMemoFirebase(() => {
-        if(!firestore) return null;
-        return query(collectionGroup(firestore, 'visits'), where('year', '==', selectedYear));
-    }, [firestore, selectedYear]);
+    const fetchDashboardData = useCallback(async (year: number) => {
+        if (!firestore) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const functions = getFunctions(firestore.app);
+            const getPublicDashboardData = httpsCallable(functions, 'getPublicDashboardData');
+            const result = await getPublicDashboardData({ year });
+            const data = result.data as PublicDashboardData;
 
-    const { data: allVisitDataForYear, loading: visitsLoading, error: visitsError } = useCollection<VisitData>(visitsQuery);
-    
-    const loading = destinationsLoading || visitsLoading;
-    const error = destinationsError || visitsError;
-    
-    const activeDestinationIds = useMemo(() => {
-        if (!activeDestinations) return new Set<string>();
-        return new Set(activeDestinations.map(d => d.id));
-    }, [activeDestinations]);
+            // Simple validation
+            if (!data || typeof data.totalVisitors !== 'number') {
+                throw new Error("Data respons tidak valid dari server.");
+            }
 
-    const filteredVisitData = useMemo(() => {
-        if (!allVisitDataForYear || activeDestinationIds.size === 0) return [];
-        return allVisitDataForYear.filter(visit => activeDestinationIds.has(visit.destinationId));
-    }, [allVisitDataForYear, activeDestinationIds]);
-
-    const availableYears = useMemo(() => {
-        const yearsSet = new Set<string>();
-        if (allVisitDataForYear) {
-            allVisitDataForYear.forEach(d => yearsSet.add(d.year.toString()));
+            setDashboardData(data);
+        } catch (err: any) {
+            console.error("Error calling getPublicDashboardData:", err);
+            setError(err.message || "Terjadi kesalahan yang tidak diketahui saat mengambil data.");
+        } finally {
+            setLoading(false);
         }
-        const currentYear = new Date().getFullYear().toString();
-        yearsSet.add(currentYear);
-        return Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
-    }, [allVisitDataForYear]);
+    }, [firestore]);
 
     useEffect(() => {
-        if (availableYears.length > 0 && !availableYears.includes(selectedYear.toString())) {
-            setSelectedYear(parseInt(availableYears[0]));
-        }
-    }, [availableYears, selectedYear]);
+        fetchDashboardData(selectedYear);
+    }, [selectedYear, fetchDashboardData]);
 
-    const totalVisitors = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.totalVisitors, 0), [filteredVisitData]);
-    const totalWisnus = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.wisnus, 0), [filteredVisitData]);
-    const totalWisman = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.wisman, 0), [filteredVisitData]);
+    const handleYearChange = (yearValue: string) => {
+        const year = parseInt(yearValue, 10);
+        setSelectedYear(year);
+    }
     
     if (loading) {
         return (
@@ -102,25 +100,28 @@ function DashboardContent() {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Gagal Memuat Data Dasbor</AlertTitle>
                 <AlertDescription>
-                    Terjadi kesalahan saat mengambil data dari server. Ini mungkin karena aturan keamanan Firestore yang belum diterapkan atau salah. Pastikan `firestore.rules` telah di-deploy. Pesan error: {error.message}
+                    Terjadi kesalahan saat mengambil data dari server. Silakan coba lagi nanti.
+                    <p className="mt-2 text-xs font-mono bg-destructive-foreground/10 p-2 rounded">Pesan error: {error}</p>
                 </AlertDescription>
             </Alert>
         )
     }
 
-    if (!loading && (!activeDestinations || activeDestinations.length === 0)) {
+    if (!dashboardData || dashboardData.activeDestinations.length === 0) {
        return (
             <Card>
                 <CardHeader>
                     <CardTitle className="text-muted-foreground">Dasbor Publik</CardTitle>
                 </CardHeader>
                 <CardContent className="flex h-48 items-center justify-center">
-                    <p className="text-muted-foreground">Belum ada data destinasi aktif untuk ditampilkan.</p>
+                    <p className="text-muted-foreground">Belum ada data untuk ditampilkan.</p>
                 </CardContent>
             </Card>
         )
     }
     
+    const { totalVisitors, totalWisnus, totalWisman, activeDestinations, visitData, availableYears } = dashboardData;
+
     return (
         <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -129,7 +130,7 @@ function DashboardContent() {
                     <p className="text-muted-foreground">Ringkasan data pariwisata untuk tahun {selectedYear}.</p>
                 </div>
                 <div className="w-full sm:w-auto">
-                   <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))} disabled={availableYears.length === 0}>
+                   <Select value={selectedYear.toString()} onValueChange={handleYearChange} disabled={availableYears.length === 0}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Pilih Tahun" />
                     </SelectTrigger>
@@ -148,15 +149,15 @@ function DashboardContent() {
                 <StatCard title="Total Pengunjung" value={totalVisitors.toLocaleString()} icon={<Users />} className="bg-blue-600 text-white" />
                 <StatCard title="Wisatawan Nusantara" value={totalWisnus.toLocaleString()} icon={<Globe />} className="bg-green-600 text-white" />
                 <StatCard title="Wisatawan Mancanegara" value={totalWisman.toLocaleString()} icon={<Plane />} className="bg-orange-500 text-white" />
-                <StatCard title="Total Destinasi Aktif" value={activeDestinations?.length.toString() || '0'} icon={<Landmark />} className="bg-purple-600 text-white"/>
+                <StatCard title="Total Destinasi Aktif" value={activeDestinations.length.toString()} icon={<Landmark />} className="bg-purple-600 text-white"/>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <MonthlyLineChart data={filteredVisitData} />
-                <MonthlyBarChart data={filteredVisitData} />
+                <MonthlyLineChart data={visitData} />
+                <MonthlyBarChart data={visitData} />
             </div>
 
-            <TopDestinationsCarousel data={filteredVisitData} destinations={activeDestinations || []} />
+            <TopDestinationsCarousel data={visitData} destinations={activeDestinations} />
         </div>
     )
 }
