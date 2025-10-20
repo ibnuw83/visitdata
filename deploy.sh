@@ -1,28 +1,21 @@
 #!/bin/bash
+# -----------------------------------------------
+# PERINTAH UNTUK DEPLOY KE GITHUB
+# Anda bisa salin dan tempel baris di bawah ini
+# atau jalankan skrip ini dengan: ./deploy.sh "Pesan Anda"
+# -----------------------------------------------
 
-# Keluar segera jika ada perintah yang gagal
-set -e
+# Pesan komit dari argumen pertama, atau gunakan pesan default
+COMMIT_MESSAGE="${1:-Update}"
 
-# Periksa apakah pesan komit telah diberikan
-if [ -z "$1" ]; then
-  echo "Error: Tidak ada pesan komit yang diberikan."
-  echo "Penggunaan: ./deploy.sh \"Pesan komit Anda\""
-  exit 1
-fi
-
-COMMIT_MESSAGE="$1"
-
-# Langkah 1: Tambahkan semua perubahan ke staging
-echo "🚀 Menambahkan semua perubahan ke staging..."
+# 1. Tambahkan semua perubahan
 git add .
-echo "✅ Perubahan ditambahkan."
+echo "✅ Perubahan ditambahkan (git add .)"
 
-# Langkah 2: Lakukan komit pada perubahan
-echo "📝 Melakukan komit dengan pesan: \"$COMMIT_MESSAGE\""
+# 2. Lakukan komit pada perubahan
 git commit -m "$COMMIT_MESSAGE"
-echo "✅ Perubahan telah di-commit."
+echo "✅ Perubahan di-commit (git commit)"
 
-# Langkah 3: Kirim ke GitHub
-echo "📤 Mengirim perubahan ke GitHub..."
+# 3. Kirim ke GitHub
 git push
-echo "🎉 Berhasil dikirim! Deployment Anda ke GitHub sedang diproses."
+echo "🎉 Berhasil dikirim ke GitHub (git push)"
