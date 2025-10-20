@@ -12,52 +12,52 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { useFirestore, useDoc } from '@/firebase';
-import { doc } from "firebase/firestore";
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, collection, query, where } from "firebase/firestore";
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAllVisitsForYear } from '@/hooks/use-all-visits-for-year';
 
 function DashboardContent() {
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const firestore = useFirestore();
 
-    const [activeDestinations, setActiveDestinations] = useState<Destination[]>([]);
-    const [allVisitDataForYear, setAllVisitDataForYear] = useState<VisitData[]>([]);
-    const [availableYears, setAvailableYears] = useState<string[]>([new Date().getFullYear().toString()]);
+    const destinationsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'destinations'), where('status', '==', 'aktif'));
+    }, [firestore]);
+    
+    const { data: activeDestinations, loading: destinationsLoading, error: destinationsError } = useCollection<Destination>(destinationsQuery);
+    const { data: allVisitDataForYear, loading: visitsLoading, error: visitsError } = useAllVisitsForYear(firestore, selectedYear);
+    
+    const loading = destinationsLoading || visitsLoading;
+    const error = destinationsError || visitsError;
+    
+    const activeDestinationIds = useMemo(() => {
+        if (!activeDestinations) return new Set<string>();
+        return new Set(activeDestinations.map(d => d.id));
+    }, [activeDestinations]);
 
-    const fetchDashboardData = useCallback(async (year: number) => {
-        setLoading(true);
-        setError(null);
-        try {
-            const functions = getFunctions();
-            const getPublicDashboardData = httpsCallable(functions, 'getPublicDashboardData');
-            const result = await getPublicDashboardData({ year });
-            
-            const data = result.data as {
-                activeDestinations: Destination[];
-                allVisitDataForYear: VisitData[];
-                availableYears: string[];
-            };
+    const filteredVisitData = useMemo(() => {
+        if (!allVisitDataForYear || activeDestinationIds.size === 0) return [];
+        return allVisitDataForYear.filter(visit => activeDestinationIds.has(visit.destinationId));
+    }, [allVisitDataForYear, activeDestinationIds]);
 
-            setActiveDestinations(data.activeDestinations || []);
-            setAllVisitDataForYear(data.allVisitDataForYear || []);
-            setAvailableYears(data.availableYears || [new Date().getFullYear().toString()]);
-
-        } catch (err: any) {
-            console.error("Error fetching public dashboard data:", err);
-            setError(err.message || "Terjadi kesalahan yang tidak diketahui.");
-        } finally {
-            setLoading(false);
+    const availableYears = useMemo(() => {
+        const yearsSet = new Set<string>();
+        if (allVisitDataForYear) {
+            allVisitDataForYear.forEach(d => yearsSet.add(d.year.toString()));
         }
-    }, []);
+        const currentYear = new Date().getFullYear().toString();
+        yearsSet.add(currentYear);
+        return Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
+    }, [allVisitDataForYear]);
 
     useEffect(() => {
-        fetchDashboardData(selectedYear);
-    }, [selectedYear, fetchDashboardData]);
-
-    const filteredVisitData = allVisitDataForYear; // Data is pre-filtered by the cloud function
+        if (availableYears.length > 0 && !availableYears.includes(selectedYear.toString())) {
+            setSelectedYear(parseInt(availableYears[0]));
+        }
+    }, [availableYears, selectedYear]);
 
     const totalVisitors = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.totalVisitors, 0), [filteredVisitData]);
     const totalWisnus = useMemo(() => filteredVisitData.reduce((sum, item) => sum + item.wisnus, 0), [filteredVisitData]);
@@ -96,7 +96,7 @@ function DashboardContent() {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Gagal Memuat Data Dasbor</AlertTitle>
                 <AlertDescription>
-                    Terjadi kesalahan saat mengambil data dari server. Silakan coba lagi nanti. Pesan error: {error}
+                    Terjadi kesalahan saat mengambil data dari server. Ini mungkin karena aturan keamanan Firestore yang belum diterapkan atau salah. Pastikan `firestore.rules` telah di-deploy. Pesan error: {error.message}
                 </AlertDescription>
             </Alert>
         )
