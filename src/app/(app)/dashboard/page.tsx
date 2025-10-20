@@ -5,8 +5,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Users, Landmark, Plane, Globe } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-card";
-import MonthlyVisitorsChart from "@/components/dashboard/monthly-visitors-chart";
-import VisitorBreakdownChart from "@/components/dashboard/visitor-breakdown-chart";
 import TopDestinationsCard from "@/components/dashboard/top-destinations-card";
 import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -145,11 +143,7 @@ export default function DashboardPage() {
                     <Skeleton className="h-28" />
                     <Skeleton className="h-28" />
                 </div>
-                 <div className="grid gap-4 lg:grid-cols-5">
-                    <Skeleton className="lg:col-span-3 h-80" />
-                    <Skeleton className="lg-col-span-2 h-80" />
-                </div>
-                <div className="grid gap-4">
+                 <div className="grid gap-4">
                     <Skeleton className="h-96" />
                 </div>
             </div>
@@ -184,27 +178,6 @@ export default function DashboardPage() {
                 <StatCard title="Wisatawan Nusantara" value={totalWisnus.toLocaleString()} icon={<Globe />} className="bg-green-600 text-white" />
                 <StatCard title="Wisatawan Mancanegara" value={totalWisman.toLocaleString()} icon={<Plane />} className="bg-orange-500 text-white" />
                 <StatCard title="Total Destinasi Aktif" value={(destinations || []).length.toString()} icon={<Landmark />} className="bg-purple-600 text-white"/>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-5">
-                <Card className="lg:col-span-3">
-                    <CardHeader>
-                        <CardTitle>Tren Pengunjung Bulanan</CardTitle>
-                        <CardDescription>Total pengunjung (domestik & asing) selama tahun {selectedYear}.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <MonthlyVisitorsChart data={allVisitData} />
-                    </CardContent>
-                </Card>
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Komposisi Pengunjung</CardTitle>
-                         <CardDescription>Perbandingan wisatawan nusantara dan mancanegara per bulan.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <VisitorBreakdownChart data={allVisitData} />
-                    </CardContent>
-                </Card>
             </div>
             
              <div className="grid gap-4">
