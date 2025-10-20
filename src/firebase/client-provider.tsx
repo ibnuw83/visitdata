@@ -32,7 +32,9 @@ if (configIsValid) {
   auth = getAuth(firebaseApp);
   firestore = getFirestore(firebaseApp);
   // Initialize functions
-  getFunctions(firebaseApp);
+  if (typeof window !== 'undefined') {
+    getFunctions(firebaseApp);
+  }
 }
 
 // --- PROVIDER COMPONENT ---

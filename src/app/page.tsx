@@ -13,7 +13,8 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where, getFunctions, httpsCallable } from "firebase/firestore";
+import { doc } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { MonthlyLineChart, MonthlyBarChart } from '@/components/dashboard/visitor-charts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
