@@ -101,7 +101,7 @@ exports.getPublicDashboardData = functions.https.onCall(async (data, context) =>
             };
         }
 
-        // 2. Fetch all visit data for the specified year
+        // 2. Fetch all visit data for the specified year from all destinations
         const visitsSnapshot = await db.collectionGroup("visits").where("year", "==", year).get();
         const allVisitDataForYear = visitsSnapshot.docs.map((doc) => doc.data());
         
@@ -113,10 +113,10 @@ exports.getPublicDashboardData = functions.https.onCall(async (data, context) =>
         const totalWisnus = filteredVisitData.reduce((sum, item) => sum + item.wisnus, 0);
         const totalWisman = filteredVisitData.reduce((sum, item) => sum + item.wisman, 0);
 
-        // 5. Determine available years securely on the server
+        // 5. Determine available years securely on the server from ALL visit data (not just for the selected year)
         const allYearsSnapshot = await db.collectionGroup("visits").select("year").get();
         const yearsSet = new Set(allYearsSnapshot.docs.map((doc) => doc.data().year.toString()));
-        yearsSet.add(new Date().getFullYear().toString());
+        yearsSet.add(new Date().getFullYear().toString()); // Ensure current year is always an option
         const availableYears = Array.from(yearsSet).sort((a, b) => parseInt(b) - parseInt(a));
 
         // 6. Return the complete, processed data package
@@ -134,3 +134,4 @@ exports.getPublicDashboardData = functions.https.onCall(async (data, context) =>
         throw new functions.https.HttpsError("internal", "Tidak dapat mengambil data dasbor publik.", error);
     }
 });
+
