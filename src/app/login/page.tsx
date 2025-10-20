@@ -12,6 +12,23 @@ import { useAuth, useAuthUser } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
+function getFirebaseErrorMessage(code: string): string {
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'Format email tidak valid.';
+    case 'auth/user-not-found':
+      return 'Pengguna dengan email ini tidak ditemukan.';
+    case 'auth/wrong-password':
+      return 'Kata sandi salah.';
+    case 'auth/invalid-credential':
+       return 'Email atau kata sandi yang Anda masukkan salah.';
+    case 'auth/network-request-failed':
+      return 'Gagal terhubung ke server. Periksa koneksi internet Anda.';
+    default:
+      return 'Terjadi kesalahan. Silakan coba lagi.';
+  }
+}
+
 export default function LoginPage() {
   const { user, isLoading: isInitializing } = useAuthUser();
   const auth = useAuth();
@@ -28,7 +45,14 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!auth) return;
+    if (!auth) {
+       toast({
+        variant: "destructive",
+        title: "Kesalahan Konfigurasi",
+        description: "Layanan otentikasi tidak tersedia. Harap periksa konfigurasi Firebase Anda."
+      });
+      return;
+    }
     setIsSubmitting(true);
     const formData = new FormData(event.currentTarget);
     const email = formData.get('email') as string;
@@ -39,10 +63,11 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (e: any) {
       console.error("Login Error:", e);
+      const errorMessage = getFirebaseErrorMessage(e.code);
       toast({
         variant: "destructive",
         title: "Login Gagal",
-        description: "Email atau kata sandi salah."
+        description: errorMessage
       });
     } finally {
        setIsSubmitting(false);

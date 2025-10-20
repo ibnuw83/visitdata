@@ -9,7 +9,6 @@ import { getFirestore, Firestore } from 'firebase/firestore';
 import { firebaseConfig } from '@/lib/firebase/config';
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from '@/components/ui/skeleton';
 import { handleFirestoreError } from '@/lib/firebase/listeners/firestore-error-handler';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/logo';
@@ -26,7 +25,7 @@ function VisitDataAppProvider({ children }: { children: ReactNode }) {
 
   const { app, auth, firestore } = useMemo(() => {
     if (!firebaseConfig.apiKey) {
-      console.error("Firebase config is missing. Make sure your .env.local file is set up correctly.");
+      console.error("Firebase config is missing. Make sure your .env file is set up correctly.");
       return { app: null, auth: null, firestore: null };
     }
     const existingApp = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
