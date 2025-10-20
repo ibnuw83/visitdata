@@ -38,7 +38,6 @@ const aggregateMonthlyData = (data: VisitData[]) => {
 
 export function MonthlyLineChart({ data }: { data: VisitData[] }) {
     const chartData = useMemo(() => aggregateMonthlyData(data), [data]);
-    const hasData = useMemo(() => chartData.some(d => d['Total Pengunjung'] > 0), [chartData]);
     
     return (
         <Card>
@@ -47,7 +46,7 @@ export function MonthlyLineChart({ data }: { data: VisitData[] }) {
                 <CardDescription>Grafik garis total pengunjung per bulan.</CardDescription>
             </CardHeader>
             <CardContent>
-                {hasData ? (
+                {chartData && chartData.length > 0 ? (
                      <LineChart
                         className="h-72 mt-4"
                         data={chartData}
@@ -73,7 +72,6 @@ export function MonthlyLineChart({ data }: { data: VisitData[] }) {
 
 export function MonthlyBarChart({ data }: { data: VisitData[] }) {
     const chartData = useMemo(() => aggregateMonthlyData(data), [data]);
-    const hasData = useMemo(() => chartData.some(d => d.Domestik > 0 || d.Asing > 0), [chartData]);
     
     return (
         <Card>
@@ -82,7 +80,7 @@ export function MonthlyBarChart({ data }: { data: VisitData[] }) {
                 <CardDescription>Grafik batang perbandingan pengunjung domestik vs. asing per bulan.</CardDescription>
             </CardHeader>
             <CardContent>
-                 {hasData ? (
+                 {chartData && chartData.length > 0 ? (
                     <BarChart
                         className="h-72 mt-4"
                         data={chartData}
