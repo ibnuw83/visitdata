@@ -4,11 +4,18 @@ import admin from 'firebase-admin';
 const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
 if (!serviceAccountString) {
-  throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.');
+  throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set. Please add it to your .env file.');
 }
 
-// Parse string JSON menjadi objek
-const serviceAccount = JSON.parse(serviceAccountString);
+let serviceAccount;
+try {
+    // Parse string JSON menjadi objek
+    serviceAccount = JSON.parse(serviceAccountString);
+} catch (e) {
+    console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it's a valid JSON string.");
+    throw e;
+}
+
 
 // Inisialisasi Firebase Admin SDK hanya jika belum ada
 if (!admin.apps.length) {
@@ -16,7 +23,6 @@ if (!admin.apps.length) {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
-    console.log('Firebase Admin SDK initialized successfully.');
   } catch (error: any) {
     console.error('Firebase Admin SDK initialization error:', error.message);
     // Hentikan proses jika inisialisasi gagal
