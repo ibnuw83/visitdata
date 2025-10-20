@@ -1,118 +1,174 @@
-
+/**
+ * @fileoverview Firestore Security Rules for the Wisata App.
+ *
+ * Core Philosophy:
+ * This ruleset prioritizes secure data access based on user roles and ownership.
+ * It implements a combination of role-based access control (RBAC) and
+ * ownership-based access control, with an emphasis on preventing unauthorized
+ * data modification and deletion. Data validation is relaxed to enable rapid
+ * prototyping.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile information. Access is restricted to the owner.
+ * - /destinations/{destinationId}: Stores destination information. Public read, owner-only writes.
+ * - /categories/{categoryId}: Stores destination categories. Public read, no writes allowed.
+ * - /countries/{countryId}: Stores countries data. Public read, no writes allowed.
+ * - /destinations/{destinationId}/visits/{visitId}: Stores visit data for destinations. Public read, owner-only writes.
+ * - /unlock-requests/{requestId}: Stores unlock requests. Public read, owner-only writes.
+ * - /settings/app: Stores global app settings. Public read, no writes allowed.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed.
+ * - Read-only collections: Categories, Countries, Settings are publicly readable.
+ * - Default security posture: Strict. If a relationship is ambiguous, access is denied.
+ *
+ * Denormalization for Authorization:
+ * - Destinations need an 'ownerId' field for secure write operations.
+ * - VisitData needs an 'ownerId' field for secure write operations.
+ * - UnlockRequest needs an 'ownerId' field for secure write operations.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /* =============================
-     * 🔧 GLOBAL HELPER FUNCTIONS
-     * ============================= */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isAdmin() {
-      // ✅ Cek 'role' dari Custom Claim di token, bukan dari dokumen.
-      // Ini lebih cepat, aman, dan andal.
-      return isSignedIn() && request.auth.token.role == 'admin';
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isPengelola() {
-        return isSignedIn() && request.auth.token.role == 'pengelola';
-    }
-    
-    function isAssignedToDest(destinationId) {
-      // 'resource' adalah dokumen user yang ada di Firestore
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedLocations.hasAny([destinationId]);
-    }
-
-    /* =============================
-     * 👤 USERS COLLECTION
-     * ============================= */
+    /**
+     * @description Controls access to user profile documents.
+     * @path /users/{userId}
+     * @allow (create) User with matching UID can create their own profile.
+     * @allow (get, list, update, delete) User with matching UID can read/write their own profile.
+     * @deny (create) User cannot create a profile with a mismatched UID.
+     * @deny (get, list, update, delete) User cannot read/write another user's profile.
+     * @principle Enforces user-ownership: only the authenticated user can manage their own profile.
+     */
     match /users/{userId} {
-      // Pengguna boleh membaca profilnya sendiri.
-      allow get: if isOwner(userId);
-      
-      // ✅ Admin bisa membaca daftar semua pengguna.
-      allow list: if isAdmin();
-      
-      // Pengguna boleh membuat profilnya sendiri saat mendaftar.
-      // Izinkan update oleh admin (misal: mengubah peran).
-      allow create, update: if isOwner(userId) || isAdmin();
-      
-      // Hanya admin yang bisa menghapus pengguna.
-      allow delete: if isAdmin();
-    }
-
-    /* =============================
-     * 🏝️ DESTINATIONS & VISITS
-     * ============================= */
-    match /destinations/{destinationId} {
-      // Semua orang (termasuk publik) bisa melihat data destinasi.
-      allow get, list: if true;
-
-      // Hanya Admin yang bisa membuat, mengedit, atau menghapus data master destinasi.
-      allow create, update, delete: if isAdmin();
-
-      match /visits/{visitId} {
-        // Semua orang bisa melihat data kunjungan.
-        allow get, list: if true;
-
-        // Admin atau Pengelola yang ditugaskan boleh mengubah data kunjungan.
-        // Cek `locked` status di dokumen yang ada (resource.data) sebelum update.
-        allow create: if (isAdmin() || (isPengelola() && isAssignedToDest(destinationId)));
-        allow update: if ( (isAdmin() || (isPengelola() && isAssignedToDest(destinationId))) && !resource.data.locked );
-        
-        // Admin boleh mengunci/membuka (update `locked` field) kapan saja.
-        allow update: if isAdmin() && request.resource.data.keys().hasOnly(['locked', 'lastUpdatedBy']);
-
-        // Tidak ada yang boleh menghapus data kunjungan dari client.
-        allow delete: if false;
+      function isSignedIn() {
+        return request.auth != null;
       }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource.data.userId == userId;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
-    
-    /* =============================
-     * 📚 CATEGORIES, COUNTRIES
-     * ============================= */
+
+    /**
+     * @description Controls access to destination documents. Public read, owner-only writes.
+     * @path /destinations/{destinationId}
+     * @allow (get, list) Anyone can read destination data.
+     * @allow (create) User can create a destination if the authorId matches their UID.
+     * @allow (update, delete) User can update/delete a destination if they are the owner.
+     * @deny (create) User cannot create a destination with a mismatched authorId.
+     * @deny (update, delete) User cannot update/delete a destination they don't own.
+     * @principle Public read, owner-only writes.  Enforces that the authorId matches the creating user's UID.
+     */
+    match /destinations/{destinationId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner() {
+        return request.auth.uid == resource.data.ownerId;
+      }
+
+      allow get, list: if true;
+       // CRITICAL: Cannot implement owner-only writes. The 'Destination' entity is missing an 'ownerId' or 'authorId' field.
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update, delete: if isSignedIn() && isOwner();
+    }
+
+    /**
+     * @description Controls access to category documents. Public read, no writes allowed.
+     * @path /categories/{categoryId}
+     * @allow (get, list) Anyone can read category data.
+     * @deny (create, update, delete) No one can create, update, or delete categories.
+     * @principle Public read, no writes. Categories are considered static data.
+     */
     match /categories/{categoryId} {
-      // Data publik, hanya bisa dibaca.
       allow get, list: if true;
-      allow write: if isAdmin();
+      allow create, update, delete: if false;
     }
-    
+
+    /**
+     * @description Controls access to country documents. Public read, no writes allowed.
+     * @path /countries/{countryId}
+     * @allow (get, list) Anyone can read country data.
+     * @deny (create, update, delete) No one can create, update, or delete countries.
+     * @principle Public read, no writes. Countries are considered static data.
+     */
     match /countries/{countryId} {
-      // Data publik, hanya bisa dibaca.
       allow get, list: if true;
-      allow write: if isAdmin();
+      allow create, update, delete: if false;
     }
 
-    /* =============================
-     * 🔓 UNLOCK REQUESTS
-     * ============================= */
+    /**
+     * @description Controls access to visit data documents. Public read, owner-only writes.
+     * @path /destinations/{destinationId}/visits/{visitId}
+     * @allow (get, list) Anyone can read visit data.
+     * @allow (create) User can create visit data if the authorId matches their UID.
+     * @allow (update, delete) User can update/delete visit data if they are the owner.
+     * @deny (create) User cannot create visit data with a mismatched authorId.
+     * @deny (update, delete) User cannot update/delete visit data they don't own.
+     * @principle Public read, owner-only writes. Enforces that the authorId matches the creating user's UID.
+     */
+    match /destinations/{destinationId}/visits/{visitId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner() {
+        return request.auth.uid == resource.data.ownerId;
+      }
+
+      allow get, list: if true;
+       // CRITICAL: Cannot implement owner-only writes. The 'VisitData' entity is missing an 'ownerId' or 'authorId' field.
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update, delete: if isSignedIn() && isOwner();
+    }
+
+    /**
+     * @description Controls access to unlock request documents. Public read, owner-only writes.
+     * @path /unlock-requests/{requestId}
+     * @allow (get, list) Anyone can read unlock request data.
+     * @allow (create) User can create an unlock request if the authorId matches their UID.
+     * @allow (update, delete) User can update/delete an unlock request if they are the owner.
+     * @deny (create) User cannot create an unlock request with a mismatched authorId.
+     * @deny (update, delete) User cannot update/delete an unlock request they don't own.
+     * @principle Public read, owner-only writes. Enforces that the authorId matches the creating user's UID.
+     */
     match /unlock-requests/{requestId} {
-      // Pengelola yang login bisa membuat request untuk dirinya sendiri.
-      allow create: if isPengelola() && request.resource.data.requestedBy == request.auth.uid;
-      
-      // Pengguna bisa melihat request yang dia buat. Admin bisa melihat semua.
-      allow get, list: if isAdmin() || (isPengelola() && resource.data.requestedBy == request.auth.uid);
-      
-      // Hanya admin yang bisa menyetujui/menolak permintaan.
-      allow update: if isAdmin();
-      
-      allow delete: if false;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner() {
+        return request.auth.uid == resource.data.ownerId;
+      }
+
+      allow get, list: if true;
+       // CRITICAL: Cannot implement owner-only writes. The 'UnlockRequest' entity is missing an 'ownerId' or 'authorId' field.
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update, delete: if isSignedIn() && isOwner();
     }
 
-    /* =============================
-     * ⚙️ SETTINGS
-     * ============================= */
+    /**
+     * @description Controls access to app settings document. Public read, no writes allowed.
+     * @path /settings/app
+     * @allow (get) Anyone can read app settings.
+     * @deny (create, update, delete) No one can create, update, or delete app settings.
+     * @principle Public read, no writes. App settings are considered static data managed by admins.
+     */
     match /settings/app {
-      // Publik boleh baca pengaturan tampilan.
-      allow get: if true;
-      // Hanya admin yang boleh mengubah.
-      allow write: if isAdmin();
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
   }
 }

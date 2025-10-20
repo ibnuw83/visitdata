@@ -20,12 +20,12 @@ export const firebaseConfig = {
 if (process.env.NODE_ENV === 'development') {
   const missingKeys = Object.entries(firebaseConfig)
     .filter(([, value]) => !value)
-    .map(([key]) => key);
+    .map(([key]) => `NEXT_PUBLIC_${key.replace(/([A-Z])/g, '_$1').toUpperCase()}`);
 
   if (missingKeys.length > 0) {
     console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
     console.error('FIREBASE CONFIG ERROR: Missing environment variables:');
-    missingKeys.forEach(key => console.error(`- NEXT_PUBLIC_${key.toUpperCase()}`));
+    missingKeys.forEach(key => console.error(`- ${key}`));
     console.error('Please copy the values from your Firebase project settings into the .env.local file.');
     console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
   }

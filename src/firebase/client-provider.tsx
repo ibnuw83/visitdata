@@ -15,19 +15,21 @@ const AuthContext = createContext<Auth | null>(null);
 const AuthUserContext = createContext<{ user: User | null; isLoading: boolean; logout: () => Promise<void> }>({ user: null, isLoading: true, logout: async () => {} });
 
 // --- FIREBASE INITIALIZATION (SINGLETON PATTERN) ---
-function initializeFirebase() {
-  if (getApps().length > 0) {
-    return getApps()[0];
-  }
-  if (!firebaseConfig.apiKey) {
-    throw new Error("Firebase config is missing. Please check your environment variables and src/lib/firebase/config.ts");
-  }
-  return initializeApp(firebaseConfig);
-}
+let firebaseApp: FirebaseApp;
+let auth: Auth;
+let firestore: Firestore;
 
-const firebaseApp = initializeFirebase();
-const auth = getAuth(firebaseApp);
-const firestore = getFirestore(firebaseApp);
+const isConfigValid = Object.values(firebaseConfig).every(Boolean);
+
+if (isConfigValid) {
+  if (getApps().length === 0) {
+    firebaseApp = initializeApp(firebaseConfig);
+  } else {
+    firebaseApp = getApps()[0];
+  }
+  auth = getAuth(firebaseApp);
+  firestore = getFirestore(firebaseApp);
+}
 
 // --- PROVIDER COMPONENT ---
 export function FirebaseClientProvider({ children }: { children: ReactNode }) {
@@ -35,6 +37,10 @@ export function FirebaseClientProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+        setLoading(false);
+        return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
@@ -43,12 +49,23 @@ export function FirebaseClientProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = async () => {
-    await signOut(auth);
-    // Use window.location to force a full page reload to clear all state
-    window.location.href = '/login';
+    if (auth) {
+        await signOut(auth);
+        // Use window.location to force a full page reload to clear all state
+        window.location.href = '/login';
+    }
   };
 
   const authUserContextValue = { user, isLoading: loading, logout };
+
+  if (!isConfigValid) {
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center">
+            <h1 className="text-2xl font-bold text-destructive">Konfigurasi Firebase Tidak Lengkap</h1>
+            <p className="mt-2 text-muted-foreground">Harap periksa file `.env.local` Anda dan pastikan semua variabel lingkungan Firebase telah diisi.</p>
+        </div>
+    )
+  }
 
   // Display a loading indicator while auth state is being determined
   if (loading) {
