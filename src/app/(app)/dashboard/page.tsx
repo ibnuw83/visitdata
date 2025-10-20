@@ -12,13 +12,38 @@ import type { VisitData, Destination } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, getDocs, Firestore } from 'firebase/firestore';
+
+async function fetchVisitsForDestinations(firestore: Firestore, destinationIds: string[]): Promise<VisitData[]> {
+    if (destinationIds.length === 0) return [];
+    
+    const allVisits: VisitData[] = [];
+    // Firestore allows up to 30 'in' clauses in a single query, we fetch in chunks to be safe
+    const chunkSize = 30; 
+    for (let i = 0; i < destinationIds.length; i += chunkSize) {
+        const chunk = destinationIds.slice(i, i + chunkSize);
+        const visitsQuery = query(collection(firestore, 'visits'), where('destinationId', 'in', chunk));
+        
+        try {
+            const querySnapshot = await getDocs(visitsQuery);
+            querySnapshot.forEach((doc) => {
+                allVisits.push({ id: doc.id, ...doc.data() } as VisitData);
+            });
+        } catch (error) {
+            console.error("Error fetching visits for chunk", chunk, error);
+        }
+    }
+    return allVisits;
+}
+
 
 export default function DashboardPage() {
     const { appUser } = useUser();
     const firestore = useFirestore();
     
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
+    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
+    const [visitsLoading, setVisitsLoading] = useState(true);
 
     const destinationsQuery = useMemoFirebase(() => {
         if (!firestore || !appUser) return null;
@@ -27,7 +52,8 @@ export default function DashboardPage() {
 
         if (appUser.role === 'pengelola') {
             if (!appUser.assignedLocations || appUser.assignedLocations.length === 0) {
-                return query(collection(firestore, 'destinations'), where('id', 'in', ['non-existent-id']));
+                // Return a query that will find no documents
+                return query(collection(firestore, 'destinations'), where('id', '==', 'non-existent-id'));
             }
             q = query(q, where('id', 'in', appUser.assignedLocations));
         }
@@ -36,16 +62,44 @@ export default function DashboardPage() {
 
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     
-    const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
+    useEffect(() => {
+        if (!firestore || !destinations) {
+            if(!destinationsLoading) {
+                setVisitsLoading(false);
+            }
+            return;
+        };
 
-    const visitsQuery = useMemoFirebase(() => {
-        if (!firestore || destinationIds.length === 0) return null;
-        return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
-    }, [firestore, destinationIds]);
+        const destinationIds = destinations.map(d => d.id);
 
-    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
-    
-    const loading = destinationsLoading || (destinationIds.length > 0 && visitsLoading);
+        if (destinationIds.length > 0) {
+            setVisitsLoading(true);
+            const visitsGroupedByDest = collection(firestore, "destinations");
+
+            Promise.all(destinationIds.map(id => {
+                const visitsCollectionRef = collection(visitsGroupedByDest, id, 'visits');
+                return getDocs(visitsCollectionRef);
+            })).then(snapshots => {
+                const visits: VisitData[] = [];
+                snapshots.forEach(snapshot => {
+                    snapshot.docs.forEach(doc => {
+                        visits.push({ id: doc.id, ...doc.data() } as VisitData);
+                    });
+                });
+                setAllVisitData(visits);
+            }).catch(error => {
+                console.error("Error fetching visits for all destinations: ", error);
+            }).finally(() => {
+                setVisitsLoading(false);
+            });
+        } else {
+            setAllVisitData([]);
+            setVisitsLoading(false);
+        }
+
+    }, [firestore, destinations, destinationsLoading]);
+
+    const loading = destinationsLoading || visitsLoading;
 
     const currentYear = new Date().getFullYear();
     const availableYears = useMemo(() => {
@@ -164,3 +218,5 @@ export default function DashboardPage() {
         </div>
     )
 }
+
+    

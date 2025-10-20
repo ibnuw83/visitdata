@@ -15,11 +15,13 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, collectionGroup, doc, query, where } from "firebase/firestore";
+import { collection, collectionGroup, doc, query, where, getDocs } from "firebase/firestore";
 
 function DashboardContent() {
     const firestore = useFirestore();
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
+    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
+    const [visitsLoading, setVisitsLoading] = useState(true);
 
     const destinationsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -28,18 +30,43 @@ function DashboardContent() {
     
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
     
-    const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
+    useEffect(() => {
+        if (!firestore || !destinations) {
+            if(!destinationsLoading) {
+                setVisitsLoading(false);
+            }
+            return;
+        };
 
-    const visitsQuery = useMemoFirebase(() => {
-        // Critical safety check: Do not run collectionGroup query with an empty 'in' array.
-        if (!firestore || destinationIds.length === 0) return null;
-        return query(collectionGroup(firestore, 'visits'), where('destinationId', 'in', destinationIds));
-    }, [firestore, destinationIds]);
+        const destinationIds = destinations.map(d => d.id);
 
-    const { data: allVisitData, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
+        if (destinationIds.length > 0) {
+            setVisitsLoading(true);
+            const visitsGroupedByDest = collection(firestore, "destinations");
+
+            Promise.all(destinationIds.map(id => {
+                const visitsCollectionRef = collection(visitsGroupedByDest, id, 'visits');
+                return getDocs(visitsCollectionRef);
+            })).then(snapshots => {
+                const visits: VisitData[] = [];
+                snapshots.forEach(snapshot => {
+                    snapshot.docs.forEach(doc => {
+                        visits.push({ id: doc.id, ...doc.data() } as VisitData);
+                    });
+                });
+                setAllVisitData(visits);
+            }).catch(error => {
+                console.error("Error fetching visits for all destinations: ", error);
+            }).finally(() => {
+                setVisitsLoading(false);
+            });
+        } else {
+            setAllVisitData([]);
+            setVisitsLoading(false);
+        }
+    }, [firestore, destinations, destinationsLoading]);
     
-    // Loading is true if destinations are loading, OR if we have destination IDs but visits are still loading.
-    const loading = destinationsLoading || (destinationIds.length > 0 && visitsLoading);
+    const loading = destinationsLoading || visitsLoading;
 
     const currentYear = useMemo(() => new Date().getFullYear(), []);
     
@@ -219,3 +246,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
