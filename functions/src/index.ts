@@ -18,6 +18,7 @@ const db = admin.firestore();
 export const getPublicDashboardData = functions.https.onCall(
   async (data, context) => {
     const year = data.year || new Date().getFullYear();
+    const currentYearStr = new Date().getFullYear().toString();
 
     try {
       // 1. Get all active destinations
@@ -31,16 +32,13 @@ export const getPublicDashboardData = functions.https.onCall(
       // Handle case where there are no active destinations
       if (destinationIds.length === 0) {
         return {
-          totalVisitors: 0,
-          totalWisnus: 0,
-          totalWisman: 0,
           destinations: [],
           allVisitData: [],
-          availableYears: [year.toString()],
+          availableYears: [currentYearStr],
         };
       }
 
-      // 2. Get all visit data for that year for all active destinations
+      // 2. Get all visit data for the requested year for all active destinations
       const visitPromises = destinationIds.map((destId) =>
         db
           .collection(`destinations/${destId}/visits`)
@@ -48,25 +46,31 @@ export const getPublicDashboardData = functions.https.onCall(
           .get()
       );
       const visitSnapshots = await Promise.all(visitPromises);
-      const allVisitData = visitSnapshots
+      const allVisitDataForYear = visitSnapshots
         .flatMap((snap) => snap.docs.map((doc) => doc.data()))
         .filter(Boolean);
 
-      // 3. Get available years from a sample destination
-      const sampleVisitsSnapshot = await db
-        .collection(`destinations/${destinationIds[0]}/visits`)
-        .get();
-      const yearsSet = new Set(
-        sampleVisitsSnapshot.docs.map((doc) => doc.data().year.toString())
+      // 3. Get all visit data from all time to determine available years
+      const allTimeVisitPromises = destinationIds.map((destId) =>
+        db.collection(`destinations/${destId}/visits`).get()
       );
-      yearsSet.add(new Date().getFullYear().toString());
-      const availableYears = Array.from(yearsSet).sort((a, b) =>
-        parseInt(b) > parseInt(a) ? 1 : -1
+      const allTimeVisitSnapshots = await Promise.all(allTimeVisitPromises);
+      const allVisitsFromAllTime = allTimeVisitSnapshots
+        .flatMap((snap) => snap.docs.map((doc) => doc.data()))
+        .filter(Boolean);
+
+      const yearsSet = new Set(
+        allVisitsFromAllTime.map((visit) => visit.year.toString())
+      );
+      yearsSet.add(currentYearStr); // Always include the current year
+
+      const availableYears = Array.from(yearsSet).sort(
+        (a, b) => parseInt(b) - parseInt(a)
       );
 
       return {
         destinations,
-        allVisitData,
+        allVisitData: allVisitDataForYear,
         availableYears,
       };
     } catch (error) {
@@ -135,7 +139,7 @@ exports.setAdminClaimOnFirstUser = functions.auth.user().onCreate(async (user) =
         // Also update their Firestore document.
         const userRef = db.collection('users').doc(user.uid);
         try {
-            await userRef.update({ role: 'admin' });
+            await userRef.set({ role: 'admin' }, { merge: true });
             functions.logger.log(`Firestore role updated to admin for user: ${user.email}`);
         } catch (error) {
             functions.logger.error(`Failed to update Firestore role for first user: ${user.email}`, error);
