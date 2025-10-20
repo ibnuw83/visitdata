@@ -133,19 +133,27 @@ function DestinationDataEntry({ destination, onDataChange, onLockChange, onNewRe
         const monthIndex = index + 1;
         const id = `${destination.id}-${selectedYear}-${monthIndex}`;
         
+        // Priority: 1. Pending Changes -> 2. Fetched Data -> 3. New Default Data
         if (pendingChanges[id]) {
             return pendingChanges[id];
         }
 
         const existingData = fetchedVisitData?.find(d => d.month === monthIndex);
         if (existingData) {
-            return existingData;
+            return {
+                ...existingData,
+                wisnus: existingData.wisnus || 0,
+                wisman: existingData.wisman || 0,
+                totalVisitors: existingData.totalVisitors || 0,
+                wismanDetails: existingData.wismanDetails || [],
+            };
         }
         
         const currentYear = new Date().getFullYear();
         const currentMonth = new Date().getMonth() + 1;
         const isFutureOrLocked = selectedYear > currentYear || (selectedYear === currentYear && monthIndex > currentMonth);
 
+        // Return a default structure if no data exists
         return {
             id: id,
             destinationId: destination.id,
@@ -692,5 +700,7 @@ export default function DataEntryPage() {
     </div>
   );
 }
+
+    
 
     
