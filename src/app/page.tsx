@@ -33,7 +33,7 @@ function DashboardContent() {
         if (!firestore) return null;
         return query(collectionGroup(firestore, 'visits'), where('year', '==', selectedYear));
     }, [firestore, selectedYear]);
-    const { data: allVisitDataForYear, loading: visitsLoading } = useCollection<VisitData>(visitsQuery);
+    const { data: allVisitDataForYear, loading: visitsLoading, error: visitsError } = useCollection<VisitData>(visitsQuery);
 
 
     // 3. Memoize the set of active destination IDs for efficient filtering.
@@ -41,7 +41,7 @@ function DashboardContent() {
     
     // 4. Filter the raw visit data to include only visits from active destinations.
     const filteredVisitData = useMemo(() => {
-        if (!allVisitDataForYear || !activeDestinationIds) return [];
+        if (!allVisitDataForYear || activeDestinationIds.size === 0) return [];
         return allVisitDataForYear.filter(visit => activeDestinationIds.has(visit.destinationId));
     }, [allVisitDataForYear, activeDestinationIds]);
 
@@ -94,6 +94,18 @@ function DashboardContent() {
                     <Skeleton className="h-96" />
                 </div>
             </div>
+        )
+    }
+
+    if (visitsError) {
+        return (
+            <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Gagal Memuat Data Dasbor</AlertTitle>
+                <AlertDescription>
+                    Terjadi kesalahan saat mengambil data dari server. Ini mungkin karena aturan keamanan Firestore yang belum diterapkan atau salah. Pastikan `firestore.rules` telah di-deploy. Pesan error: {visitsError.message}
+                </AlertDescription>
+            </Alert>
         )
     }
 
@@ -219,5 +231,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
