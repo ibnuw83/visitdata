@@ -18,7 +18,6 @@ const db = admin.firestore();
 export const getPublicDashboardData = functions.https.onCall(
   async (data, context) => {
     const year = data.year || new Date().getFullYear();
-    const currentYearStr = new Date().getFullYear().toString();
 
     try {
       // 1. Get all active destinations
@@ -26,39 +25,37 @@ export const getPublicDashboardData = functions.https.onCall(
         .collection("destinations")
         .where("status", "==", "aktif")
         .get();
-
-      if (destinationsSnapshot.empty) {
-        return {
-          destinations: [],
-          allVisitData: [],
-          availableYears: [currentYearStr],
-        };
-      }
       
-      const destinations = destinationsSnapshot.docs.map((doc) => doc.data());
-      const activeDestinationIds = new Set(destinations.map((d) => d.id));
+      const destinations = destinationsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
       // 2. Get all visit data from all destinations using a collection group query
       const allVisitsSnapshot = await db.collectionGroup("visits").get();
-
       const allVisits = allVisitsSnapshot.docs.map(doc => doc.data());
 
-      // 3. Filter visits to only include those from active destinations
-      const allActiveVisits = allVisits.filter(visit => 
-          activeDestinationIds.has(visit.destinationId)
-      );
-
-      // 4. Get visits for the requested year
-      const allVisitDataForYear = allActiveVisits.filter(visit => visit.year === year);
-      
-      // 5. Determine available years from all active visits
+      // 3. Determine available years from ALL visits, not just active ones to be safe
+      const currentYearStr = new Date().getFullYear().toString();
       const yearsSet = new Set(
-        allActiveVisits.map((visit) => visit.year.toString())
+        allVisits.map((visit) => visit.year.toString())
       );
       yearsSet.add(currentYearStr); // Always include the current year
-
       const availableYears = Array.from(yearsSet).sort(
         (a, b) => parseInt(b) - parseInt(a)
+      );
+
+      // 4. If there are no active destinations, return early with empty data for the year
+      if (destinations.length === 0) {
+        return {
+          destinations: [],
+          allVisitData: [],
+          availableYears,
+        };
+      }
+      
+      const activeDestinationIds = new Set(destinations.map((d) => d.id));
+
+      // 5. Filter all visits to only include those from active destinations AND for the requested year
+      const allVisitDataForYear = allVisits.filter(visit => 
+          activeDestinationIds.has(visit.destinationId) && visit.year === year
       );
       
       return {
