@@ -3,7 +3,8 @@
 
 import { NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '@/lib/firebase/admin';
-import { seedDatabase } from '@/lib/seed-data';
+import { seedDatabase } from '../../../../seed/seed';
+
 
 export async function GET() {
   if (!adminAuth || !adminDb) {

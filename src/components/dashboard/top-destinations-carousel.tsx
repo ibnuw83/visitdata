@@ -20,8 +20,10 @@ export default function TopDestinationsCarousel({ data, destinations }: { data: 
 
     const top5 = useMemo(() => destinationTotals.sort((a, b) => b.totalVisitors - a.totalVisitors).slice(0, 5), [destinationTotals]);
     
-    const defaultImage = PlaceHolderImages[0];
-
+    const findImage = (id: string) => {
+        return PlaceHolderImages.find(p => p.id === id);
+    }
+    
     if (top5.length === 0) {
         return (
             <Card>
@@ -57,7 +59,9 @@ export default function TopDestinationsCarousel({ data, destinations }: { data: 
                 >
                     <CarouselContent>
                         {top5.map((dest, index) => {
-                            const imageUrl = dest.imageUrl || defaultImage.imageUrl;
+                            const placeholder = findImage(`dest-${dest.id}`);
+                            const imageUrl = dest.imageUrl || placeholder?.imageUrl || "https://picsum.photos/seed/1/600/400";
+                            const imageHint = placeholder?.imageHint;
                             return (
                                 <CarouselItem key={dest.id} className="md:basis-1/2 lg:basis-1/3">
                                     <div className="p-1">
@@ -70,6 +74,7 @@ export default function TopDestinationsCarousel({ data, destinations }: { data: 
                                                         fill
                                                         style={{ objectFit: 'cover' }}
                                                         className="transition-transform group-hover:scale-105"
+                                                        {...(imageHint && { 'data-ai-hint': imageHint })}
                                                     />
                                                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                                                     <div className="absolute bottom-0 left-0 p-4">
