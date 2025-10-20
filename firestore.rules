@@ -1,174 +1,186 @@
 /**
- * @fileoverview Firestore Security Rules for the Wisata App.
+ * @fileoverview Firestore Security Rules for VisitData application.
  *
  * Core Philosophy:
- * This ruleset prioritizes secure data access based on user roles and ownership.
- * It implements a combination of role-based access control (RBAC) and
- * ownership-based access control, with an emphasis on preventing unauthorized
- * data modification and deletion. Data validation is relaxed to enable rapid
- * prototyping.
+ * This ruleset enforces a role-based access control model, granting different levels of access
+ * based on the user's assigned role ('admin' or 'pengelola'). User profiles are stored under
+ * `/users/{userId}`, and access to destinations, categories, countries, visits, unlock requests,
+ * and app settings are governed by these roles. Data validation is minimized for rapid prototyping.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile information. Access is restricted to the owner.
- * - /destinations/{destinationId}: Stores destination information. Public read, owner-only writes.
- * - /categories/{categoryId}: Stores destination categories. Public read, no writes allowed.
- * - /countries/{countryId}: Stores countries data. Public read, no writes allowed.
- * - /destinations/{destinationId}/visits/{visitId}: Stores visit data for destinations. Public read, owner-only writes.
- * - /unlock-requests/{requestId}: Stores unlock requests. Public read, owner-only writes.
- * - /settings/app: Stores global app settings. Public read, no writes allowed.
+ * - /users/{userId}: Stores user profile information, including role and assignedLocations.
+ * - /destinations/{destinationId}: Stores destination details.
+ * - /categories/{categoryId}: Stores destination categories.
+ * - /countries/{countryId}: Stores country information.
+ * - /destinations/{destinationId}/visits/{visitId}: Stores visit data for destinations, visitId is in the format YYYY-MM
+ * - /unlock-requests/{requestId}: Stores unlock requests from managers.
+ * - /settings/app: Stores global app settings.
  *
  * Key Security Decisions:
- * - User listing is disallowed.
- * - Read-only collections: Categories, Countries, Settings are publicly readable.
- * - Default security posture: Strict. If a relationship is ambiguous, access is denied.
+ * - Users can only read their own profile.
+ * - Admins have full access to all data.
+ * - Pengelola users can only manage destinations assigned to them.
+ * - Public read access is enabled for categories and countries.
+ * - Listing of users is denied to prevent information disclosure.
+ * - Settings are publicly readable but only writable by admins.
  *
  * Denormalization for Authorization:
- * - Destinations need an 'ownerId' field for secure write operations.
- * - VisitData needs an 'ownerId' field for secure write operations.
- * - UnlockRequest needs an 'ownerId' field for secure write operations.
+ *   - The `UserProfile` includes an `assignedLocations` array, which is used to determine
+ *     which destinations a `pengelola` can manage. This avoids the need for complex queries
+ *     or additional reads to determine access rights.
+ *
+ * Structural Segregation:
+ *   - There is no need for structural segregation in this model as public and private data are clearly separated by
+ *     collection and role.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Controls access to user profiles.
      * @path /users/{userId}
-     * @allow (create) User with matching UID can create their own profile.
-     * @allow (get, list, update, delete) User with matching UID can read/write their own profile.
-     * @deny (create) User cannot create a profile with a mismatched UID.
-     * @deny (get, list, update, delete) User cannot read/write another user's profile.
-     * @principle Enforces user-ownership: only the authenticated user can manage their own profile.
+     * @allow (get) Authenticated user can read their own profile.
+     * @allow (create) Authenticated user can create their own profile if the UID matches.
+     * @allow (update,delete) Admin can update or delete any user profile.
+     * @deny (get) Unauthorized user cannot read other user profiles.
+     * @deny (create) Unauthorized user cannot create a profile with a mismatched UID.
+     * @deny (update,delete) Non-admin user cannot update or delete any user profile.
+     * @principle Enforces user-ownership for reads and admin-only writes for user management.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource.data.userId == userId;
-      }
-
-      allow get: if isOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isAdmin();
+      allow delete: if isSignedIn() && isAdmin();
     }
 
     /**
-     * @description Controls access to destination documents. Public read, owner-only writes.
+     * @description Controls access to destination data.
      * @path /destinations/{destinationId}
-     * @allow (get, list) Anyone can read destination data.
-     * @allow (create) User can create a destination if the authorId matches their UID.
-     * @allow (update, delete) User can update/delete a destination if they are the owner.
-     * @deny (create) User cannot create a destination with a mismatched authorId.
-     * @deny (update, delete) User cannot update/delete a destination they don't own.
-     * @principle Public read, owner-only writes.  Enforces that the authorId matches the creating user's UID.
+     * @allow (get,list) Any user can read destination data.
+     * @allow (create) Admin can create new destinations.
+     * @allow (update,delete) Admin or pengelola assigned to the destination can update or delete it.
+     * @deny (create) Non-admin user cannot create destinations.
+     * @deny (update,delete) Non-admin and non-assigned pengelola cannot update or delete destinations.
+     * @principle Public read access with role-based access control for writes.
      */
     match /destinations/{destinationId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner() {
-        return request.auth.uid == resource.data.ownerId;
-      }
-
       allow get, list: if true;
-       // CRITICAL: Cannot implement owner-only writes. The 'Destination' entity is missing an 'ownerId' or 'authorId' field.
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow update, delete: if isSignedIn() && isOwner();
+      allow create: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && (isAdmin() || (isPengelola() && isAssignedPengelola(destinationId)));
+      allow delete: if isSignedIn() && (isAdmin() || (isPengelola() && isAssignedPengelola(destinationId)));
     }
 
     /**
-     * @description Controls access to category documents. Public read, no writes allowed.
+     * @description Controls access to category data.
      * @path /categories/{categoryId}
-     * @allow (get, list) Anyone can read category data.
-     * @deny (create, update, delete) No one can create, update, or delete categories.
-     * @principle Public read, no writes. Categories are considered static data.
+     * @allow (get,list) Any user can read category data.
+     * @allow (create) Admin can create new categories.
+     * @allow (update,delete) Admin can update or delete any category.
+     * @deny (create,update,delete) Non-admin user cannot create, update, or delete categories.
+     * @principle Public read access with admin-only writes.
      */
     match /categories/{categoryId} {
       allow get, list: if true;
-      allow create, update, delete: if false;
+      allow create: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && isAdmin();
+      allow delete: if isSignedIn() && isAdmin();
     }
 
     /**
-     * @description Controls access to country documents. Public read, no writes allowed.
+     * @description Controls access to country data.
      * @path /countries/{countryId}
-     * @allow (get, list) Anyone can read country data.
-     * @deny (create, update, delete) No one can create, update, or delete countries.
-     * @principle Public read, no writes. Countries are considered static data.
+     * @allow (get,list) Any user can read country data.
+     * @allow (create) Admin can create new countries.
+     * @allow (update,delete) Admin can update or delete any country.
+     * @deny (create,update,delete) Non-admin user cannot create, update, or delete countries.
+     * @principle Public read access with admin-only writes.
      */
     match /countries/{countryId} {
       allow get, list: if true;
-      allow create, update, delete: if false;
+      allow create: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && isAdmin();
+      allow delete: if isSignedIn() && isAdmin();
     }
 
     /**
-     * @description Controls access to visit data documents. Public read, owner-only writes.
+     * @description Controls access to visit data for a specific destination.
      * @path /destinations/{destinationId}/visits/{visitId}
-     * @allow (get, list) Anyone can read visit data.
-     * @allow (create) User can create visit data if the authorId matches their UID.
-     * @allow (update, delete) User can update/delete visit data if they are the owner.
-     * @deny (create) User cannot create visit data with a mismatched authorId.
-     * @deny (update, delete) User cannot update/delete visit data they don't own.
-     * @principle Public read, owner-only writes. Enforces that the authorId matches the creating user's UID.
+     * @allow (get,list) Any user can read visit data.
+     * @allow (create) Admin or assigned pengelola can create new visit data.
+     * @allow (update,delete) Admin or assigned pengelola can update or delete visit data.
+     * @deny (create,update,delete) Non-admin and non-assigned pengelola cannot create, update, or delete visit data.
+     * @principle Public read access with role-based access control for writes.
      */
     match /destinations/{destinationId}/visits/{visitId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner() {
-        return request.auth.uid == resource.data.ownerId;
-      }
-
       allow get, list: if true;
-       // CRITICAL: Cannot implement owner-only writes. The 'VisitData' entity is missing an 'ownerId' or 'authorId' field.
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow update, delete: if isSignedIn() && isOwner();
+      allow create: if isSignedIn() && (isAdmin() || (isPengelola() && isAssignedPengelola(destinationId)));
+      allow update: if isSignedIn() && (isAdmin() || (isPengelola() && isAssignedPengelola(destinationId)));
+      allow delete: if isSignedIn() && (isAdmin() || (isPengelola() && isAssignedPengelola(destinationId)));
     }
 
     /**
-     * @description Controls access to unlock request documents. Public read, owner-only writes.
+     * @description Controls access to unlock requests.
      * @path /unlock-requests/{requestId}
-     * @allow (get, list) Anyone can read unlock request data.
-     * @allow (create) User can create an unlock request if the authorId matches their UID.
-     * @allow (update, delete) User can update/delete an unlock request if they are the owner.
-     * @deny (create) User cannot create an unlock request with a mismatched authorId.
-     * @deny (update, delete) User cannot update/delete an unlock request they don't own.
-     * @principle Public read, owner-only writes. Enforces that the authorId matches the creating user's UID.
+     * @allow (get,list) Admin can read unlock requests. Pengelola can read unlock requests they created.
+     * @allow (create) Pengelola can create unlock requests.
+     * @allow (update) Admin can update unlock requests.
+     * @allow (delete) Denied.
+     * @deny (get,list) Non-admin cannot list or get all unlock requests.
+     * @deny (create) Admin cannot create unlock requests.
+     * @deny (delete) Unlock requests cannot be deleted
+     * @principle Role-based access control for managing unlock requests.
      */
     match /unlock-requests/{requestId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner() {
-        return request.auth.uid == resource.data.ownerId;
-      }
-
-      allow get, list: if true;
-       // CRITICAL: Cannot implement owner-only writes. The 'UnlockRequest' entity is missing an 'ownerId' or 'authorId' field.
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow update, delete: if isSignedIn() && isOwner();
+      allow get: if isSignedIn() && (isAdmin() || isRequestOwner());
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isPengelola() && request.resource.data.requestedBy == request.auth.uid;
+      allow update: if isSignedIn() && isAdmin();
+      allow delete: if false;
     }
 
     /**
-     * @description Controls access to app settings document. Public read, no writes allowed.
+     * @description Controls access to application settings.
      * @path /settings/app
-     * @allow (get) Anyone can read app settings.
-     * @deny (create, update, delete) No one can create, update, or delete app settings.
-     * @principle Public read, no writes. App settings are considered static data managed by admins.
+     * @allow (get) Any user can read application settings.
+     * @allow (update) Admin can update application settings.
+     * @deny (create,delete) App settings cannot be created or deleted.
+     * @deny (update) Non-admin user cannot update application settings.
+     * @principle Public read access with admin-only writes.
      */
     match /settings/app {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get: if true;
+      allow list: if false;
+      allow create: if false;
+      allow update: if isSignedIn() && isAdmin();
+      allow delete: if false;
     }
+  }
+
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
+  function isAdmin() {
+    return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+  }
+
+  function isPengelola() {
+    return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'pengelola';
+  }
+
+  function isAssignedPengelola(destinationId) {
+    return isPengelola() && destinationId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedLocations;
+  }
+
+  function isRequestOwner() {
+    return isSignedIn() && request.auth.uid == resource.data.requestedBy;
   }
 }

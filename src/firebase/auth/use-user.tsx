@@ -5,12 +5,18 @@ import { doc, DocumentReference } from 'firebase/firestore';
 import { useAuthUser, useFirestore } from '@/firebase';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { User as AppUserType } from '@/lib/types';
-import { getIdTokenResult } from 'firebase/auth';
+import { getIdTokenResult, User } from 'firebase/auth';
+
+// Define a richer user object that includes the auth user and firestore profile data
+export type MergedUser = AppUserType & {
+  // Explicitly include properties from Firebase Auth User if needed, e.g., emailVerified
+  emailVerified: boolean;
+};
 
 export const useUser = () => {
   const { user: authUser, isLoading: isAuthLoading, logout } = useAuthUser();
   const firestore = useFirestore();
-
+  
   const userDocRef = useMemo(() => {
     if (!authUser?.uid || !firestore) return null;
     return doc(firestore, 'users', authUser.uid) as DocumentReference<AppUserType>;
@@ -18,25 +24,24 @@ export const useUser = () => {
 
   const { data: appUser, loading: isAppUserLoading } = useDoc<AppUserType>(userDocRef);
   
-  const [role, setRole] = useState<string | null>(null);
+  const [claims, setClaims] = useState<{ [key: string]: any } | null>(null);
   const [isClaimsLoading, setClaimsLoading] = useState(true);
   
   useEffect(() => {
     if (!authUser) {
-      setRole(null);
+      setClaims(null);
       setClaimsLoading(false);
       return;
     }
     
     setClaimsLoading(true);
-    getIdTokenResult(authUser)
+    getIdTokenResult(authUser, true) // Force refresh the token to get latest claims
       .then((idTokenResult) => {
-        const claims = idTokenResult.claims;
-        setRole(claims.role as string || null);
+        setClaims(idTokenResult.claims);
       })
       .catch((error) => {
         console.error("Failed to get user claims:", error);
-        setRole(null);
+        setClaims(null); // On error, reset claims
       })
       .finally(() => {
         setClaimsLoading(false);
@@ -49,12 +54,16 @@ export const useUser = () => {
   // Combine authUser and Firestore appUser into one object
   const mergedUser = useMemo(() => {
       if (isLoading || !authUser || !appUser) return null;
+
+      // Prioritize role from token claims, fallback to firestore doc
+      const finalRole = claims?.role || appUser.role;
+
       return {
           ...authUser, // from 'firebase/auth'
           ...appUser,  // from 'firestore' collection
-          role: role || appUser.role, // Prioritize claim role
-      } as AppUserType & { isAdmin: boolean };
-  }, [authUser, appUser, isLoading, role])
+          role: finalRole,
+      } as MergedUser;
+  }, [authUser, appUser, isLoading, claims])
 
 
   return {

@@ -5,7 +5,7 @@ import { onAuthStateChanged, type User, signOut } from 'firebase/auth';
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
-import { firebaseConfig } from '@/lib/firebase/config';
+import { firebaseConfig, isFirebaseConfigValid } from '@/lib/firebase/config';
 import { Logo } from '@/components/logo';
 
 // --- CONTEXT DEFINITIONS ---
@@ -15,13 +15,13 @@ const AuthContext = createContext<Auth | null>(null);
 const AuthUserContext = createContext<{ user: User | null; isLoading: boolean; logout: () => Promise<void> }>({ user: null, isLoading: true, logout: async () => {} });
 
 // --- FIREBASE INITIALIZATION (SINGLETON PATTERN) ---
-let firebaseApp: FirebaseApp;
-let auth: Auth;
-let firestore: Firestore;
+let firebaseApp: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let firestore: Firestore | null = null;
 
-const isConfigValid = Object.values(firebaseConfig).every(Boolean);
+const configIsValid = isFirebaseConfigValid(firebaseConfig);
 
-if (isConfigValid) {
+if (configIsValid) {
   if (getApps().length === 0) {
     firebaseApp = initializeApp(firebaseConfig);
   } else {
@@ -58,11 +58,11 @@ export function FirebaseClientProvider({ children }: { children: ReactNode }) {
 
   const authUserContextValue = { user, isLoading: loading, logout };
 
-  if (!isConfigValid) {
+  if (!configIsValid) {
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center">
             <h1 className="text-2xl font-bold text-destructive">Konfigurasi Firebase Tidak Lengkap</h1>
-            <p className="mt-2 text-muted-foreground">Harap periksa file `.env.local` Anda dan pastikan semua variabel lingkungan Firebase telah diisi.</p>
+            <p className="mt-2 text-muted-foreground">Harap periksa file `.env.local` Anda dan pastikan semua variabel lingkungan Firebase telah diisi dengan benar.</p>
         </div>
     )
   }
