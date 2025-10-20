@@ -1,12 +1,11 @@
 
-
 // This file serves as a central hub for re-exporting Firebase-related utilities,
 // making it easier to import them across the application.
 
 import { useMemo } from "react";
 
-// Core client providers and hooks
-export { useFirebaseApp, useFirestore, useAuth, useAuthUser } from '@/app/providers';
+// Core client providers and hooks from the new client provider
+export { useFirebaseApp, useFirestore, useAuth, useAuthUser } from '@/firebase/client-provider';
 
 // Authentication hook
 export { useUser } from '@/lib/firebase/auth/use-user';

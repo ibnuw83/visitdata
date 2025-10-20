@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { doc, DocumentReference } from 'firebase/firestore';
-import { useAuthUser, useFirestore } from '@/app/providers';
+import { useAuthUser, useFirestore } from '@/firebase/client-provider';
 import { useDoc } from '../firestore/use-doc';
 import { User as AppUser } from '@/lib/types';
 import { getIdTokenResult } from 'firebase/auth';
