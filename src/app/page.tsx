@@ -15,13 +15,71 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, collectionGroup, doc, query, where, getDocs } from "firebase/firestore";
+import { collection, doc, query, where, Unsubscribe, onSnapshot, Firestore } from "firebase/firestore";
+
+
+function useAllVisitsForYear(firestore: Firestore | null, destinationIds: string[], year: number) {
+    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!firestore || destinationIds.length === 0) {
+            setLoading(false);
+            setAllVisitData([]);
+            return;
+        }
+
+        setLoading(true);
+        const allData: { [key: string]: VisitData[] } = {};
+        const unsubscribers: Unsubscribe[] = [];
+
+        const loadingTimeout = setTimeout(() => {
+             if (Object.keys(allData).length !== destinationIds.length) {
+                setLoading(false);
+            }
+        }, 5000);
+
+        const checkCompletion = () => {
+            if (Object.keys(allData).length === destinationIds.length) {
+                setLoading(false);
+                clearTimeout(loadingTimeout);
+            }
+        };
+
+        destinationIds.forEach(destId => {
+            const visitsRef = collection(firestore, 'destinations', destId, 'visits');
+            const q = query(visitsRef, where('year', '==', year));
+            
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                allData[destId] = snapshot.docs.map(doc => ({...doc.data(), id: doc.id} as VisitData));
+                
+                const combinedData = Object.values(allData).flat();
+                setAllVisitData(combinedData);
+                
+                checkCompletion();
+
+            }, (error) => {
+                console.error(`Error fetching visits for destination ${destId} in year ${year}:`, error);
+                allData[destId] = []; // On error, assume no data
+                checkCompletion();
+            });
+            unsubscribers.push(unsubscribe);
+        });
+
+        return () => {
+            unsubscribers.forEach(unsub => unsub());
+            clearTimeout(loadingTimeout);
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [firestore, JSON.stringify(destinationIds), year]);
+
+    return { data: allVisitData, loading: loading };
+}
+
 
 function DashboardContent() {
     const firestore = useFirestore();
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
-    const [allVisitData, setAllVisitData] = useState<VisitData[]>([]);
-    const [visitsLoading, setVisitsLoading] = useState(true);
 
     const destinationsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -29,42 +87,9 @@ function DashboardContent() {
     }, [firestore]);
     
     const { data: destinations, loading: destinationsLoading } = useCollection<Destination>(destinationsQuery);
-    
-    useEffect(() => {
-        if (!firestore || !destinations) {
-            if(!destinationsLoading) {
-                setVisitsLoading(false);
-            }
-            return;
-        };
+    const destinationIds = useMemo(() => destinations?.map(d => d.id) || [], [destinations]);
 
-        const destinationIds = destinations.map(d => d.id);
-
-        if (destinationIds.length > 0) {
-            setVisitsLoading(true);
-            const visitsGroupedByDest = collection(firestore, "destinations");
-
-            Promise.all(destinationIds.map(id => {
-                const visitsCollectionRef = collection(visitsGroupedByDest, id, 'visits');
-                return getDocs(visitsCollectionRef);
-            })).then(snapshots => {
-                const visits: VisitData[] = [];
-                snapshots.forEach(snapshot => {
-                    snapshot.docs.forEach(doc => {
-                        visits.push({ id: doc.id, ...doc.data() } as VisitData);
-                    });
-                });
-                setAllVisitData(visits);
-            }).catch(error => {
-                console.error("Error fetching visits for all destinations: ", error);
-            }).finally(() => {
-                setVisitsLoading(false);
-            });
-        } else {
-            setAllVisitData([]);
-            setVisitsLoading(false);
-        }
-    }, [firestore, destinations, destinationsLoading]);
+    const { data: allVisitData, loading: visitsLoading } = useAllVisitsForYear(firestore, destinationIds, parseInt(selectedYear));
     
     const loading = destinationsLoading || visitsLoading;
 
@@ -83,14 +108,9 @@ function DashboardContent() {
         }
     }, [availableYears, selectedYear]);
 
-    const yearlyData = useMemo(() => {
-        if (!allVisitData) return [];
-        return allVisitData.filter(d => d.year === parseInt(selectedYear));
-    }, [allVisitData, selectedYear]);
-    
-    const totalVisitors = useMemo(() => yearlyData.reduce((sum, item) => sum + item.totalVisitors, 0), [yearlyData]);
-    const totalWisnus = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisnus, 0), [yearlyData]);
-    const totalWisman = useMemo(() => yearlyData.reduce((sum, item) => sum + item.wisman, 0), [yearlyData]);
+    const totalVisitors = useMemo(() => allVisitData.reduce((sum, item) => sum + item.totalVisitors, 0), [allVisitData]);
+    const totalWisnus = useMemo(() => allVisitData.reduce((sum, item) => sum + item.wisnus, 0), [allVisitData]);
+    const totalWisman = useMemo(() => allVisitData.reduce((sum, item) => sum + item.wisman, 0), [allVisitData]);
 
     if (loading) {
         return (
@@ -156,7 +176,7 @@ function DashboardContent() {
                         <CardDescription>Total pengunjung (domestik & asing) selama tahun {selectedYear}.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <MonthlyVisitorsChart data={yearlyData} />
+                        <MonthlyVisitorsChart data={allVisitData} />
                     </CardContent>
                 </Card>
                 <Card className="lg:col-span-2">
@@ -165,13 +185,13 @@ function DashboardContent() {
                          <CardDescription>Perbandingan wisatawan nusantara dan mancanegara per bulan.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <VisitorBreakdownChart data={yearlyData} />
+                        <VisitorBreakdownChart data={allVisitData} />
                     </CardContent>
                 </Card>
             </div>
             
              <div className="grid gap-4">
-                <TopDestinationsCarousel data={yearlyData} destinations={destinations || []} />
+                <TopDestinationsCarousel data={allVisitData} destinations={destinations || []} />
             </div>
         </div>
     )
@@ -246,5 +266,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
