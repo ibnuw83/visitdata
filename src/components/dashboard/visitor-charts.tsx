@@ -57,6 +57,8 @@ export function MonthlyLineChart({ data }: { data: VisitData[] }) {
                         valueFormatter={valueFormatter}
                         showLegend={true}
                         showAnimation
+                        showYAxis={true}
+                        showGridLines={true}
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-80">
@@ -93,6 +95,7 @@ export function MonthlyBarChart({ data }: { data: VisitData[] }) {
                         showLegend
                         showYAxis
                         showGridLines
+                        showLabel={true}
                     />
                  ) : (
                     <div className="flex flex-col items-center justify-center h-80">
