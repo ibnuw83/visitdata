@@ -1,21 +1,12 @@
 /**
- * @file Firestore Security Rules (v2.1 - Final Production Ready)
+ * @file Firestore Security Rules (v2.2 - Final with Custom Claims)
  * @description
- * Versi ini final dan stabil untuk sistem pendataan wisata, dengan perbaikan:
+ * Versi ini menggunakan Custom Claims untuk otorisasi peran, yang lebih aman,
+ * cepat, dan andal daripada membaca dokumen Firestore.
  * ✅ Login admin & user pertama kali berjalan lancar
  * ✅ Admin bisa melihat semua user di dashboard
  * ✅ Pengelola hanya bisa mengubah destinasi yang ditugaskan
  * ✅ Publik hanya bisa membaca data umum (destinasi, kategori, negara)
- * ✅ Aman dari eksploitasi list/get tanpa izin
- *
- * Struktur Utama Koleksi:
- * - /users/{userId}
- * - /destinations/{destinationId}
- * - /destinations/{destinationId}/visits/{visitId}
- * - /categories/{categoryId}
- * - /countries/{countryId}
- * - /unlock-requests/{requestId}
- * - /settings/app
  */
 
 rules_version = '2';
@@ -30,30 +21,20 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-    
-    function userExists() {
-        return exists(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
+    // ✅ Menggunakan Custom Claims dari token otentikasi, bukan membaca dokumen
     function isAdmin() {
-      return isSignedIn() && userExists() && getUserData().role == 'admin';
+      return isSignedIn() && request.auth.token.role == 'admin';
     }
 
     function isPengelola() {
-      return isSignedIn() && userExists() && getUserData().role == 'pengelola';
+        return isSignedIn() && request.auth.token.role == 'pengelola';
     }
-
+    
+    // Fungsi ini masih perlu membaca dokumen untuk melihat lokasi yang ditugaskan
     function isPengelolaForDestination(destinationId) {
-      // Handles both array and map data structures for assignedLocations
-       return isPengelola() && (
-            (destinationId in getUserData().assignedLocations) ||
-            (getUserData().assignedLocations is list && destinationId in getUserData().assignedLocations)
-       );
+      return isPengelola() && (destinationId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedLocations);
     }
-
+    
     /* =============================
      * 👤 USERS COLLECTION
      * ============================= */
@@ -64,7 +45,7 @@ service cloud.firestore {
       // ✅ Admin boleh melihat semua user di dashboard
       allow list: if isAdmin();
 
-      // Pengguna boleh membuat profilnya sendiri saat sign-up
+      // Pengguna boleh membuat profilnya saat pendaftaran
       allow create: if isSignedIn() && request.auth.uid == userId;
 
       // Hanya admin bisa menghapus user
@@ -78,8 +59,9 @@ service cloud.firestore {
       // Publik bisa baca semua data destinasi
       allow get, list: if true;
 
-      // Hanya Admin yang bisa membuat/mengubah/menghapus destinasi
-      allow write: if isAdmin();
+      // Admin bisa mengelola semua destinasi
+      // Pengelola hanya bisa mengubah destinasi yang ditugaskan
+      allow create, update, delete: if isAdmin() || isPengelolaForDestination(destinationId);
     }
 
     /* =============================
@@ -89,9 +71,15 @@ service cloud.firestore {
       // Publik bisa baca data kunjungan
       allow get, list: if true;
 
-      // Admin bisa mengunci/membuka data.
-      // Pengelola bisa input/edit data kunjungan untuk destinasi mereka jika tidak terkunci.
-      allow write: if isAdmin() || (isPengelolaForDestination(destinationId) && resource.data.locked == false);
+      // Admin bisa mengelola semua data kunjungan
+      // Pengelola hanya bisa input/edit data kunjungan yang datanya tidak terkunci
+      allow create, update: if isAdmin() || 
+                                (isPengelolaForDestination(destinationId) && resource.data.locked == false);
+                                
+      // Hanya admin yang boleh mengunci/membuka data
+      allow update: if isAdmin() && request.resource.data.keys().hasOnly(['locked', 'lastUpdatedBy']);
+
+      allow delete: if isAdmin();
     }
 
     /* =============================
@@ -101,25 +89,22 @@ service cloud.firestore {
       allow get, list: if true;
       allow write: if isAdmin();
     }
-
     match /countries/{countryId} {
       allow get, list: if true;
       allow write: if isAdmin();
     }
-    
+
     /* =============================
      * 🔓 UNLOCK REQUESTS COLLECTION
      * ============================= */
     match /unlock-requests/{requestId} {
-      // Pengelola destinasi boleh membuat permintaan buka kunci
-      allow create: if isPengelola() &&
-                    request.resource.data.requestedBy == request.auth.uid;
+      // Pengelola boleh membuat permintaan untuk destinasi mereka
+      allow create: if isPengelola() && 
+                      isPengelolaForDestination(request.resource.data.destinationId) &&
+                      request.resource.data.requestedBy == request.auth.uid;
 
-      // Pengguna boleh melihat permintaan yang mereka buat sendiri
-      allow get: if isSignedIn() && resource.data.requestedBy == request.auth.uid;
-
-      // ✅ Admin bisa melihat semua permintaan dan mengubah status
-      allow list, update: if isAdmin();
+      // Admin bisa melihat semua permintaan dan mengubah statusnya
+      allow list, get, update: if isAdmin();
       
       allow delete: if false;
     }
@@ -128,11 +113,13 @@ service cloud.firestore {
      * ⚙️ SETTINGS DOCUMENT
      * ============================= */
     match /settings/app {
-      // Semua pengguna (publik) boleh baca pengaturan umum
       allow get: if true;
-
-      // Admin boleh memperbarui pengaturan global
       allow write: if isAdmin();
+    }
+    
+    // Blokir semua akses lain secara default
+    match /{path=**} {
+      allow read, write: if false;
     }
   }
 }
