@@ -72,7 +72,7 @@ export const getPublicDashboardData = functions.https.onCall(
       throw new functions.https.HttpsError(
         "internal",
         "Unable to fetch public dashboard data.",
-        error.message
+        (error as Error).message
       );
     }
   }
