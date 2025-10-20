@@ -1,3 +1,4 @@
+
 'use strict';
 Object.defineProperty(exports, '__esModule', { value: true });
 const admin = require('firebase-admin');
@@ -45,43 +46,40 @@ const adminUserData = {
 
 async function seedDatabase() {
     const { adminAuth, adminDb } = await initializeFirebaseAdmin();
-    console.log('--- Starting Database Seeding (Simplified) ---');
+    console.log('--- Memulai Proses Seeding Admin ---');
     
     const { uid, email, password, role, profileData } = adminUserData;
     
     try {
-        console.log(`1. Ensuring Auth user for ${email} with UID ${uid}...`);
+        console.log(`1. Memastikan pengguna Auth untuk ${email} dengan UID ${uid}...`);
         
-        // Attempt to update user first. If it fails, create the user.
-        // This is a robust way to handle initial setup and re-seeding.
         try {
             await adminAuth.updateUser(uid, {
                 email: email,
                 password: password,
                 emailVerified: true,
             });
-            console.log(`   - Auth user ${email} already existed. Updated successfully.`);
+            console.log(`   - Pengguna Auth ${email} sudah ada. Berhasil diperbarui.`);
         } catch (error) {
             if (error.code === 'auth/user-not-found') {
-                console.log(`   - Auth user ${email} not found. Creating new user...`);
+                console.log(`   - Pengguna Auth ${email} tidak ditemukan. Membuat pengguna baru...`);
                 await adminAuth.createUser({
                     uid: uid,
                     email: email,
                     password: password,
                     emailVerified: true,
                 });
-                console.log(`   - New auth user ${email} created successfully.`);
+                console.log(`   - Pengguna Auth baru ${email} berhasil dibuat.`);
             } else {
-                // Re-throw other errors
                 throw error;
             }
         }
 
-        console.log(`2. Setting custom claim '{ role: "${role}" }' for ${email}...`);
+        console.log(`2. Mengatur custom claim '{ role: "${role}" }' untuk ${email}...`);
         await adminAuth.setCustomUserClaims(uid, { role: role });
-        console.log(`   - Custom claim set successfully.`);
+        console.log(`   - Custom claim berhasil diatur.`);
 
-        console.log(`3. Writing Firestore profile for ${email}...`);
+        console.log(`3. Menulis profil Firestore untuk ${email}...`);
         const userRef = adminDb.collection('users').doc(uid);
         await userRef.set({
           ...profileData,
@@ -89,31 +87,29 @@ async function seedDatabase() {
           email: email,
           role: role,
         }, { merge: true });
-        console.log(`   - Firestore profile written successfully.`);
+        console.log(`   - Profil Firestore berhasil ditulis.`);
         
-        console.log('--- Seeding process completed successfully! ---');
-        return 'Admin user seeding process complete.';
+        console.log('--- Proses Seeding Berhasil! ---');
+        return 'Proses seeding pengguna admin selesai.';
 
     } catch (error) {
-        console.error('--- Seeding process failed! ---');
+        console.error('--- Proses Seeding Gagal! ---');
         console.error('Error:', error.message);
         throw error;
     }
 }
 
 
-// If run directly from CLI
 if (require.main === module) {
   seedDatabase()
     .then((message) => {
-      console.log(`CLI seeding script finished successfully: ${message}`);
+      console.log(`Skrip seeding CLI selesai: ${message}`);
       process.exit(0);
     })
     .catch(error => {
-      console.error('CLI seeding script failed:', error.message);
+      console.error('Skrip seeding CLI gagal:', error.message);
       process.exit(1);
     });
 }
 
-// For use in API routes
 exports.seedDatabase = seedDatabase;
