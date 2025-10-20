@@ -28,6 +28,7 @@ export const getPublicDashboardData = functions.https.onCall(
       const destinations = destinationsSnapshot.docs.map((doc) => doc.data());
       const destinationIds = destinations.map((d) => d.id);
 
+      // Handle case where there are no active destinations
       if (destinationIds.length === 0) {
         return {
           totalVisitors: 0,
