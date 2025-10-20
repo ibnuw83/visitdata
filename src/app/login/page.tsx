@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -74,7 +75,7 @@ export default function LoginPage() {
     }
   };
 
-  if (isInitializing || user) {
+  if (isInitializing || (!isInitializing && user)) {
      return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
             <div className="mb-8 flex items-center gap-4 text-2xl font-bold text-foreground">

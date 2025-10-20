@@ -47,35 +47,29 @@ function AppLayoutSkeleton() {
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, appUser, isLoading } = useUser();
+  const { user, isLoading } = useUser();
   const router = useRouter();
 
-  // This effect handles redirection based on authentication status.
   useEffect(() => {
-    // After loading is complete, if there is no authenticated user object, redirect to login.
+    // If the loading is finished and there's still no authenticated user,
+    // redirect to the login page.
     if (!isLoading && !user) {
         router.replace('/login');
     }
   }, [user, isLoading, router]);
 
-  // While the authentication state and user profile are being fetched, show a skeleton.
-  // This is the primary gate to prevent premature rendering or redirection.
+  // While the authentication state is loading, show a skeleton UI.
   if (isLoading) {
     return <AppLayoutSkeleton />;
   }
   
-  // After loading, if there's still no authenticated user (which means they need to be redirected),
-  // or if for some reason there's an auth user without a corresponding appUser document (which can happen briefly
-  // or in an error state), render null to prevent a flash of content before the redirect effect runs.
-  // The logic in the useEffect hook is the source of truth for redirection.
+  // If loading is complete but there is no user, it means the redirect is about to happen.
+  // Return null to prevent a brief flash of the dashboard content.
   if (!user) {
     return null;
   }
   
-  // If we have a user and their profile, render the full app layout.
-  // The check for appUser is now implicitly handled by allowing rendering to proceed
-  // if isLoading is false and a user object exists. The useUser hook ensures
-  // appUser will be populated if the user is valid.
+  // If loading is complete and a user exists, render the full app layout.
   return (
     <SidebarProvider>
       <Sidebar>

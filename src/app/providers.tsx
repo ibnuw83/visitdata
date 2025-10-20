@@ -6,7 +6,7 @@ import { ThemeProvider } from '@/context/theme-provider';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
-export function AppProviders({ children }: { children: React.ReactNode }) {
+export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider
       attribute="class"
@@ -21,6 +21,3 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     </ThemeProvider>
   );
 }
-
-// Re-export hooks for convenience
-export { useFirebaseApp, useFirestore, useAuth, useAuthUser } from '@/firebase/client-provider';

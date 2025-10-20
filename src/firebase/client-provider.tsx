@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, ReactNode, createContext, useContext, useMemo } from 'react';
+import { useEffect, useState, ReactNode, createContext, useContext } from 'react';
 import { onAuthStateChanged, type User, signOut } from 'firebase/auth';
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
@@ -17,8 +17,9 @@ const AuthUserContext = createContext<{ user: User | null; isLoading: boolean; l
 
 let firebaseApp: FirebaseApp;
 if (!getApps().length) {
-    if (!firebaseConfig.projectId) {
-        console.error("Firebase config is missing. Please check your environment variables.");
+    if (!firebaseConfig.apiKey) {
+        // This case should ideally not be hit if config is set up correctly.
+        throw new Error("Firebase config is missing. Please check your environment variables and firebase/config.ts");
     }
     firebaseApp = initializeApp(firebaseConfig);
 } else {
@@ -75,12 +76,16 @@ export const useFirebaseApp = (): FirebaseApp => {
   return ctx;
 };
 
-export const useFirestore = (): Firestore | null => {
-  return useContext(FirestoreContext);
+export const useFirestore = (): Firestore => {
+  const ctx = useContext(FirestoreContext);
+  if (!ctx) throw new Error('useFirestore must be used within a FirebaseClientProvider');
+  return ctx;
 };
 
-export const useAuth = (): Auth | null => {
-  return useContext(AuthContext);
+export const useAuth = (): Auth => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within a FirebaseClientProvider');
+  return ctx;
 };
 
 export const useAuthUser = () => {

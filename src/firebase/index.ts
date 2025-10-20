@@ -22,7 +22,7 @@ export { useDoc } from '@/lib/firebase/firestore/use-doc';
  * @param deps The dependency array for the `useMemo` hook.
  * @returns The memoized query or reference.
  */
-export const useMemoFirebase = <T>(factory: () => T, deps: React.DependencyList) => {
+export const useMemoFirebase = <T>(factory: () => T, deps: React.DependencyList): T | null => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return useMemo(factory, deps);
 };

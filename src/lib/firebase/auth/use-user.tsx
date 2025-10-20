@@ -30,7 +30,7 @@ export const useUser = () => {
     }
     
     setClaimsLoading(true);
-    getIdTokenResult(authUser, true) // Force refresh
+    getIdTokenResult(authUser)
       .then((idTokenResult) => {
         const claims = idTokenResult.claims;
         setIsAdmin(claims.role === 'admin');
